@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "todos-bien",
+    "name": "Todos Bien",
     "slug": "todos-bien",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,9 +8,15 @@
     "scheme": "todosbien",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.renzoarroyo.todos-bien",
+      "appleTeamId": "3S8A8U48YR",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.renzoarroyo.todosbien",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -31,6 +37,36 @@
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Todos Bien usa tu ubicación para registrar dónde estabas cuando ocurre un sismo, y mostrársela solo a los contactos que aceptaste.",
+          "locationAlwaysAndWhenInUsePermission": "Todos Bien toma tu ubicación una sola vez, en el momento en que ocurre un sismo en tu zona, aunque la app esté cerrada. No te rastrea el resto del tiempo.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Todos Bien revisa tu agenda en el propio teléfono para encontrar quiénes ya usan la app. Los números se convierten en códigos irreversibles antes de salir del dispositivo; tu agenda nunca se sube."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Todos Bien usa tus fotos solo para que elijas una foto de perfil."
         }
       ]
     ],
