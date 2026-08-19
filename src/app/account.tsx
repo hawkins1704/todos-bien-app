@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
-import { PremiumCta } from '@/components/premium-cta';
+import { SubscriptionManager } from '@/components/subscription-manager';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
@@ -252,11 +252,9 @@ export default function AccountScreen() {
                 </View>
               </View>
 
-              {isPremium ? null : (
-                <View style={styles.ctaGap}>
-                  <PremiumCta />
-                </View>
-              )}
+              <View style={styles.ctaGap}>
+                <SubscriptionManager />
+              </View>
             </Card>
           </View>
         </ScrollView>

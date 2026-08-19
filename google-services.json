@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "92931244330",
+    "project_id": "todos-bien",
+    "storage_bucket": "todos-bien.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:92931244330:android:173982229b845f35da9e53",
+        "android_client_info": {
+          "package_name": "com.renzoarroyo.todosbien"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCB98OwZDhu1CTPeJm-uurbw29ix1Gj-HU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

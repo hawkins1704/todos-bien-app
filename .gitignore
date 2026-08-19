@@ -18,6 +18,20 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Credenciales de tiendas y push (ver docs/GUIA-DESPLIEGUE.md)
+# El service account de Firebase SÍ es un secreto: da permiso a mandar push a
+# todos los usuarios. `google-services.json`, en cambio, solo trae
+# identificadores públicos y se puede commitear.
+*-firebase-adminsdk-*.json
+google-service-account*.json
+service-account*.json
+
+# Binarios que descarga `eas build`. Pesan decenas de MB y se pueden volver a
+# bajar desde el dashboard de EAS: no tienen por qué vivir en el repo.
+*.ipa
+*.apk
+*.aab
+
 # Metro
 .metro-health-check*
 

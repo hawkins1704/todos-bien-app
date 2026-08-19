@@ -233,8 +233,8 @@ export default function NewsScreen() {
  * pestaña, se muestra la lista ofuscada con candado y desde acá se ofrece
  * Premium.
  *
- * El botón sale de `PremiumCta` y hoy está inerte: cuando se integre RevenueCat
- * abrirá su paywall, que ya trae los beneficios y los precios (ver ese archivo).
+ * El botón sale de `PremiumCta`, que abre el paywall de RevenueCat con los
+ * beneficios y los precios que vienen de la tienda (ver ese archivo).
  */
 function ListaBloqueada() {
   const { colors } = useTheme();

@@ -8,9 +8,14 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppDataProvider } from '@/context/app-data';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { DrillProvider } from '@/context/drill';
+import { configurePurchases, syncPurchasesUser } from '@/lib/purchases';
 import { useColorSchemeName } from '@/theme/use-theme';
 
 void SplashScreen.preventAutoHideAsync();
+
+// RevenueCat pide arrancar lo antes posible, antes del primer render: así el
+// SDK ya tiene las ofertas en caché cuando alguien abre el paywall.
+configurePurchases();
 
 export default function RootLayout() {
   const scheme = useColorSchemeName();
@@ -20,6 +25,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
           <AuthProvider>
+            <PurchasesIdentity />
             <AppDataProvider>
               <DrillProvider>
                 <StatusBar style="auto" />
@@ -31,6 +37,23 @@ export default function RootLayout() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
+}
+
+/**
+ * Ata la sesión de RevenueCat a la de Supabase.
+ *
+ * Va en su propio componente y no dentro de `AuthProvider` porque el cobro no
+ * es asunto de la autenticación: si mañana se saca RevenueCat, se borra esta
+ * línea y nada más. No pinta nada.
+ */
+function PurchasesIdentity() {
+  const { userId } = useAuth();
+
+  useEffect(() => {
+    void syncPurchasesUser(userId);
+  }, [userId]);
+
+  return null;
 }
 
 /**
