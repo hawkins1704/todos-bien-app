@@ -178,6 +178,7 @@ export type Database = {
       notification_preferences: {
         Row: {
           connection_accepted: boolean;
+          connection_request: boolean;
           contact_message: boolean;
           contact_needs_help: boolean;
           contact_not_responding: boolean;
@@ -186,6 +187,7 @@ export type Database = {
         };
         Insert: {
           connection_accepted?: boolean;
+          connection_request?: boolean;
           contact_message?: boolean;
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
@@ -193,6 +195,7 @@ export type Database = {
         };
         Update: {
           connection_accepted?: boolean;
+          connection_request?: boolean;
           contact_message?: boolean;
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;

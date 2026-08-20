@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { DrillBanner } from '@/components/drill-banner';
+import { LocationMap } from '@/components/location-map';
 import { StatusChip } from '@/components/status-chip';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -137,13 +138,34 @@ export default function ContactDetailScreen() {
                 {timeAgo(member.locationAt)} {formatAccuracy(member.locationAccuracyM)}
               </Text>
 
+              {/*
+                Encuadre cerrado, al revés que el del epicentro: acá la pregunta
+                no es "a qué distancia pasó" sino "en qué cuadra está", y a esa
+                escala el nombre de la calle es la respuesta. Quién mira esto ya
+                sabe en qué ciudad vive la persona.
+              */}
+              <LocationMap
+                latitude={member.latitude!}
+                longitude={member.longitude!}
+                spanKm={3}
+                label={`Última ubicación de ${member.displayName}`}
+                height={150}
+                style={styles.gapTop}
+              />
+
               <View style={styles.locationActions}>
                 <Button
                   title="Abrir en Maps"
                   icon="map"
                   variant="secondary"
                   onPress={() =>
-                    void Linking.openURL(mapsUrl(member.latitude!, member.longitude!))
+                    void Linking.openURL(
+                      mapsUrl(
+                        member.latitude!,
+                        member.longitude!,
+                        `Última ubicación de ${member.displayName}`,
+                      ),
+                    )
                   }
                   style={styles.flex}
                 />

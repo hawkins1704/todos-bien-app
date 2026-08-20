@@ -278,10 +278,19 @@ export type PlaceInfo = {
   country: string | null;
   continent: Continent | null;
   /**
-   * Segunda línea lista para pintar (`"Indonesia · Asia"`), o null si no hay
-   * nada que agregar a `spot`.
+   * Segunda línea para el feed global (`"Indonesia · Asia"`), o null si no hay
+   * nada que agregar a `spot`. Ubica el sismo **entre países**.
    */
   label: string | null;
+  /**
+   * División administrativa local: `"Parinacochas, Ayacucho"` (provincia y
+   * departamento). Solo la trae el IGP; el USGS no manda nada equivalente.
+   *
+   * Es lo contrario de `label`: no sirve para comparar países sino para saber
+   * **dónde en el país** fue, que es lo que se pregunta cuando el sismo es acá.
+   * Por eso la Home usa este y el feed global usa el otro.
+   */
+  area: string | null;
 };
 
 /**
@@ -299,6 +308,36 @@ function cleanSpot(head: string): string {
 const PERU: Territory = { country: 'Perú', continent: 'América del Sur' };
 
 /**
+ * La división administrativa que el IGP pone después de la primera coma:
+ * `"Parinacochas - Ayacucho"` → `"Parinacochas, Ayacucho"` (provincia y
+ * departamento).
+ *
+ * **Verificado contra la base:** los 24 `place` del IGP ingeridos siguen todos
+ * el mismo formato. Aun así se parte por el guion en vez de exigirlo: si algún
+ * día viene un solo nombre, se muestra ese y ya.
+ *
+ * Se descartan las partes repetidas porque en el Perú hay provincias que se
+ * llaman igual que su departamento —Lima, Tacna, Ica— y "Lima, Lima" no informa
+ * nada; también se descarta la que repite el lugar ("Coracora, Coracora").
+ */
+function peruvianArea(rest: string[], spot: string): string | null {
+  const partes = rest
+    .flatMap((parte) => parte.split(/\s+-\s+/))
+    .map((parte) => parte.trim())
+    .filter(Boolean);
+
+  const vistas = new Set([spot.toLowerCase()]);
+  const unicas = partes.filter((parte) => {
+    const clave = parte.toLowerCase();
+    if (vistas.has(clave)) return false;
+    vistas.add(clave);
+    return true;
+  });
+
+  return unicas.length > 0 ? unicas.join(', ') : null;
+}
+
+/**
  * @param source De dónde vino el evento. Importa porque el feed global **no es
  *   solo del USGS**: `get_quake_feed('global')` devuelve todo lo canónico sobre
  *   4,5, y ahí entran los sismos peruanos del IGP con su formato en español
@@ -311,7 +350,9 @@ export function describePlace(
   source?: 'igp' | 'usgs',
 ): PlaceInfo {
   const texto = place?.trim();
-  if (!texto) return { spot: 'Zona no especificada', country: null, continent: null, label: null };
+  if (!texto) {
+    return { spot: 'Zona no especificada', country: null, continent: null, label: null, area: null };
+  }
 
   const partes = texto.split(/\s*,\s*/).filter(Boolean);
   const spot = cleanSpot(partes[0] ?? texto);
@@ -322,6 +363,7 @@ export function describePlace(
       country: PERU.country,
       continent: PERU.continent,
       label: `${PERU.country} · ${PERU.continent}`,
+      area: peruvianArea(partes.slice(1), spot),
     };
   }
 
@@ -338,13 +380,14 @@ export function describePlace(
         country: paisSolo.country,
         continent: paisSolo.continent,
         label: paisSolo.continent,
+        area: null,
       };
     }
 
     const marSolo = OCEAN_REGIONS[solo];
-    if (marSolo) return { spot: marSolo, country: null, continent: null, label: null };
+    if (marSolo) return { spot: marSolo, country: null, continent: null, label: null, area: null };
 
-    return { spot, country: null, continent: null, label: null };
+    return { spot, country: null, continent: null, label: null, area: null };
   }
 
   const territorio = normalizeTerritory(partes[partes.length - 1]!);
@@ -355,18 +398,25 @@ export function describePlace(
       country: pais.country,
       continent: pais.continent,
       label: `${pais.country} · ${pais.continent}`,
+      area: null,
     };
   }
 
   if (US_STATES.has(territorio)) {
-    return { spot, country: US.country, continent: US.continent, label: `${US.country} · ${US.continent}` };
+    return {
+      spot,
+      country: US.country,
+      continent: US.continent,
+      label: `${US.country} · ${US.continent}`,
+      area: null,
+    };
   }
 
   const mar = OCEAN_REGIONS[territorio];
-  if (mar) return { spot, country: null, continent: null, label: mar };
+  if (mar) return { spot, country: null, continent: null, label: mar, area: null };
 
   // Territorio desconocido: se muestra tal cual antes que perderlo. Preferimos
   // una palabra en inglés a que el usuario no sepa de qué parte del mundo habla.
   const crudo = partes[partes.length - 1]!.trim();
-  return { spot, country: null, continent: null, label: crudo === spot ? null : crudo };
+  return { spot, country: null, continent: null, label: crudo === spot ? null : crudo, area: null };
 }

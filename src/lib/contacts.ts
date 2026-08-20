@@ -27,6 +27,15 @@ export async function getContactsPermission(): Promise<boolean> {
   return response.granted;
 }
 
+/** Con `canAskAgain`: ver la nota en `getNotificationPermissionState`. */
+export async function getContactsPermissionState(): Promise<{
+  granted: boolean;
+  canAskAgain: boolean;
+}> {
+  const { granted, canAskAgain } = await getPermissionsAsync();
+  return { granted, canAskAgain };
+}
+
 export async function requestContactsPermission(): Promise<boolean> {
   const response = await requestPermissionsAsync();
   return response.granted;

@@ -36,13 +36,25 @@ Nada de esto bloquea un TestFlight interno.
 | 1.2 | **Texto del aviso en español para sismos globales** | Hoy sale el `place` crudo del USGS: *"170 km NE of Lorengau"* dentro de una app en español. `src/lib/geo.ts` ya resuelve país y continente; el sender debería usarlo. Solo afecta a las alertas premium |
 | 1.3 | **Receipts de Expo** | `status = 'sent'` hoy significa "Expo lo aceptó", no "llegó". Guardar el `ticket_id` y consultarlo después es lo único que distingue un envío exitoso de una credencial rota (§3.4 del estado) |
 | 1.4 | **Ver la propia ubicación en la app** | Hoy solo la ve tu círculo. Vos no tenés forma de confirmar que la app está haciendo lo que promete, salvo por la ausencia del aviso de "sin ubicación" |
-| 1.5 | **Volver a ofrecer el permiso de notificaciones** | Hoy solo se pide en el onboarding. Quien lo rechaza ahí se queda sin alertas para siempre, salvo que sepa ir a Ajustes de iOS por su cuenta |
+| 1.5 | 🟡 **Declaración de permisos en Play Console** | Ya se quitaron `RECORD_AUDIO` y `WRITE_CONTACTS`, que nada usaba (§1.14.1). Quedan tres que vienen de la plantilla de Expo y de `expo-file-system` —`SYSTEM_ALERT_WINDOW` y los dos de almacenamiento acotados a `maxSdkVersion=32`— que hay que saber justificar al publicar. La recomendación es dejarlos; bloquear el primero rompe el menú de desarrollo |
 | 1.6 | Sentry para errores de cliente | Sin esto, un crash en el teléfono de un usuario es invisible |
 | 1.7 | Pruebas de carga (spec §16.2) | El fan-out recorre `user_settings` entero por sismo. Con padrón grande hay que medirlo |
 
 **Deudas abiertas** (problemas de lo ya construido, detalle en el estado del proyecto):
 la Home que mostró "todo en calma" con alerta activa —sin reproducir—, el `TabBarExtraInset`
 de Android sin medir, y la fortaleza del hash de teléfono.
+
+**Cerrado el 2026-08-20:** los cinco avisos entre personas —solicitud recibida, solicitud
+aceptada, «necesita ayuda», mensaje de chat y «contacto sin responder»— que Ajustes ya
+ofrecía en cuatro interruptores sin que nada los mandara (§1.13 del estado). Con ellos se
+cerró también el modo «avisar a mi círculo» del simulacro, y el ruteo al tocar un aviso,
+que antes abría siempre la Home.
+
+**También cerrado ese día:** volver a ofrecer los permisos desde dentro de la app (§1.14).
+Los tres —ubicación, notificaciones, contactos— viven ahora en una lista de tareas en
+Ajustes, y conceder notificaciones **registra el token de push en el acto**. Era la deuda
+que hacía invisibles a todas las demás: de las tres cuentas del proyecto, solo una tenía
+token registrado.
 
 ---
 
@@ -86,6 +98,17 @@ sean de Google.
 | 3.1.1 | **Service account de FCM a EAS**. Firebase → Configuración → Cuentas de servicio → Generar clave privada. Subirla con `eas credentials -p android`. ⚠️ Ese `.json` **es un secreto**: quien lo tenga puede notificar a todos tus usuarios. El `.gitignore` ya lo cubre |
 | 3.1.2 | Build de desarrollo Android y verificar que aparece una fila en `push_tokens` con `platform = 'android'` |
 | 3.1.3 | **Medir `TabBarExtraInset`**. Los 80dp actuales salen de la documentación de Material 3, sin verificar en un dispositivo. Si Android reporta la barra dentro de `insets.bottom` como iOS, el valor correcto es 0 |
+
+### 3.1.b Mapas
+
+| # | Qué |
+|---|---|
+| 3.1.4 | **API key de Google Maps para Android.** Proyecto en Google Cloud → habilitar *Maps SDK for Android* → SHA-1 del certificado de firma → key restringida a `com.renzoarroyo.todosbien` + ese SHA-1. Declararla en el config plugin de `app.json`: `["react-native-maps", { "androidGoogleMapsApiKey": "AIza..." }]` |
+| 3.1.5 | Verificar que el mapa se dibuja en el detalle del sismo y en el del contacto. **Hasta que exista la key, `LocationMap` no renderiza en Android a propósito** — sin key Google pinta un rectángulo gris con su logo, que es peor que no mostrar nada. No se rompe nada, simplemente no se ve el mapa (ver ESTADO §1.2.1) |
+
+> ⚠️ El uso **no factura** —el SKU `Maps SDK` del mapa nativo sin Map ID tiene tope
+> "Unlimited" y precio "—"—, pero Google **exige igual una cuenta de facturación con
+> tarjeta** para emitir la key. iOS no necesita nada de esto: usa Apple Maps.
 
 ### 3.2 Tienda
 

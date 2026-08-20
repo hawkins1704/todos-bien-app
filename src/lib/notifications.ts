@@ -18,13 +18,45 @@ import { supabase } from '@/lib/supabase';
  * no haya push no puede trabar el resto de la app.
  */
 
+/**
+ * La conversación que la persona está mirando en este momento, si hay alguna.
+ *
+ * Vive en el módulo y no en un contexto de React a propósito: quien la consulta
+ * es `setNotificationHandler`, que corre **fuera** del árbol de componentes
+ * cuando llega un push. Un hook no llegaría hasta ahí.
+ */
+let conversacionAbierta: string | null = null;
+
+/** La llama la pantalla de chat al enfocarse y al salir (con `null`). */
+export function setOpenConversation(conversationId: string | null): void {
+  conversacionAbierta = conversationId;
+}
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as
+      | { type?: string; conversationId?: string }
+      | undefined;
+
+    // Un banner por un mensaje del chat que ya está abierto en pantalla es
+    // ruido puro: la persona está leyendo justo eso. El mensaje igual aparece
+    // en la conversación; lo único que se suprime es la interrupción.
+    if (data?.type === 'chat' && data.conversationId === conversacionAbierta) {
+      return {
+        shouldShowBanner: false,
+        shouldShowList: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      };
+    }
+
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    };
+  },
 });
 
 export const ANDROID_CHANNELS = {
@@ -58,6 +90,19 @@ export async function ensureAndroidChannels(): Promise<void> {
 export async function getNotificationPermission(): Promise<boolean> {
   const { granted } = await Notifications.getPermissionsAsync();
   return granted;
+}
+
+/**
+ * Igual que el anterior pero con `canAskAgain`, que es la diferencia entre
+ * ofrecer un botón que abre el diálogo del sistema y ofrecer uno que no hace
+ * nada. Cuando el SO ya no vuelve a preguntar, la única vía son sus Ajustes.
+ */
+export async function getNotificationPermissionState(): Promise<{
+  granted: boolean;
+  canAskAgain: boolean;
+}> {
+  const { granted, canAskAgain } = await Notifications.getPermissionsAsync();
+  return { granted, canAskAgain };
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {

@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { Platform } from 'react-native';
 
 /**
  * Captura de ubicación (spec §8, decisión en docs/ESTADO-DEL-PROYECTO.md §1.2).
@@ -115,10 +116,30 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null
 /**
  * Deep link a la app de mapas del teléfono.
  *
- * Spec §8: en el MVP NO se renderiza un mapa embebido. Un SDK de mapas
- * (react-native-maps, que en Android pide API key de Google) recién hace falta
- * para el punto de encuentro marcado en mapa, que es premium.
+ * **Deja de forzar Google.** Antes esto devolvía siempre una URL de
+ * `google.com/maps`, así que quien tuviera otra app de mapas por defecto igual
+ * terminaba en Google —y en un iPhone sin Google Maps instalada, en el
+ * navegador—. Ahora cada plataforma usa su esquema nativo, que respeta la
+ * elección de la persona y abre una app que siempre está instalada.
+ *
+ * El mapa embebido de las pantallas de detalle es aparte y vive en
+ * `src/components/location-map.tsx`; este link sigue siendo el que permite de
+ * verdad explorar, medir distancias y pedir indicaciones.
  */
-export function mapsUrl(latitude: number, longitude: number): string {
-  return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+export function mapsUrl(latitude: number, longitude: number, label?: string): string {
+  const coords = `${latitude},${longitude}`;
+  const nombre = label ? encodeURIComponent(label) : '';
+
+  // Android: `geo:` lo resuelve la app de mapas elegida por defecto, sea Google
+  // Maps, Organic Maps o la que sea. Repetir las coordenadas en `q` no es
+  // redundante: con solo `geo:lat,lng` varias apps centran el mapa pero no
+  // dejan marcador, y el punto exacto se pierde.
+  if (Platform.OS === 'android') {
+    return `geo:${coords}?q=${coords}${nombre ? `(${nombre})` : ''}`;
+  }
+
+  // iOS: Apple Maps, que no se puede desinstalar. Con `ll` y `q` juntos, `q` se
+  // interpreta como la etiqueta del pin en esas coordenadas y no como una
+  // búsqueda; por eso nunca se manda vacío.
+  return `https://maps.apple.com/?ll=${coords}&q=${nombre || coords}`;
 }

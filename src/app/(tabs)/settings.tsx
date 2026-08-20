@@ -1,20 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  AppState,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  View,
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
-import { Button } from '@/components/ui/button';
+import { PermissionsChecklist } from '@/components/permissions-checklist';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
@@ -26,13 +17,6 @@ import {
   updateNotificationPrefs,
   type NotificationPrefs,
 } from '@/lib/api';
-import { syncLocationPermission } from '@/lib/alert-response';
-import {
-  getPermissionState,
-  requestBackgroundPermission,
-  requestForegroundPermission,
-  type LocationPermissionState,
-} from '@/lib/location';
 import { formatE164ForDisplay } from '@/lib/phone';
 import { syncMe } from '@/lib/sync';
 import { Radius, Spacing, TabBarExtraInset } from '@/theme/tokens';
@@ -49,6 +33,11 @@ const NOTIFICATION_LABELS: { key: keyof NotificationPrefs; title: string; detail
     detail: 'Un contacto marcó que necesita ayuda.',
   },
   { key: 'contactMessage', title: 'Mensajes', detail: 'Un contacto te escribió por chat.' },
+  {
+    key: 'connectionRequest',
+    title: 'Solicitudes recibidas',
+    detail: 'Alguien quiere sumarte a su círculo.',
+  },
   {
     key: 'connectionAccepted',
     title: 'Solicitudes aceptadas',
@@ -69,47 +58,15 @@ export default function SettingsScreen() {
   const { myProfile, mySettings, myStatus, refresh } = useAppData();
 
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
-  const [locationState, setLocationState] = useState<LocationPermissionState | null>(null);
-  const [askingLocation, setAskingLocation] = useState(false);
 
   useEffect(() => {
     if (userId) void fetchNotificationPrefs(userId).then(setPrefs).catch(() => null);
   }, [userId]);
 
-  const readLocationState = useCallback(() => {
-    void getPermissionState().then(setLocationState);
-  }, []);
-
-  // Se relee al volver a la app, no solo al montar: el camino más común para
-  // conceder el permiso es salir a los Ajustes del sistema y volver, y en ese
-  // viaje la pantalla nunca se desmonta ni pierde el foco.
-  useEffect(() => {
-    readLocationState();
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') readLocationState();
-    });
-    return () => subscription.remove();
-  }, [readLocationState]);
-
-  const askLocation = async () => {
-    setAskingLocation(true);
-    try {
-      // El orden lo exige el SO: primer plano antes que segundo plano.
-      if ((await requestForegroundPermission()) === true) await requestBackgroundPermission();
-
-      readLocationState();
-      // Escribe el nivel nuevo y toma la primera posición si todavía no había.
-      if (userId) await syncLocationPermission(userId);
-      await refresh();
-    } finally {
-      setAskingLocation(false);
-    }
-  };
-
-  // Mientras se lee el permiso del SO se muestra el último nivel conocido, para
-  // que la tarjeta no parpadee en "Sin conceder" durante el primer render.
-  const locationLevel = locationState?.level ?? mySettings?.locationPermissionLevel ?? 'none';
-  const puedePreguntar = locationState?.canAskAgain ?? true;
+  // Leer y pedir permisos ya no vive acá: lo hace `PermissionsChecklist`, que
+  // además los relee al volver de los Ajustes del sistema. Lo único que se
+  // queda es esto, que **no es un permiso** sino la ausencia de una posición
+  // guardada — puede seguir siendo cierto con todos los permisos concedidos.
   const sinUbicacion = myStatus?.latitude == null || myStatus?.longitude == null;
 
   const setAlertSetting = async (patch: { alertRadiusKm?: number; alertMinMagnitude?: number }) => {
@@ -276,71 +233,29 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="PERMISOS">
-          <Card>
-            <View style={styles.permisoHeader}>
-              <Text variant="callout" weight="500" style={styles.flex}>
-                Ubicación
-              </Text>
-              <Text
-                variant="footnote"
-                weight="600"
-                style={{
-                  color:
-                    locationLevel === 'background'
-                      ? status.safe.strong
-                      : locationLevel === 'foreground'
-                        ? status.helping.strong
-                        : colors.textTertiary,
-                }}>
-                {locationLevel === 'background'
-                  ? 'Siempre'
-                  : locationLevel === 'foreground'
-                    ? 'Solo con la app abierta'
-                    : 'Sin conceder'}
-              </Text>
-            </View>
+          <PermissionsChecklist />
 
-            {/* La advertencia se muestra por FALTA DE POSICIÓN, no por falta de
-                permiso. Son cosas distintas y la que rompe las alertas es la
-                primera: conceder el permiso no guarda ninguna coordenada. */}
-            {sinUbicacion ? (
-              <View style={[styles.aviso, { backgroundColor: colors.surfaceSunken }]}>
+          {/* Este aviso NO es por falta de permiso sino por **falta de
+              posición**, que son cosas distintas: conceder el permiso no guarda
+              ninguna coordenada. Por eso vive fuera de la lista de permisos,
+              que podría estar toda en verde y esto seguir siendo cierto. */}
+          {sinUbicacion ? (
+            <Card>
+              <View style={styles.aviso}>
                 <MaterialIcons name="warning-amber" size={18} color={status.helping.strong} />
                 <Text variant="footnote" tone="secondary" style={styles.flex}>
-                  No tenemos tu ubicación, así que solo podemos avisarte de sismos de magnitud{' '}
-                  {(mySettings?.alertCountrywideMagnitude ?? 6).toFixed(1)} o más en el país. Los
-                  sismos cercanos —los que sí se sienten— no te van a alertar, y tu círculo no
-                  puede ver dónde estabas.
+                  Todavía no tenemos ninguna posición tuya guardada, así que solo podemos avisarte
+                  de sismos de magnitud {(mySettings?.alertCountrywideMagnitude ?? 6).toFixed(1)} o
+                  más en el país. Los cercanos —los que sí se sienten— no te van a alertar.
                 </Text>
               </View>
-            ) : (
-              <Text variant="footnote" tone="secondary">
-                La ubicación se toma una sola vez, cuando ocurre un sismo en tu zona. La app nunca
-                registra tu recorrido.
-              </Text>
-            )}
-
-            {locationLevel === 'background' ? null : puedePreguntar ? (
-              <Button
-                title={locationLevel === 'none' ? 'Permitir ubicación' : 'Permitir siempre'}
-                onPress={() => void askLocation()}
-                loading={askingLocation}
-                variant="secondary"
-                style={styles.gapTopLg}
-              />
-            ) : (
-              // El SO ya no vuelve a preguntar: un botón que abre un diálogo
-              // inexistente sería peor que mandar directo a los Ajustes.
-              <Pressable
-                onPress={() => void Linking.openSettings()}
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.gapTopLg, pressed ? styles.pressed : null]}>
-                <Text variant="footnote" tone="accent" weight="600">
-                  El sistema ya no vuelve a preguntar · actívalo en Ajustes
-                </Text>
-              </Pressable>
-            )}
-          </Card>
+            </Card>
+          ) : (
+            <Text variant="caption" tone="tertiary" style={styles.note}>
+              La ubicación se toma una sola vez, cuando ocurre un sismo en tu zona. La app nunca
+              registra tu recorrido.
+            </Text>
+          )}
         </Section>
 
         <Card>
@@ -447,19 +362,9 @@ const styles = StyleSheet.create({
   note: { paddingHorizontal: Spacing.xs },
   gapTop: { marginTop: Spacing.xs },
   gapTopLg: { marginTop: Spacing.lg },
-  permisoHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  aviso: {
-    alignItems: 'flex-start',
-    borderRadius: Radius.md,
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    padding: Spacing.md,
-  },
+  // Sin padding ni fondo propios: ahora vive dentro de su propia `Card`, que ya
+  // los pone. Antes era un recuadro hundido dentro de la tarjeta de Ubicación.
+  aviso: { alignItems: 'flex-start', flexDirection: 'row', gap: Spacing.sm },
   signOut: { paddingVertical: Spacing.md },
   pressed: { opacity: 0.6 },
 });

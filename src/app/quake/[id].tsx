@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { QuakeCard } from '@/components/quake-card';
+import { LocationMap } from '@/components/location-map';
+import { QuakeCard, magnitudeSeverity } from '@/components/quake-card';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
@@ -27,7 +28,7 @@ import type { QuakeEvent } from '@/types/domain';
 export default function QuakeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, status } = useTheme();
 
   const [quake, setQuake] = useState<QuakeEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,6 +85,21 @@ export default function QuakeDetailScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}>
         <QuakeCard quake={quake} tone="neutral" />
 
+        {/*
+          El encuadre es muy amplio a propósito: un epicentro sirve para saber a
+          qué distancia de uno ocurrió, así que necesita entrar la costa y las
+          ciudades de referencia. 300 km cubre de sobra el radio de alerta.
+          El color del pin es el mismo de la magnitud en la tarjeta de arriba,
+          para que el mapa no introduzca una escala de color nueva.
+        */}
+        <LocationMap
+          latitude={quake.latitude}
+          longitude={quake.longitude}
+          spanKm={300}
+          pinColor={status[magnitudeSeverity(quake.magnitude)].base}
+          label={`Epicentro · ${quake.place ?? formatCoords(quake.latitude, quake.longitude)}`}
+        />
+
         <Card padded={false}>
           <Dato etiqueta="Epicentro" valor={quake.place ?? 'No especificado'} />
           <Dato
@@ -124,7 +140,15 @@ export default function QuakeDetailScreen() {
           title="Ver el epicentro en el mapa"
           icon="map"
           variant="secondary"
-          onPress={() => void Linking.openURL(mapsUrl(quake.latitude, quake.longitude))}
+          onPress={() =>
+            void Linking.openURL(
+              mapsUrl(
+                quake.latitude,
+                quake.longitude,
+                `Epicentro · ${quake.place ?? formatCoords(quake.latitude, quake.longitude)}`,
+              ),
+            )
+          }
         />
 
         <View style={styles.nota}>

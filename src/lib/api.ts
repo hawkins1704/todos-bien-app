@@ -442,6 +442,7 @@ export async function completeDrill(
 export type NotificationPrefs = {
   contactNeedsHelp: boolean;
   contactMessage: boolean;
+  connectionRequest: boolean;
   connectionAccepted: boolean;
   contactNotResponding: boolean;
 };
@@ -459,6 +460,7 @@ export async function fetchNotificationPrefs(userId: string): Promise<Notificati
   return {
     contactNeedsHelp: data.contact_needs_help,
     contactMessage: data.contact_message,
+    connectionRequest: data.connection_request,
     connectionAccepted: data.connection_accepted,
     contactNotResponding: data.contact_not_responding,
   };
@@ -471,14 +473,19 @@ export async function updateNotificationPrefs(
   const payload: TablesUpdate<'notification_preferences'> = {};
   if (patch.contactNeedsHelp !== undefined) payload.contact_needs_help = patch.contactNeedsHelp;
   if (patch.contactMessage !== undefined) payload.contact_message = patch.contactMessage;
+  if (patch.connectionRequest !== undefined) payload.connection_request = patch.connectionRequest;
   if (patch.connectionAccepted !== undefined) payload.connection_accepted = patch.connectionAccepted;
   if (patch.contactNotResponding !== undefined) {
     payload.contact_not_responding = patch.contactNotResponding;
   }
 
+  // Upsert y no update: un `update` sobre una fila que no existe afecta cero
+  // filas y **no devuelve error**, así que el interruptor se veía cambiado en
+  // pantalla y no se guardaba nada. Hoy la fila la crea un disparador al
+  // registrarse, pero una cuenta vieja o una restauración podrían no tenerla, y
+  // el modo de falla sería invisible.
   const { error } = await supabase
     .from('notification_preferences')
-    .update(payload)
-    .eq('user_id', userId);
+    .upsert({ user_id: userId, ...payload }, { onConflict: 'user_id' });
   if (error) throw error;
 }

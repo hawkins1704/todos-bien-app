@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { elapsedShort, formatMagnitude } from '@/lib/format';
-import { shortPlace } from '@/lib/quakes';
+import { describePlace } from '@/lib/geo';
 import { Radius, Spacing, type StatusKey } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import type { QuakeEvent } from '@/types/domain';
@@ -45,6 +45,18 @@ export function QuakeCard({
   const palette =
     tone === 'alert' ? status.needs_help : status[magnitudeSeverity(quake.magnitude)];
 
+  const lugar = describePlace(quake.place, quake.source);
+
+  /**
+   * Dónde fue, con una palabra más que el nombre suelto.
+   *
+   * El IGP manda provincia y departamento y hasta ahora se tiraban: la tarjeta
+   * decía "Sismo en Coracora" y nada más, que para quien no ubica el distrito no
+   * dice si tembló al lado o a 600 km. Para los sismos de afuera no hay
+   * equivalente, así que ahí va el país y el continente.
+   */
+  const procedencia = lugar.area ?? lugar.label;
+
   return (
     <View
       style={[
@@ -62,8 +74,18 @@ export function QuakeCard({
 
       <View style={styles.details}>
         <Text variant="headline" style={{ color: palette.strong }} numberOfLines={2}>
-          {tone === 'alert' ? `Sismo en ${shortPlace(quake)}` : shortPlace(quake)}
+          {tone === 'alert' ? `Sismo en ${lugar.spot}` : lugar.spot}
         </Text>
+
+        {procedencia ? (
+          <Text
+            variant="footnote"
+            weight="500"
+            style={{ color: palette.strong }}
+            numberOfLines={1}>
+            {procedencia}
+          </Text>
+        ) : null}
 
         <View style={styles.metaRow}>
           <MaterialIcons name="schedule" size={13} color={palette.strong} />

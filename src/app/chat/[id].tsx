@@ -25,6 +25,7 @@ import {
   type ChatMessage,
 } from '@/lib/chat';
 import { elapsedShort } from '@/lib/format';
+import { setOpenConversation } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { Radius, Spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
@@ -57,6 +58,14 @@ export default function ChatScreen() {
     void load();
     if (conversationId && userId) void markConversationRead(conversationId, userId);
   }, [load, conversationId, userId]);
+
+  // Mientras esta conversación esté en pantalla, sus mensajes no interrumpen con
+  // un banner: la persona los está leyendo. Se limpia al salir para que vuelvan
+  // a avisar. Ver `setNotificationHandler` en lib/notifications.
+  useEffect(() => {
+    setOpenConversation(conversationId ?? null);
+    return () => setOpenConversation(null);
+  }, [conversationId]);
 
   // Realtime solo acá: el chat tiene carga normal. El pico de lecturas del
   // dashboard post-sismo NO usa Realtime a propósito (spec §16.2).

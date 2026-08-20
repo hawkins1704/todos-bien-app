@@ -204,6 +204,65 @@ Por eso la captura usa `Accuracy.Balanced` con timeout y cae a
 `getLastKnownPositionAsync()` si no alcanza a obtener un fix nuevo. Además la app
 refresca la ubicación al abrirse tras una alerta, como red de seguridad.
 
+### 1.2.1 Mapas embebidos — `react-native-maps`, y por qué no cuesta nada
+
+**Decisión:** mini mapa estático en el detalle del sismo y en el detalle del contacto, con
+`react-native-maps` **1.27.2** (la versión que fija `npx expo install` para SDK 57).
+Componente único: `src/components/location-map.tsx`.
+
+**Esto revierte la decisión anterior**, que era no renderizar ningún mapa embebido en el
+MVP y dejar todo en un deep link. El motivo de aquella decisión era evitar el costo y la
+API key de Google. Al verificarlo contra la documentación de precios, el costo resultó no
+existir.
+
+**Cómo factura Google el mapa nativo.** Están partidos en dos SKUs, y la diferencia no es
+la plataforma sino el **Map ID**:
+
+| SKU | Qué lo dispara | Precio |
+|---|---|---|
+| `Maps SDK` (Essentials) | Mapa nativo Android/iOS **sin Map ID** | Tope "Unlimited", precio "—" |
+| `Dynamic Maps` (Essentials) | Maps JavaScript API (web) **y** nativo **con Map ID** | 10.000/mes gratis, luego $7 por millar |
+
+Este caso cae entero en el primero: marcador clásico, estilo por defecto, sin Map ID. Lo
+que pediría un Map ID —y movería el cobro al segundo— es el *cloud-based map styling*, los
+*Advanced Markers* y el *data-driven styling*. **Por eso el componente resuelve el tema
+oscuro con `userInterfaceStyle` y no con `customMapStyle`:** el segundo obliga a Map ID.
+Si alguien toca eso, la app empieza a facturar.
+
+**Lo que sí cuesta y no se usa:** buscar un lugar por nombre es **Places API** y convertir
+coordenadas en dirección es **Geocoding API**, las dos de pago. Ninguna hace falta acá
+porque las coordenadas ya las tenemos. Es la trampa que espera al punto de encuentro
+premium: "toca el mapa y deja el pin" es $0, "escribe la dirección y búscala" no.
+
+**Se descartó MapLibre Native**, que era la alternativa realmente open source y sin Google.
+Para dos pines de solo lectura obliga a elegir y mantener un tile server (OpenFreeMap,
+MapTiler o self-host de Protomaps) a cambio de nada que aquí se note. Sigue siendo la
+salida si Google alguna vez mueve ese SKU de $0 — ya cambió el modelo una vez, cuando
+reemplazó el crédito de $200/mes por topes por SKU en marzo de 2025.
+
+**Se descartó `expo-maps`** pese a ser de Expo: su propia documentación de SDK 57 lo declara
+en **alpha**, con "frequent breaking changes", y además obliga a ramificar el código en
+`AppleMaps.View` / `GoogleMaps.View` según plataforma.
+
+**Por plataforma:**
+
+- **iOS:** Apple Maps. Sin API key, sin cuenta de Google, sin configuración. Funciona hoy.
+- **Android:** Google Maps, y **necesita una API key** que todavía no existe. Sin ella el
+  mapa se dibuja como un rectángulo gris con el logo encima, que es peor que no mostrarlo.
+  Por eso `LocationMap` **no renderiza nada en Android** mientras no haya key en el config
+  plugin de `app.json`, y las dos pantallas quedan exactamente como estaban. Va junto con
+  el resto del trabajo de Android (ver §4).
+
+**El mapa no es interactivo, a propósito.** Vive dentro de un `ScrollView`, y un mapa que
+acepta arrastre le pelea el gesto al scroll: la persona intenta bajar y mueve el mapa. Con
+`cacheEnabled` se renderiza una vez y se muestra como imagen; el toque completo abre la app
+de mapas, que es donde de verdad se explora.
+
+**De paso, `mapsUrl()` dejó de forzar Google.** Devolvía siempre una URL de
+`google.com/maps`, así que en un iPhone sin Google Maps instalada terminaba en el
+navegador. Ahora usa el esquema nativo: `https://maps.apple.com/?ll=` en iOS y `geo:` en
+Android, que respeta la app de mapas que la persona haya elegido por defecto.
+
 ### 1.3 Estilos — StyleSheet + tokens de tema
 
 Sin NativeWind ni librerías de UI. `src/theme/tokens.ts` centraliza colores, spacing,
@@ -583,6 +642,22 @@ perderse: mejor una palabra en inglés que no saber de qué parte del mundo se h
 En Nacional la línea no se pinta: todos los sismos son de Perú y repetirlo en cada fila
 ocuparía con ruido la línea donde debería ir información.
 
+**Ampliación del 2026-08-20: la provincia y el departamento en la tarjeta de alerta.** La
+Home decía «Sismo en Coracora» y nada más. Para quien no ubica el distrito, eso no dice si
+tembló al lado o a 600 km — que es justo lo que se pregunta cuando suena una alerta.
+
+El dato estaba y se tiraba: el IGP manda `"35 km al N de Coracora, Parinacochas - Ayacucho"`
+y el parser se quedaba solo con `Coracora`. Ahora `describePlace` devuelve también `area`
+(`"Parinacochas, Ayacucho"`), que es lo contrario de `label`: `label` ubica el sismo **entre
+países** y sirve en el feed global; `area` ubica **dónde dentro del país** y sirve cuando
+el sismo es acá. Para los eventos del USGS no hay equivalente, así que ahí la tarjeta cae
+en `label`.
+
+Se descartan las partes repetidas, porque en el Perú hay provincias que se llaman igual que
+su departamento: `"Lurín, Lima - Lima"` se muestra como **Lima**, no «Lima, Lima», y
+`"Sechura, Sechura - Piura"` como **Piura**, no repitiendo el lugar. **Verificado contra los
+24 `place` del IGP de la base: 24 resueltos, 0 con repeticiones.**
+
 ### 1.6.5 🔴 Fuga premium encontrada y cerrada
 
 Al implementar lo anterior se descubrió que **el beneficio premium no existía como tal**:
@@ -901,6 +976,231 @@ de 4.2 a 4.8 no volvía a evaluarse. Se quitó el filtro.
 normal es 0 o 1 sismo en esa ventana. Con un padrón grande conviene medirlo y, si hace
 falta, indexar por ubicación en vez de recorrer `user_settings` entera.
 
+### 1.13 🔴 Los avisos entre personas: cinco interruptores que no mandaban nada
+
+**Lo que se veía (2026-08-20, tras un sismo real de verdad).** Un amigo mandó solicitud de
+conexión y no llegó ningún aviso. Escribió por chat: tampoco. La única forma de enterarse
+de cualquiera de las dos era abrir la app y mirar.
+
+**La causa no era un bug.** Nunca hubo nada que lo mandara. El único push que existía era
+el de sismo (§1.12), y todo lo demás estaba a medio construir de una forma
+particularmente engañosa: la pantalla de Ajustes **ya ofrecía cuatro interruptores** —
+«Alguien necesita ayuda», «Mensajes», «Solicitudes aceptadas», «Contacto sin responder»—
+guardándolos prolijamente en `notification_preferences`, tabla que existía desde la
+migración 0001. Prender o apagar cualquiera de ellos cambiaba un booleano que **nadie
+leía nunca**.
+
+Eso es peor que no tener la función: alguien que apaga «Mensajes» cree que tomó una
+decisión, y alguien que lo deja prendido cree que va a recibir avisos.
+
+Faltaba además un quinto, que es el que el usuario notó primero: **que alguien te mande
+solicitud**. Sin él una conexión nueva solo se descubre por casualidad.
+
+#### 1.13.1 Cómo está armado
+
+Se copió la forma de §1.12 a propósito, en vez de inventar un mecanismo nuevo:
+
+```
+disparador de Postgres → notification_deliveries → send-notifications → Expo → APNs/FCM
+```
+
+| Aviso | Lo dispara | Canal |
+|---|---|---|
+| Te mandaron solicitud | `INSERT` en `connections` | social |
+| Aceptaron tu solicitud | `UPDATE` de `connections` a `accepted` | social |
+| Alguien necesita ayuda | `user_status` pasa a `needs_help` | alerts |
+| Te escribieron | `INSERT` en `messages` | messages |
+| Contacto sin responder | cron cada 5 min (no nace de un INSERT) | alerts |
+
+Cuatro decisiones que no son obvias:
+
+- **El texto se congela al encolar, no al enviar.** El aviso de sismo se arma en el
+  momento del envío porque `quake_events` sigue igual; el de una persona depende de un
+  nombre y del cuerpo de un mensaje, y esos **cambian o se borran**. Si se resolviera al
+  enviar, un mensaje borrado un segundo después llegaría vacío, y alguien recién sacado
+  del círculo seguiría nombrado en un push.
+- **Las preferencias se comprueban en un solo lugar**, `private.enqueue_notifications()`.
+  Cualquier disparador nuevo pasa por ahí, así que no se puede olvidar el chequeo — que es
+  exactamente el error que dejó los interruptores inertes.
+- **Sin jitter.** El aviso de sismo se dispersa 30 s porque despierta a miles de teléfonos
+  a capturar ubicación a la vez. Un mensaje de chat va a una sola persona.
+- **Sin `contentAvailable`.** El push silencioso existe para capturar dónde estaba alguien
+  durante un sismo. Un «te escribieron» no tiene nada que capturar; despertar la app por
+  eso sería gastar batería a cambio de nada.
+
+**Y llega en menos de un segundo.** Un disparador toca la edge function apenas hay algo
+encolado, en vez de esperar al cron. Medido en producción: **0,6 s** entre encolar y
+enviar. El cron queda de red de seguridad cada 5 minutos.
+
+> Detalle que importa para la cuenta de Supabase: el disparador es **por sentencia**, no
+> por fila, y encolar hace un solo `INSERT ... SELECT`. Avisar a un círculo de diez
+> personas dispara un HTTP, no diez. Y como el camino rápido es el disparador, el cron
+> puede ir cada 5 minutos en vez de cada minuto: 288 invocaciones al día en vez de 1.440.
+
+#### 1.13.2 El simulacro silencioso tenía que seguir siendo silencioso
+
+La pantalla de simulacro promete dos cosas por escrito: *«Modo silencioso — nadie de tu
+círculo se entera ni recibe nada»* y *«Avisar a mi círculo — les llega un aviso que dice
+claramente que es un simulacro, nunca el texto de una alerta real»*. Las dos frases
+estaban en la app desde antes de que existiera nada que las cumpliera.
+
+Ahora el disparador de «necesita ayuda» busca el simulacro que respalda ese reporte y
+**se calla si es silencioso**. Ante la duda también se calla: sin un simulacro que lo
+respalde no manda nada, porque el daño de un falso «necesita ayuda» es mayor que el de un
+simulacro que no avisa.
+
+La prueba de esto encontró un bug propio, corregido en 0016: el simulacro se elegía solo
+por `started_at desc`, y **dentro de una transacción `now()` devuelve la hora de la
+transacción**, así que dos simulacros insertados en el mismo bloque empataban al
+microsegundo y ganaba cualquiera. En producción es improbable, pero "improbable" acá
+significa mandarle a todo un círculo un «necesita ayuda» que la persona pidió que fuera
+silencioso. Ahora gana el que está en curso.
+
+#### 1.13.3 Verificación
+
+Nueve aserciones contra la base real, **todo dentro de una transacción revertida** para
+que ninguna notificación de prueba le llegara a nadie:
+
+| | |
+|---|---|
+| Solicitud recibida / aceptada | 1 y 1 ✅ |
+| Preferencia apagada → no encola | 0 ✅ |
+| Necesita ayuda → «Renzo Arroyo necesita ayuda» | 1 ✅ |
+| Simulacro silencioso → no avisa | 0 ✅ |
+| Simulacro con aviso → «Simulacro · Renzo Arroyo» | 1 ✅ |
+| Mensaje de chat, con el cuerpo real | 1 ✅ |
+| Dedupe del segundo intento | 0 ✅ |
+| Fan-out al ingerir un sismo | 3 avisos, marcado ✅ |
+
+Más un push real de punta a punta al teléfono del autor (0,6 s), y `401` en la edge
+function sin secreto y con secreto falso.
+
+**Y una verificación que no se buscó:** el cron de «contacto sin responder» se disparó
+solo, en producción, mientras se escribía esto. Detectó que a Renzo le había llegado una
+alerta y no había reportado, y encoló el aviso para su círculo con la clave de
+deduplicación correcta — una sola vez, pese a correr cada 5 minutos.
+
+#### 1.13.4 Latencia del aviso de sismo: qué se recortó y qué no
+
+Medido con el M7,2 de Coracora del 2026-08-20:
+
+| Tramo | Antes | Ahora |
+|---|---|---|
+| Ocurre → entra a nuestra base | 7 m 45 s | *igual* (del IGP) |
+| Entra → se encola el aviso | 59 s | **0 s** |
+| Jitter de la spec §6 | 27 s | *igual* |
+| Vence el jitter → sale el push | 33 s | *igual* |
+| **Nuestro tramo** | **1 m 59 s** | **~1 m** |
+
+El minuto del fan-out era puro tiempo de espera: el sismo ya estaba en la tabla y el cron
+todavía no había pasado. Ahora un disparador lo encola en la **misma transacción** que lo
+inserta. Es SQL dentro de la transacción de la ingesta: no agrega ni una invocación de
+edge function.
+
+Los otros dos tramos se quedan a propósito. El jitter dispersa el despertar de los
+teléfonos y el cron de envío acota la espera del jitter a un minuto; quitarlos cambia el
+comportamiento a escala a cambio de segundos.
+
+**El número honesto:** de los ~9 m 45 s totales, **7 m 45 s son del IGP** — el 79 %. La
+app sigue mostrando el sismo antes que el push, porque lo lee de la base apenas está ahí.
+Esa diferencia se achicó a la mitad, pero no puede llegar a cero: el push depende de un
+cron y la pantalla no.
+
+**El cron de fan-out se queda igual.** No es redundante: es el que reevalúa un sismo
+**corregido** de 4.2 a 4.8, que el disparador nuevo no ve.
+
+### 1.14 Permisos: una lista de tareas, no tres tarjetas
+
+**El problema era de arquitectura de producto, no de UI.** Los tres permisos —ubicación,
+notificaciones, contactos— se pedían **solo en el onboarding**. Un toque apurado en «No
+permitir» dejaba a la persona sin esa capacidad *para siempre*, sin ninguna pista dentro
+de la app de que faltaba algo ni forma de arreglarlo. Ajustes mostraba una tarjeta para
+ubicación y nada para los otros dos.
+
+Y no era teórico. De las tres cuentas del proyecto, **solo una tenía token de push
+registrado**. La del amigo que probó las conexiones el 2026-08-20 tenía cero, y por eso no
+le llegó nada — ni le habría llegado aunque los avisos de §1.13 hubieran existido antes.
+
+> Es la deuda que hacía invisibles a todas las demás: se puede construir el mejor sistema
+> de avisos del mundo y no cambia nada si el teléfono nunca pidió permiso para mostrarlos.
+
+**La forma elegida.** Una sola tarjeta con los tres, con la **misma forma que el checklist
+de preparación de la Home**: círculo de estado, nombre, y una línea que dice cómo está.
+La pregunta que responde es la misma —«¿qué me falta?»— y contestarla dos veces con dos
+diseños distintos obligaría a aprender dos cosas.
+
+| Estado | Color | Ícono |
+|---|---|---|
+| Concedido | verde (`status.safe`) | `check-circle` |
+| Parcial | ámbar (`status.helping`) | `error-outline` |
+| Sin conceder | plomo (`status.unconfirmed`) | `radio-button-unchecked` |
+
+Cuatro decisiones que no son obvias:
+
+- **Tres grados, no dos.** La ubicación tiene un estado intermedio real: «solo con la app
+  abierta» no es lo mismo que nada —sirve para reportar a mano— pero tampoco alcanza para
+  lo que la app promete. Pintarlo verde mentiría; pintarlo plomo desanimaría a quien ya
+  concedió algo.
+- **El que falta va en plomo, no en rojo.** El rojo de la paleta significa «necesito
+  ayuda» en toda la app (§1.4.1). Un permiso sin conceder no es una emergencia, y teñirlo
+  igual le gastaría el significado al que sí lo es. En su lugar cada fila que falta dice
+  **qué se pierde** — «No te llega nada: ni sismos, ni mensajes, ni si alguien de tu
+  círculo necesita ayuda»—, que informa mucho más que un color.
+- **Conceder notificaciones registra el token en el acto.** Sin ese paso, conceder el
+  permiso no sirve de nada: el token es lo que el servidor necesita para poder mandar
+  algo. Es exactamente lo que faltaba cuando el permiso solo se pedía en el onboarding.
+- **La fila ya concedida también se toca**, y abre los Ajustes del sistema. Es donde uno
+  va a revocar, y una fila muerta invitaría a pensar que no hay nada que hacer ahí.
+
+**Se relee al volver a la app**, no solo al montar. El camino más común para conceder algo
+ya rechazado es salir a los Ajustes del sistema y volver, y en ese viaje la pantalla nunca
+se desmonta ni pierde el foco. Sin eso, la persona concede el permiso, vuelve, y la app le
+sigue diciendo que falta. Esa lógica vive en `usePermissions()`, no en la pantalla.
+
+**Lo que NO entró en la lista, a propósito:** el aviso de «no tenemos ninguna posición tuya
+guardada». No es un permiso — puede seguir siendo cierto con los tres en verde, porque
+conceder el permiso no guarda ninguna coordenada (§1.6.3.1). Meterlo entre los permisos
+volvería a mezclar las dos cosas que ese bug ya demostró que son distintas.
+
+#### 1.14.1 Los permisos que Android pedía de más
+
+Al construir la lista apareció que `app.json` declaraba dos permisos que **nada en `src/`
+usa**: `RECORD_AUDIO` y `WRITE_CONTACTS`. De la agenda solo se lee —el hash se hace en el
+dispositivo (§1.6.6)— y no hay una sola función de audio en la app. No afectan a iOS, pero
+en Play Console cada permiso declarado hay que justificarlo, y **pedir el micrófono en una
+app de sismos** es exactamente lo que un revisor marca.
+
+**Quitar `WRITE_CONTACTS` del array no alcanzaba.** El config plugin de `expo-contacts` lo
+agrega él mismo, incondicionalmente:
+
+```js
+// node_modules/expo-contacts/plugin/build/withContacts.js
+return AndroidConfig.Permissions.withPermissions(config, [
+  'android.permission.READ_CONTACTS',
+  'android.permission.WRITE_CONTACTS',   // ← siempre, se use o no
+]);
+```
+
+Por eso va en `android.blockedPermissions`, que es el campo hecho justamente para esto:
+inyecta `tools:node="remove"` para que el *manifest merger* lo saque del manifiesto final.
+`RECORD_AUDIO`, en cambio, solo estaba en nuestro array y alcanzó con borrarlo.
+
+**Verificado contra el manifiesto generado, no contra el `app.json`** —que es la única
+forma de saberlo, porque los plugins escriben ahí—: se corrió `expo prebuild` y se leyó
+`android/app/src/main/AndroidManifest.xml`. `RECORD_AUDIO` desapareció y `WRITE_CONTACTS`
+quedó marcado con `tools:node="remove"`. La carpeta `android/` se borró después: está en
+`.gitignore` y la regenera EAS, y una copia vieja es de las cosas que después hacen creer
+que un cambio de `app.json` "no se aplicó".
+
+**Tres permisos más que no pusimos nosotros**, encontrados en la misma revisión. Se dejan,
+pero anotados:
+
+| Permiso | De dónde sale | Por qué se deja |
+|---|---|---|
+| `SYSTEM_ALERT_WINDOW` | plantilla de Expo | Lo usa el menú de desarrollo de React Native. Bloquearlo lo rompe en los dev builds |
+| `READ/WRITE_EXTERNAL_STORAGE` | `expo-file-system` | Ya vienen acotados con `maxSdkVersion="32"`: en Android 13+ son inertes. Es el patrón estándar |
+| `INTERNET`, `VIBRATE` | plantilla | Obvios y necesarios |
+
 ---
 
 ## 2. Construido
@@ -922,6 +1222,10 @@ falta, indexar por ubicación en vez de recorrer `user_settings` entera.
 | `0011_alert_fanout_fixes` | Las dos correcciones que encontró la verificación de 0010 (ver §1.12). Ya están dentro de 0010; existe para que el historial remoto sea honesto |
 | `0012_revenuecat_webhook` | Secreto del webhook en Vault + `get_revenuecat_secret()`, bitácora `revenuecat_events` (su PK es el candado de idempotencia contra los reintentos de RevenueCat), poda anual |
 | `0013_delete_account` | `delete_my_account(password_attempt)`: borra la propia cuenta validando la contraseña **en el servidor** con `extensions.crypt()`. Todo lo demás cae por cascada desde `profiles`. Requisito 5.1.1(v) de Apple (§1.1.3) |
+| `0014_alert_sender` | Secreto compartido del sender en Vault, rescate de avisos trabados en `sending` dentro del propio claim, cron de `send-alerts` cada minuto |
+| `0015_social_notifications` | Cola `notification_deliveries` + disparadores para los cinco avisos entre personas, `connection_request` en preferencias, aviso instantáneo al cartero por `pg_net`, cron de «contacto sin responder», y el disparador que encola el fan-out de sismo **en la misma transacción** que la ingesta (§1.13) |
+| `0016_drill_mode_lookup` | Desempate del simulacro que gobierna un reporte: gana el que está en curso. Lo encontró la propia prueba de 0015 (§1.13.2) |
+| `0017_prune_notification_deliveries` | Poda a 30 días de la cola nueva. Descuido de 0015: sus dos tablas hermanas ya podaban, y esta es la que más crece —una fila por mensaje de chat y por destinatario— |
 
 **Separación de privacidad clave:** `profiles` guarda lo compartible (nombre, avatar,
 plan de acción) y es legible por las conexiones. `user_settings` guarda lo privado
@@ -937,10 +1241,15 @@ en su cuerpo. El sexto, `delete_my_account`, además valida la contraseña (§1.
 > aparecieron en filtraciones. Está apagado. Antes daba igual —no había contraseñas—;
 > ahora es un interruptor en Authentication → Providers → Email que conviene prender.
 
-Además hay un INFO `rls_enabled_no_policy` sobre `alert_deliveries` que **también es
-intencional**: es una tabla interna de la cola de avisos, con RLS activa, cero políticas
-y los grants de `anon`/`authenticated` revocados. Nadie más que `service_role` la toca, y
-esa es exactamente la intención.
+Además hay tres INFO `rls_enabled_no_policy` —sobre `alert_deliveries`,
+`notification_deliveries` y `revenuecat_events`— que **también son intencionales**: son
+tablas internas, con RLS activa, cero políticas y los grants de `anon`/`authenticated`
+revocados. Nadie más que `service_role` las toca, y esa es exactamente la intención.
+
+> Comprobado después de la migración 0015: `claim_notification_deliveries` y
+> `mark_notification_deliveries` **no** aparecen en la lista de funciones ejecutables por
+> `authenticated`, así que los `revoke` quedaron bien puestos. La cola nueva no agregó ni
+> un WARN.
 
 **Edge Functions desplegadas**
 
@@ -948,6 +1257,8 @@ esa es exactamente la intención.
 |---|---|---|
 | `match-contacts` | Compara hashes de teléfono contra los números registrados. Recibe solo hashes SHA-256; la agenda en texto plano nunca llega al servidor. **v2:** consulta por lotes de 100, si no se rompe con cualquier agenda real (§1.6.6). | JWT del usuario |
 | `ingest-quakes` | Consulta IGP y USGS y escribe en `quake_events`. La dispara `pg_cron` cada 2 min. | Secreto compartido en Vault |
+| `send-alerts` | Drena `alert_deliveries` y postea a Expo. Borra los tokens muertos (`DeviceNotRegistered`). La dispara `pg_cron` cada minuto. | Secreto compartido en Vault |
+| `send-notifications` | Lo mismo para `notification_deliveries`: los cinco avisos entre personas. La despierta un disparador de Postgres apenas hay algo encolado, con un cron cada 5 min de red de seguridad (§1.13). | Mismo secreto |
 
 **Ingesta de sismos — funcionando en producción.** Verificada de punta a punta: el cron
 corre solo, y en las corridas observadas trajo 17 eventos del IGP y 52 del USGS **sin un
@@ -998,6 +1309,20 @@ más, y el endpoint rechaza con 401 cualquier llamada sin el secreto correcto (p
 - `src/lib/phone.ts` — normalización a E.164 y hash SHA-256 **en el dispositivo**.
 - `src/lib/location.ts` — captura de una única posición, con timeout y caída a la
   última conocida. No expone ninguna API de tracking continuo, a propósito.
+- `src/lib/notifications.ts` — permiso, canales de Android y registro del token en
+  **cada refresco** (no solo en el onboarding: ver §3). También decide qué avisos se
+  muestran: un mensaje del chat que ya está abierto no interrumpe con banner.
+- `src/lib/background-alert.ts` — la mitad silenciosa del push de sismo: despierta la app
+  unos segundos para capturar **dónde estaba** la persona (§3.2).
+- `src/components/notification-router.tsx` — adónde lleva tocar cada aviso, con las dos
+  entradas que hacen falta: la app abierta (listener) y la app cerrada, que el sistema
+  levanta desde cero (§1.13.1).
+- `src/hooks/use-pull-to-refresh.ts` — el spinner de tirar-para-refrescar, que **solo lo
+  enciende el gesto**. Los refrescos automáticos revalidan en silencio (§1.4.2).
+- `src/hooks/use-permissions.ts` + `src/components/permissions-checklist.tsx` — los tres
+  permisos como lista de tareas, releídos al volver de los Ajustes del sistema (§1.14).
+- `src/lib/geo.ts` — de dónde es un sismo, en español: `spot`, `label` (país y continente,
+  para el feed global) y `area` (provincia y departamento, para la alerta) (§1.6.4.2).
 - `src/theme/` — tokens de color, spacing y tipografía.
 
 **Pantallas**
@@ -1006,7 +1331,7 @@ más, y el endpoint rechaza con 401 cualquier llamada sin el secreto correcto (p
 |---|---|
 | Acceso | intro de valor (3 slides), entrar, crear cuenta, confirmar correo, olvidé mi contraseña, contraseña nueva |
 | Onboarding | perfil + teléfono, permisos con contexto, contactos, plan de acción, listo |
-| Tabs | Inicio, Círculo, Chats, Ajustes |
+| Tabs | Inicio, Círculo, **Sismos** (Noticias Sísmicas, §1.6.4), Chats, Ajustes |
 | Modales | detalle de contacto, chat, plan de acción, agregar contactos, invitar, simulacro, Mi cuenta, cambiar contraseña, borrar cuenta |
 
 **Home en sus dos modos** (spec §5): con alerta activa muestra banner de magnitud/zona/
@@ -1088,6 +1413,12 @@ momento del sismo" es la promesa central de la app.
 
 Lo mismo aplica a todo lo demás de la spec §7: si un contacto marca "necesito ayuda",
 nadie se entera hasta que abra la app por su cuenta.
+
+> **Ese "todo lo demás" siguió abierto tres semanas más que el sismo.** La cadena de
+> alerta se cerró primero y quedó tapando el hueco: el push de sismo funcionaba, así que
+> parecía que el push funcionaba. Los cinco avisos entre personas —solicitudes, mensajes,
+> «necesita ayuda», «no responde»— no se mandaban hasta el 2026-08-20 (§1.13). Lo destapó
+> un sismo real, cuando un amigo mandó solicitud y escribió por chat y no llegó nada.
 
 **Por qué no hay alternativa a push:** el teléfono no puede consultar Supabase
 periódicamente en segundo plano — iOS mata esos procesos y consumiría batería. La única
@@ -1171,7 +1502,9 @@ de lo mismo en archivos distintos se separan siempre. Acá quedan las **deudas c
 que son otra cosa: problemas de lo que ya está construido, no trabajo nuevo.
 
 Lo que se cerró del plan original: el fan-out (0010), el sender (0014), `eas init` y la
-tarea de fondo. El bloque de push está completo en iOS (§3).
+tarea de fondo. El bloque de push está completo en iOS (§3), y desde el 2026-08-20 eso
+incluye **los cinco avisos entre personas** (§1.13), que era la mitad de la spec §7 que
+seguía sin existir.
 
 > **Cómo ver el modo alerta hoy.** La regla funciona y ya hubo un sismo real que la cumplía
 > —el M4,8 de Lurín del 2026-08-19, a 49,1 km de Lima (§1.6.3.1)—, así que la afirmación
@@ -1181,6 +1514,14 @@ tarea de fondo. El bloque de push está completo en iOS (§3).
 
 ### Deudas conocidas
 
+- **🟡 Los dos mapas embebidos no están verificados en pantalla.** Typecheck, lint y bundle
+  de iOS en verde, y las props usadas están confirmadas contra los tipos de
+  `react-native-maps` 1.27.2 (`cacheEnabled` y `userInterfaceStyle` en ambas plataformas,
+  `liteMode` solo Android). Falta **reconstruir el dev client** —es un módulo nativo nuevo,
+  el build actual no lo trae— y mirar las dos pantallas: que el pin caiga donde debe, que
+  el encuadre de 300 km del epicentro y el de 3 km del contacto se lean bien, que el tema
+  oscuro cambie, y que el toque abra Apple Maps con la etiqueta correcta en vez de una
+  búsqueda. Ver §1.2.1.
 - **🟡 El fix del callejón sin salida de ubicación no está verificado en pantalla.**
   Compila, pasa lint y la app arranca en el simulador, pero las tres pantallas que cambian
   (§1.6.3.1) están detrás del login. Falta recorrerlo a mano: conceder el permiso desde
@@ -1212,9 +1553,13 @@ tarea de fondo. El bloque de push está completo en iOS (§3).
   perfil** (§1.9.2.1). El avatar es de iniciales y no hay nada que subir.
 - **Chat grupal.** El backend ya lo soporta (`create_group_conversation`, con validación
   de que cada integrante sea contacto aceptado); falta la UI para crearlo.
-- **Simulacro en modo "avisar al círculo".** La opción existe en la UI y queda guardada
-  en `drills.mode`, pero el aviso real a los contactos depende de push.
-- **🟡 `alert_deliveries.status = 'sent'` significa "Expo lo aceptó", no "llegó".** El
+- ~~**Simulacro en modo "avisar al círculo".**~~ Hecho el 2026-08-20 (§1.13.2). El
+  disparador de «necesita ayuda» lee `drills.mode` y se calla si el simulacro es
+  silencioso; si es con aviso, el texto dice **«Simulacro ·»** y «NO es una emergencia
+  real», que es literalmente lo que la pantalla promete. Ante la duda —un reporte marcado
+  como simulacro sin un simulacro que lo respalde— se calla.
+- **🟡 `alert_deliveries.status = 'sent'` (y ahora también `notification_deliveries`)
+  significa "Expo lo aceptó", no "llegó".** El
   veredicto real de Apple está en los *receipts*, que hay que pedir aparte unos minutos
   después con el `ticket_id` que devuelve el envío. Hoy ese id **no se guarda**, así que no
   hay forma de saber si una alerta se entregó. Con un usuario el problema se nota enseguida
@@ -1232,16 +1577,26 @@ tarea de fondo. El bloque de push está completo en iOS (§3).
   dispararse, así que el arreglo es una red de seguridad, no una causa identificada. Queda
   abierto y es intermitente. Si vuelve a pasar, la línea `[sync] primer intento falló` en
   la consola dice si la causa es esa.
-- **🟡 El texto del aviso usa el `place` crudo del USGS, que viene en inglés.** Un sismo
-  peruano llega bien —el IGP da la referencia en español— pero uno global se anuncia como
-  "170 km NE of Lorengau, Papua New Guinea" dentro de una app en español. `src/lib/geo.ts`
-  ya resuelve país y continente para el feed; el sender debería usar lo mismo. Solo afecta
-  a las alertas mundiales, que son premium.
-- **El permiso de notificaciones solo se pide en el onboarding.** Quien lo rechaza ahí no
-  tiene ninguna forma dentro de la app de volver a activarlo: hay que ir a Ajustes de iOS.
-  El registro del token sí quedó cubierto (`syncPushToken()` corre en cada refresco), pero
-  el permiso en sí no se vuelve a ofrecer nunca. En una app de alertas, quedarse sin
-  notificaciones por un toque apurado durante el onboarding es caro.
+- **🟡 El texto del aviso de sismo usa el `place` crudo del USGS, que viene en inglés.** Un
+  sismo peruano llega bien —el IGP da la referencia en español— pero uno global se anuncia
+  como "170 km NE of Lorengau, Papua New Guinea" dentro de una app en español.
+  `src/lib/geo.ts` ya resuelve país y continente para el feed; `send-alerts` debería usar
+  lo mismo. Solo afecta a las alertas mundiales, que son premium.
+  > No aplica al sender nuevo de §1.13: ahí el texto se arma **en Postgres al encolar**,
+  > con el nombre de la persona, así que no pasa por `place` en ningún momento.
+- ~~**El permiso de notificaciones solo se pide en el onboarding.**~~ Hecho el 2026-08-20
+  (§1.14), y ampliado a los tres permisos en vez de solo ese: Ajustes tiene ahora una
+  lista de tareas con ubicación, notificaciones y contactos, que se relee al volver de los
+  Ajustes del sistema y **registra el token de push en el acto** al conceder.
+- ~~**`app.json` declara dos permisos de Android que la app no usa.**~~ Quitados el
+  2026-08-20 (§1.14.1), y verificados contra el manifiesto que genera `prebuild`, no
+  contra el `app.json`.
+- **🟡 Quedan tres permisos de Android que no pusimos nosotros**, y que conviene decidir
+  antes de publicar en Play (§1.14.1): `SYSTEM_ALERT_WINDOW` viene de la plantilla de
+  Expo, y `READ/WRITE_EXTERNAL_STORAGE` de `expo-file-system`, ya acotados con
+  `maxSdkVersion="32"`. La recomendación es dejarlos —bloquear el primero rompe el menú
+  de desarrollo y los otros dos son el patrón estándar y aceptado— pero queda anotado
+  porque el que firma la declaración de permisos en Play Console es quien publica.
 - **Notificaciones del feed Global.** La spec de la funcionalidad las incluye como parte
   del beneficio premium. El corte de acceso ya está (`get_quake_feed` + la condición
   mundial de `get_active_alert`) y el envío ya existe (§3), pero **nadie encola** esos
@@ -1257,8 +1612,9 @@ tarea de fondo. El bloque de push está completo en iOS (§3).
 ## 5. Fuera de alcance del MVP (documentado en la spec)
 
 Respaldo por SMS · historial extendido de ubicaciones · exportar PDF de preparación ·
-tier B2B · punto de encuentro en mapa (es premium, requiere `react-native-maps`) ·
-donaciones.
+tier B2B · punto de encuentro en mapa (es premium; `react-native-maps` ya está instalado
+desde §1.2.1, lo que falta es el mapa **interactivo** para elegir el punto — y ojo con
+Places/Geocoding, que sí se pagan) · donaciones.
 
 ---
 
@@ -1266,6 +1622,12 @@ donaciones.
 
 | Fecha | Qué pasó |
 |---|---|
+| 2026-08-20 | **Mapas embebidos, revirtiendo la decisión del MVP** (§1.2.1). El detalle del sismo y el del contacto muestran ahora un mini mapa con `react-native-maps` 1.27.2. La decisión anterior —solo deep link, sin mapa— se había tomado para evitar el costo y la API key de Google, y **el costo resultó no existir**: verificado contra la tabla de precios, el mapa nativo **sin Map ID** cae en el SKU `Maps SDK`, con tope "Unlimited" y precio "—". Lo que sí cobra es pedir un Map ID (SKU `Dynamic Maps`, 10.000/mes y luego $7 por millar), y eso lo exigen el *cloud styling*, los *Advanced Markers* y el *data-driven styling* — **por eso el tema oscuro se resuelve con `userInterfaceStyle` y no con `customMapStyle`**, que obligaría a Map ID y pondría a facturar la app. Descartados MapLibre (obliga a mantener un tile server a cambio de nada visible para dos pines de solo lectura) y `expo-maps` (su propia doc de SDK 57 lo declara **alpha** con "frequent breaking changes"). El mapa **no es interactivo a propósito**: vive dentro de un `ScrollView` y un mapa arrastrable le pelea el gesto al scroll, así que va con `cacheEnabled` —se renderiza una vez y se muestra como imagen— y el toque completo abre la app de mapas. En **Android no renderiza** mientras no exista la API key, porque sin ella Google pinta un rectángulo gris con su logo: se detecta leyendo el config plugin de `app.json`, para no tener una constante que se desincronice. **De paso**, `mapsUrl()` dejó de forzar Google: devolvía siempre `google.com/maps`, así que en un iPhone sin Google Maps instalada terminaba en el navegador; ahora usa `maps.apple.com` en iOS y `geo:` en Android, que respeta la app de mapas elegida por defecto. Typecheck, lint y bundle de iOS en verde; **sin verificar en pantalla todavía** (ver Deudas). |
+| 2026-08-20 | **Los permisos, como lista de tareas** (§1.14). Se cerró la deuda que hacía invisibles a todas las demás: los tres permisos se pedían **solo en el onboarding**, así que un toque apurado en «No permitir» dejaba a alguien sin esa capacidad para siempre, sin pista dentro de la app ni forma de arreglarlo. El caso concreto: de las tres cuentas del proyecto **solo una tenía token de push**, y por eso al amigo que probó las conexiones no le llegó nada — ni le habría llegado aunque los avisos de §1.13 hubieran existido antes. Ahora los tres viven en una tarjeta con la misma forma que el checklist de la Home, en verde / ámbar / plomo, y cada fila que falta dice **qué se pierde** en vez de solo pintarse de un color. Conceder notificaciones **registra el token en el acto**, que es el paso sin el cual conceder no sirve de nada. El rojo se dejó fuera a propósito: en esta app significa «necesito ayuda» (§1.4.1) y gastarlo en un permiso le quitaría el significado al que sí lo es. **Encontrado y corregido de paso** (§1.14.1): `app.json` declaraba `RECORD_AUDIO` y `WRITE_CONTACTS` y **nada en `src/` los usaba** — pedir el micrófono en una app de sismos es lo que un revisor de Play marca. Quitar el segundo del array **no alcanzaba**, porque el config plugin de `expo-contacts` lo agrega él mismo siempre; hizo falta `android.blockedPermissions`. Verificado corriendo `prebuild` y leyendo el manifiesto generado, que es la única forma de saberlo: los plugins escriben ahí, no en `app.json`. |
+| 2026-08-20 | **Limpieza de la fila de prueba de QA, y un descuido que apareció al hacerla.** Se borró la entrega de alerta insertada a mano en una sesión anterior (un M3,1 en **Alaska** a 9.517 km, con `quake_applies` diciendo `false`) y el aviso de «no responde» que colgaba de ella — en ese orden, porque al revés el cron la habría vuelto a encolar en el barrido siguiente. Comprobado después: las tres entregas que quedan son del M7,2 real, todas con la regla en `true` y jitter de 17 a 28 s, consistente con `random() * 30 s`. **El descuido:** `notification_deliveries` había quedado **sin poda**, cuando sus dos tablas hermanas la tienen desde el día uno — y es la que más crece, con una fila por mensaje de chat y por destinatario (migración 0017). |
+| 2026-08-20 | **Un sismo real (M7,2 en Coracora) sirvió de prueba de campo y destapó seis cosas.** La grande: **los cinco avisos entre personas no existían** (§1.13). No era un bug — nunca hubo nada que los mandara, pero Ajustes **ya ofrecía cuatro interruptores** que guardaban prolijamente un booleano que nadie leía. Eso es peor que no tener la función: quien apaga «Mensajes» cree que decidió algo. Se construyó el equivalente de 0010+0014 para eventos entre personas, con las preferencias comprobadas en un solo lugar para que un disparador nuevo no se pueda olvidar del chequeo. Llega en **0,6 s medidos**, porque un disparador despierta al cartero en vez de esperar al cron — y como ese es el camino rápido, el cron bajó de cada minuto a cada 5, así que la función **consume menos** invocaciones que antes. Se honró por fin la promesa escrita del simulacro silencioso, y la prueba de eso encontró un bug propio (0016): `now()` es la hora de la **transacción**, así que dos simulacros del mismo bloque empataban y ganaba cualquiera. 9/9 aserciones dentro de una transacción revertida, para que ninguna notificación de prueba le llegara a nadie. **Verificación no buscada:** el cron de «contacto sin responder» se disparó solo en producción mientras se escribía esto, con la clave de deduplicación correcta. |
+| 2026-08-20 | **Latencia del aviso de sismo: la mitad era espera nuestra** (§1.13.4). Medido con el M7,2: de los 9 m 45 s entre el sismo y el push, **7 m 45 s son del IGP** (79 %) y 1 m 59 s eran nuestros. De esos, 59 s era el sismo esperando sentado en la tabla a que pasara el cron de fan-out. Ahora un disparador lo encola en la misma transacción que lo inserta: SQL dentro de la ingesta, cero invocaciones nuevas. El jitter y el cron de envío se quedan a propósito. De paso se confirmó, contra `quake_applies`, que un aviso sospechoso por un M3,1 en **Alaska** no era un fallo de la regla de disparo sino una fila insertada a mano en QA: la regla decía `false` a 9.517 km, y su jitter de 608 s es imposible para `random() * 30 s`. |
+| 2026-08-20 | **Tres arreglos de detalle del mismo sismo.** (1) La tarjeta de alerta decía «Sismo en Coracora» y nada más; el IGP mandaba «Parinacochas - Ayacucho» y el parser lo tiraba (§1.6.4.2). Ahora sale debajo, descartando las partes repetidas —«Lurín, Lima - Lima» se muestra como **Lima**, no «Lima, Lima»—; verificado contra los 24 `place` del IGP. (2) La flecha de retroceso del chat decía literalmente **«(tabs)»**: iOS rotula el botón con el título de la pantalla anterior, y los tabs son un grupo de expo-router sin título. Se dejó solo la flecha, porque al chat también se entra desde el detalle de un contacto. (3) El chip de estado se iba a la izquierda en el detalle de un contacto: tenía `alignSelf: 'flex-start'` fijo en el componente, que pisaba el centrado del padre y no se podía corregir desde afuera. |
 | 2026-08-20 | **El spinner de pull-to-refresh se quedaba trabado** (§1.4.2). Abrir la app después de un rato dejaba el spinner colgado arriba y el contenido corrido hacia abajo, en las cuatro pantallas que tienen el gesto, sin que nadie hubiera tirado de nada. No era de estilos: `RefreshControl.refreshing` estaba atado a la bandera global `syncing` (Home y Círculo) y se prendía dentro de `load()` (Sismos), así que **cualquier** refresco automático lo encendía — arrancar, volver del segundo plano, recuperar la red, hasta aceptar una solicitud. Prenderlo por código hace que iOS empuje el contenido con una animación; si la vista no está en pantalla en ese momento, la animación no termina y el scroll se queda corrido. Que se arreglara solo al cambiar de pestaña y volver era la pista: eso fuerza un layout nuevo. Ahora el estado vive en `usePullToRefresh` y **solo lo enciende el gesto**; los refrescos automáticos revalidan en silencio, que es lo que ya se esperaba de la caché de §1.6.4.1. Se borró `syncing` del contexto: no le quedaba un solo consumidor y era la trampa a la vista para volver a atarlo. |
 | 2026-08-20 | **Leyenda de magnitud y procedencia en el feed global** (§1.6.4.2). La lista pintaba tres colores sin decir nunca qué significan, y encima la escala reutiliza la paleta de estados de personas —donde el rojo es "necesito ayuda"—, así que un sismo rojo se podía leer como alerta activa. Para el país y el continente hubo que descubrir que **`region` y `country_code` están en NULL para todo el USGS**: el único dato es el `place` en inglés, o sea que la procedencia se interpreta de un texto. Al hacerlo apareció que **`shortPlace()` estaba roto para el USGS** y nadie lo había visto: solo entendía el `" de "` del IGP, así que mostraba "63 km NNE of Ruteng" —prefijo en inglés y sin país—. Otras dos cosas que no se veían venir: para EE. UU. el USGS manda el estado y no el país (a veces la sigla, `", CA"`), y el feed global **incluye sismos del IGP**, con formato en español, donde tras la última coma va un departamento. El mapa se armó agrupando los `place` ya ingeridos, no de memoria; **verificado contra los 297 distintos de la base: 0 sin resolver**. A los eventos en el mar no se les inventa continente. |
 | 2026-08-20 | **Noticias Sísmicas pedía el feed en cada foco** (§1.6.4.1). Medido en los logs antes de tocar nada: 179 llamadas a `get_quake_feed` en 24 h de **un** usuario, con **mediana de 5 segundos** entre una y la siguiente, contra una ingesta que corre cada 2 minutos — el **85,5 %** no podía traer nada nuevo. Además cambiar Nacional/Global pedía dos veces, porque al cambiar `scope` cambiaba la identidad del callback de `useFocusEffect` y se sumaba a la llamada del handler. Se conservaron los disparadores (foco y volver del segundo plano, que existen por el congelamiento de §1.6.4) pero ahora pasan por un umbral de frescura igual al intervalo del cron, y cada scope guarda lo suyo. Decidido **no** poner un temporizador: esta pestaña no es el canal de alertas y sería un segundo mecanismo de refresco en paralelo al de `app-data`. De paso, un refresco fallido ya no borra la lista buena. |

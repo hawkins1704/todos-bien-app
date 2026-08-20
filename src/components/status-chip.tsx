@@ -48,7 +48,10 @@ export function StatusChip({ status, short = false, size = 'md' }: StatusChipPro
 const styles = StyleSheet.create({
   chip: {
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    // Sin `alignSelf`: la alineación la decide quien lo usa. Cuando estaba fijo
+    // en 'flex-start' el chip se iba a la izquierda dentro del detalle de un
+    // contacto, que centra todo lo demás, y no había forma de corregirlo desde
+    // afuera. Los dos lugares donde se usa ya centran con `alignItems`.
     borderRadius: Radius.pill,
     flexDirection: 'row',
     gap: Spacing.xs,

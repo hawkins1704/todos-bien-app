@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { NotificationRouter } from '@/components/notification-router';
 import { AppDataProvider } from '@/context/app-data';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { DrillProvider } from '@/context/drill';
@@ -36,6 +37,7 @@ export default function RootLayout() {
             <AppDataProvider>
               <DrillProvider>
                 <StatusBar style="auto" />
+                <NotificationRouter />
                 <RootNavigator />
               </DrillProvider>
             </AppDataProvider>
@@ -105,7 +107,15 @@ function RootNavigator() {
         name="contact/[id]"
         options={{ presentation: 'modal', headerShown: true, title: '' }}
       />
-      <Stack.Screen name="chat/[id]" options={{ headerShown: true, title: '' }} />
+      {/* `headerBackButtonDisplayMode: 'minimal'` deja solo la flecha.
+          Sin eso, iOS rotula el botón con el título de la pantalla anterior, y
+          como los tabs son un grupo de expo-router sin título, el rótulo que
+          salía era literalmente "(tabs)". Poner "Chats" tampoco serviría: al
+          chat también se entra desde el detalle de un contacto. */}
+      <Stack.Screen
+        name="chat/[id]"
+        options={{ headerShown: true, title: '', headerBackButtonDisplayMode: 'minimal' }}
+      />
       <Stack.Screen
         name="quake/[id]"
         options={{ presentation: 'modal', headerShown: true, title: '' }}
