@@ -1,5 +1,4 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -29,7 +28,7 @@ import { useTheme } from '@/theme/use-theme';
 
 /**
  * Detalle de la cuenta: los datos que el onboarding pide una sola vez pero que
- * después no había forma de cambiar (nombre, foto y teléfono), más el plan.
+ * después no había forma de cambiar (nombre y teléfono), más el plan.
  */
 export default function AccountScreen() {
   const router = useRouter();
@@ -47,38 +46,18 @@ export default function AccountScreen() {
   const guardado = {
     name: myProfile?.displayName ?? '',
     phone: formatE164ForDisplay(mySettings?.phoneE164 ?? null),
-    avatar: myProfile?.avatarUrl ?? null,
   };
 
   const [nameEdit, setNameEdit] = useState<string>();
   const [phoneEdit, setPhoneEdit] = useState<string>();
-  const [avatarEdit, setAvatarEdit] = useState<string | null>();
 
   const displayName = nameEdit ?? guardado.name;
   const phone = phoneEdit ?? guardado.phone;
-  const avatarUrl = avatarEdit !== undefined ? avatarEdit : guardado.avatar;
 
   const nameOk = displayName.trim().length >= 2;
-  const cambiado =
-    displayName !== guardado.name ||
-    phone !== guardado.phone ||
-    avatarUrl !== guardado.avatar;
+  const cambiado = displayName !== guardado.name || phone !== guardado.phone;
 
   const isPremium = mySettings?.isPremium ?? false;
-
-  const pickAvatar = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.6,
-    });
-
-    if (!result.canceled && result.assets[0]) setAvatarEdit(result.assets[0].uri);
-  };
 
   const guardar = async () => {
     if (!nameOk || !userId || saving) return;
@@ -87,7 +66,7 @@ export default function AccountScreen() {
     setError(null);
 
     try {
-      await updateMyProfile(userId, { displayName: displayName.trim(), avatarUrl });
+      await updateMyProfile(userId, { displayName: displayName.trim() });
 
       const escrito = phone.trim();
 
@@ -143,16 +122,9 @@ export default function AccountScreen() {
             { paddingBottom: insets.bottom + Spacing.xl },
           ]}
           keyboardShouldPersistTaps="handled">
-          <Pressable
-            onPress={() => void pickAvatar()}
-            accessibilityRole="button"
-            accessibilityLabel="Cambiar foto de perfil"
-            style={({ pressed }) => [styles.avatarPicker, pressed ? styles.pressed : null]}>
-            <Avatar displayName={displayName || '?'} avatarUrl={avatarUrl} size={92} status={null} />
-            <Text variant="footnote" tone="accent" weight="600">
-              {avatarUrl ? 'Cambiar foto' : 'Agregar foto'}
-            </Text>
-          </Pressable>
+          <View style={styles.avatarPreview}>
+            <Avatar displayName={displayName || '?'} size={92} status={null} />
+          </View>
 
           <View style={styles.field}>
             <Text variant="footnote" tone="secondary" weight="600">
@@ -257,16 +229,83 @@ export default function AccountScreen() {
               </View>
             </Card>
           </View>
+
+          <View style={styles.seccion}>
+            <Text variant="caption" tone="secondary" weight="600" style={styles.seccionTitulo}>
+              SEGURIDAD
+            </Text>
+
+            <Card padded={false}>
+              <FilaAccion
+                icon="key"
+                titulo="Cambiar contraseña"
+                onPress={() => router.push('/change-password')}
+              />
+              {/* Borrar la cuenta va acá, visible y sin esconderse detrás de un
+                  correo de soporte: la guía 5.1.1(v) de Apple pide que se pueda
+                  hacer desde adentro de la app, y esconderlo es causal de
+                  rechazo tanto como no tenerlo. */}
+              <FilaAccion
+                icon="delete-forever"
+                titulo="Borrar mi cuenta"
+                destructivo
+                primera={false}
+                onPress={() => router.push('/delete-account')}
+              />
+            </Card>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
 }
 
+/** Fila de acción dentro de una Card, con chevron. */
+function FilaAccion({
+  icon,
+  titulo,
+  onPress,
+  destructivo = false,
+  primera = true,
+}: {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  titulo: string;
+  onPress: () => void;
+  destructivo?: boolean;
+  primera?: boolean;
+}) {
+  const { colors } = useTheme();
+  const color = destructivo ? colors.danger : colors.text;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.fila,
+        primera ? null : { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth },
+        pressed ? { backgroundColor: colors.surfaceSunken } : null,
+      ]}>
+      <MaterialIcons name={icon} size={22} color={color} />
+      <Text variant="callout" weight="500" style={[styles.flex, { color }]}>
+        {titulo}
+      </Text>
+      <MaterialIcons name="chevron-right" size={20} color={colors.textTertiary} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { gap: Spacing.lg, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
-  avatarPicker: { alignItems: 'center', gap: Spacing.sm },
+  avatarPreview: { alignItems: 'center' },
+  fila: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
   field: { gap: Spacing.xs },
   input: {
     borderRadius: Radius.lg,
@@ -286,5 +325,4 @@ const styles = StyleSheet.create({
     width: 42,
   },
   ctaGap: { marginTop: Spacing.lg },
-  pressed: { opacity: 0.7 },
 });

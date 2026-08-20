@@ -138,7 +138,6 @@ export default function HomeScreen() {
             style={({ pressed }) => (pressed ? styles.pressed : null)}>
             <Avatar
               displayName={myProfile?.displayName ?? '?'}
-              avatarUrl={myProfile?.avatarUrl}
               size={42}
               status={null}
             />

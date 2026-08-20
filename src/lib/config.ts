@@ -23,7 +23,11 @@ export function inviteMessage(code: string, inviterName: string): string {
 }
 
 /**
- * Largo del código de acceso que llega por correo (OTP de Supabase).
+ * Largo del código que llega por correo.
+ *
+ * Ya no es el código de acceso —el acceso es con contraseña— pero sigue en uso
+ * en los dos flujos que todavía dependen del correo: confirmar la cuenta recién
+ * creada y recuperar la contraseña.
  *
  * Se configura en el dashboard: Authentication > Providers > Email >
  * "Email OTP Length" (acepta de 6 a 10). El default de Supabase es 6, pero este
@@ -36,6 +40,17 @@ export const AUTH_CODE_LENGTH =
   Number.isInteger(configuredCodeLength) && configuredCodeLength >= 6 && configuredCodeLength <= 10
     ? configuredCodeLength
     : 8;
+
+/**
+ * Mínimo de caracteres de la contraseña.
+ *
+ * Supabase corta en 6 por defecto (Authentication > Providers > Email >
+ * "Minimum password length"). Acá se exige 8 y se valida **antes** de llamar a
+ * la API: así el error se ve mientras se escribe y no después de un viaje al
+ * servidor. Si en el dashboard se sube el mínimo, hay que subirlo también acá,
+ * o el servidor va a rechazar contraseñas que la app dio por buenas.
+ */
+export const AUTH_MIN_PASSWORD_LENGTH = 8;
 
 /** Cuántos contactos de la agenda se procesan por lote al hashear. */
 export const CONTACTS_PAGE_SIZE = 300;

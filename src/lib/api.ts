@@ -26,7 +26,6 @@ export async function fetchCircle(): Promise<CircleMember[]> {
     userId: row.user_id,
     connectionId: row.connection_id,
     displayName: row.display_name,
-    avatarUrl: row.avatar_url,
     actionPlan: row.action_plan,
     actionPlanUpdatedAt: row.action_plan_updated_at,
     connectionStatus: row.connection_status as ConnectionStatus,
@@ -48,7 +47,7 @@ export async function fetchCircle(): Promise<CircleMember[]> {
 export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_url, action_plan, action_plan_updated_at')
+    .select('id, display_name, action_plan, action_plan_updated_at')
     .eq('id', userId)
     .maybeSingle();
 
@@ -58,7 +57,6 @@ export async function fetchMyProfile(userId: string): Promise<MyProfile | null> 
   return {
     id: data.id,
     displayName: data.display_name,
-    avatarUrl: data.avatar_url,
     actionPlan: data.action_plan,
     actionPlanUpdatedAt: data.action_plan_updated_at,
   };
@@ -66,11 +64,12 @@ export async function fetchMyProfile(userId: string): Promise<MyProfile | null> 
 
 export async function updateMyProfile(
   userId: string,
-  patch: { displayName?: string; avatarUrl?: string | null; actionPlan?: string | null },
+  // `avatar_url` sigue existiendo en la tabla pero la app ya no lo escribe ni lo
+  // lee: no hay foto de perfil (ver el comentario de `src/components/avatar.tsx`).
+  patch: { displayName?: string; actionPlan?: string | null },
 ): Promise<void> {
   const payload: TablesUpdate<'profiles'> = {};
   if (patch.displayName !== undefined) payload.display_name = patch.displayName;
-  if (patch.avatarUrl !== undefined) payload.avatar_url = patch.avatarUrl;
   if (patch.actionPlan !== undefined) {
     payload.action_plan = patch.actionPlan;
     payload.action_plan_updated_at = new Date().toISOString();
@@ -246,7 +245,6 @@ export async function matchContacts(
       user_id: string;
       phone_hash: string;
       display_name: string;
-      avatar_url: string | null;
       connection_status: string | null;
     }[];
   }>('match-contacts', { body: { hashes: entries.map((e) => e.hash) } });
@@ -256,7 +254,6 @@ export async function matchContacts(
   return (data?.matches ?? []).map((m) => ({
     userId: m.user_id,
     displayName: m.display_name,
-    avatarUrl: m.avatar_url,
     localName: nameByHash.get(m.phone_hash) ?? m.display_name,
     phoneHash: m.phone_hash,
     connectionStatus: (m.connection_status as ConnectionStatus | null) ?? null,

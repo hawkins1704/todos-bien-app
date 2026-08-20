@@ -2,11 +2,14 @@ import type { CircleMember, ConnectionStatus, StatusKey } from '@/types/domain';
 
 import { getDb } from './index';
 
+// `circle` todavía tiene la columna `avatar_url` del esquema original. No se
+// lee ni se escribe: la app no tiene foto de perfil. Se deja en la tabla porque
+// quitarla obligaría a subir `PRAGMA user_version` y migrar la caché de cada
+// teléfono para borrar una columna que ya queda siempre en NULL.
 type CircleRow = {
   user_id: string;
   connection_id: string;
   display_name: string;
-  avatar_url: string | null;
   action_plan: string | null;
   action_plan_updated_at: string | null;
   connection_status: string;
@@ -29,7 +32,6 @@ function toMember(row: CircleRow): CircleMember {
     userId: row.user_id,
     connectionId: row.connection_id,
     displayName: row.display_name,
-    avatarUrl: row.avatar_url,
     actionPlan: row.action_plan,
     actionPlanUpdatedAt: row.action_plan_updated_at,
     connectionStatus: row.connection_status as ConnectionStatus,
@@ -73,16 +75,15 @@ export async function writeCircle(members: CircleMember[]): Promise<void> {
     for (const m of members) {
       await db.runAsync(
         `INSERT INTO circle (
-           user_id, connection_id, display_name, avatar_url, action_plan,
+           user_id, connection_id, display_name, action_plan,
            action_plan_updated_at, connection_status, requested_by,
            connection_created_at, status, status_message, latitude, longitude,
            location_accuracy_m, location_at, quake_event_id, is_drill,
            reported_at, status_updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         m.userId,
         m.connectionId,
         m.displayName,
-        m.avatarUrl,
         m.actionPlan,
         m.actionPlanUpdatedAt,
         m.connectionStatus,

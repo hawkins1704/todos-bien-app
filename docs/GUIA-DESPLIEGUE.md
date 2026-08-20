@@ -444,12 +444,24 @@ Apple o la revisión rechaza la app.
 
 Cosas que no dependen de las tiendas pero bloquean el lanzamiento:
 
+- [ ] **Borrar la cuenta desde la app** (guía **5.1.1(v)** de Apple). Toda app que permita
+      crear una cuenta tiene que permitir borrarla desde adentro; no alcanza con un correo
+      ni con una página web. Es causal de rechazo directa.
+- [ ] **Cuenta de demostración para App Review.** Apple necesita entrar a la app: hay que
+      crear una cuenta con el onboarding terminado y contactos de ejemplo, y cargar correo
+      y contraseña en App Store Connect → *App Review Information*. Es el motivo por el que
+      el acceso pasó a contraseña (§1.1.1 del estado del proyecto). Una cuenta vacía deja
+      al revisor mirando una pantalla sin nada: también es motivo de rechazo.
 - [ ] **Borrar el usuario de QA** `qa.simulador@example.com` (§2 del estado del proyecto).
-- [ ] **Dominio propio.** `INVITE_BASE_URL` apunta a `todosbien.app`, que no existe: hoy
-      los links de invitación no llevan a ningún lado. El mismo dominio destraba el correo
-      de Resend (§1.6.2).
-- [ ] **Avatar a Supabase Storage.** Hoy la foto de perfil solo existe en el teléfono de
-      quien la subió.
+- [ ] **Plantilla *Reset Password* con `{{ .Token }}`.** Viene de fábrica con un link. Si
+      queda así, la app pide un código de 8 dígitos y a la persona le llega una URL: la
+      recuperación de contraseña queda rota sin dar ningún error.
+      Ver `docs/GUIA-CORREO-RESEND.md`.
+- [ ] **Landing page de invitación.** `INVITE_BASE_URL` apunta a `https://todosbien.app/i`,
+      que todavía no existe: hoy los links de invitación no llevan a ningún lado. El
+      dominio ya está verificado en Resend para el correo (§1.6.2), falta la página.
+- [x] ~~**Avatar a Supabase Storage.**~~ Ya no aplica: se eliminó la foto de perfil, el
+      avatar es de iniciales (§1.9.2.1 del estado del proyecto).
 - [ ] Revisión legal de términos y limitación de responsabilidad (spec §18).
 - [ ] Política de privacidad publicada en una URL (App Store la pide obligatoriamente).
 

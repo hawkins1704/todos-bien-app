@@ -18,7 +18,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    // No hay callback por URL en móvil: el OTP se canjea con verifyOtp().
+    // No hay callback por URL en móvil: los correos mandan un código, no un
+    // link, y ese código se canjea con verifyOtp() dentro de la app.
     detectSessionInUrl: false,
   },
 });

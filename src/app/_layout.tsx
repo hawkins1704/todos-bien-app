@@ -108,6 +108,14 @@ function RootNavigator() {
         options={{ presentation: 'modal', headerShown: true, title: 'Mi cuenta' }}
       />
       <Stack.Screen
+        name="change-password"
+        options={{ presentation: 'modal', headerShown: true, title: 'Cambiar contraseña' }}
+      />
+      <Stack.Screen
+        name="delete-account"
+        options={{ presentation: 'modal', headerShown: true, title: 'Borrar cuenta' }}
+      />
+      <Stack.Screen
         name="action-plan"
         options={{ presentation: 'modal', headerShown: true, title: 'Plan de acción' }}
       />

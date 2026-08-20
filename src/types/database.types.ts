@@ -389,6 +389,10 @@ export type Database = {
         Args: { label?: string | null; phone_hash?: string | null };
         Returns: Database['public']['Tables']['invitations']['Row'];
       };
+      delete_my_account: {
+        Args: { password_attempt?: string | null };
+        Returns: undefined;
+      };
       distance_km: {
         Args: { lat1: number; lat2: number; lon1: number; lon2: number };
         Returns: number;

@@ -9,7 +9,6 @@ export type CircleMember = {
   userId: string;
   connectionId: string;
   displayName: string;
-  avatarUrl: string | null;
   actionPlan: string | null;
   actionPlanUpdatedAt: string | null;
   connectionStatus: ConnectionStatus;
@@ -30,7 +29,6 @@ export type CircleMember = {
 export type MyProfile = {
   id: string;
   displayName: string;
-  avatarUrl: string | null;
   actionPlan: string | null;
   actionPlanUpdatedAt: string | null;
 };
@@ -89,7 +87,6 @@ export type Tip = {
 export type ContactMatch = {
   userId: string;
   displayName: string;
-  avatarUrl: string | null;
   /** Nombre tal como está guardado en la agenda del teléfono. */
   localName: string;
   phoneHash: string;

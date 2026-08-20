@@ -87,7 +87,6 @@ export default function CircleScreen() {
                 <View style={styles.rowTop}>
                   <Avatar
                     displayName={member.displayName}
-                    avatarUrl={member.avatarUrl}
                     size={44}
                     status={null}
                   />
@@ -162,7 +161,6 @@ export default function CircleScreen() {
               <View key={member.connectionId} style={styles.rowTop}>
                 <Avatar
                   displayName={member.displayName}
-                  avatarUrl={member.avatarUrl}
                   size={36}
                   status={null}
                   dimmed
@@ -212,7 +210,6 @@ function MemberRow({
       ]}>
       <Avatar
         displayName={member.displayName}
-        avatarUrl={member.avatarUrl}
         size={44}
         status={showStatus ? status : null}
         showStatusBadge={showStatus}

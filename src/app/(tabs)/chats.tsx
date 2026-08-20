@@ -115,7 +115,6 @@ export default function ChatsScreen() {
                   ]}>
                   <Avatar
                     displayName={member.displayName}
-                    avatarUrl={member.avatarUrl}
                     size={44}
                     status={null}
                   />

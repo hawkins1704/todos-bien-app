@@ -94,7 +94,6 @@ export default function ContactDetailScreen() {
         <View style={styles.hero}>
           <Avatar
             displayName={member.displayName}
-            avatarUrl={member.avatarUrl}
             size={92}
             status={alertActive ? status : null}
           />

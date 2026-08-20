@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { FlatList, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,7 @@ export default function WelcomeScreen() {
 
   const goNext = () => {
     if (isLast) {
-      router.push('/sign-in');
+      router.push('/sign-up');
       return;
     }
     listRef.current?.scrollToIndex({ index: index + 1, animated: true });
@@ -103,7 +103,22 @@ export default function WelcomeScreen() {
           ))}
         </View>
 
-        <Button title={isLast ? 'Empezar' : 'Siguiente'} onPress={goNext} size="lg" />
+        <Button title={isLast ? 'Crear mi cuenta' : 'Siguiente'} onPress={goNext} size="lg" />
+
+        {/* Quien reinstala la app o cambia de teléfono no viene a registrarse:
+            viene a volver a entrar, y hasta ahora el único camino era pasar por
+            las tres slides y llegar al formulario de registro. */}
+        <Pressable
+          onPress={() => router.push('/sign-in')}
+          accessibilityRole="button"
+          style={({ pressed }) => (pressed ? styles.pressed : null)}>
+          <Text variant="footnote" tone="secondary" center>
+            ¿Ya tienes cuenta?{' '}
+            <Text variant="footnote" tone="accent" weight="600">
+              Entrar
+            </Text>
+          </Text>
+        </Pressable>
 
         <Text variant="caption" tone="tertiary" center>
           Todos Bien no reemplaza a los canales oficiales de emergencia: bomberos, PNP e
@@ -133,4 +148,5 @@ const styles = StyleSheet.create({
   footer: { gap: Spacing.lg, paddingHorizontal: Spacing.xl },
   dots: { flexDirection: 'row', gap: Spacing.xs, justifyContent: 'center' },
   dot: { borderRadius: Radius.pill, height: 7 },
+  pressed: { opacity: 0.6 },
 });

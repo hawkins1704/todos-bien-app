@@ -155,7 +155,6 @@ export default function SettingsScreen() {
             style={({ pressed }) => [styles.profile, pressed ? styles.pressed : null]}>
             <Avatar
               displayName={myProfile?.displayName ?? '?'}
-              avatarUrl={myProfile?.avatarUrl}
               size={56}
               status={null}
             />

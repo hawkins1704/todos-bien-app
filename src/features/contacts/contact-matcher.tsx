@@ -174,7 +174,6 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
                   ]}>
                   <Avatar
                     displayName={match.displayName}
-                    avatarUrl={match.avatarUrl}
                     size={40}
                     status={null}
                   />
@@ -217,7 +216,6 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
                 <View key={match.userId} style={styles.row}>
                   <Avatar
                     displayName={match.displayName}
-                    avatarUrl={match.avatarUrl}
                     size={32}
                     status={null}
                   />

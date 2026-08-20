@@ -71,12 +71,6 @@
         {
           "enableBackgroundRemoteNotifications": true
         }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Todos Bien usa tus fotos solo para que elijas una foto de perfil."
-        }
       ]
     ],
     "experiments": {

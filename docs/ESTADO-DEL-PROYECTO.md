@@ -12,15 +12,17 @@ y qué está bloqueado.
 
 ## 1. Decisiones de implementación tomadas
 
-### 1.1 Autenticación — email ahora, Apple/Google después
+### 1.1 Autenticación — correo y contraseña
 
-**Decisión:** v1 arranca con **Supabase Auth por código OTP al correo**. Apple Sign In y
-Google Sign In se agregan más adelante para ampliar los métodos de acceso.
+> **Cambiado el 2026-08-20.** Antes era código OTP al correo, sin contraseñas. Ver
+> §1.1.1 para por qué se cambió y qué implicó.
+
+**Decisión:** **Supabase Auth con correo + contraseña**. Apple Sign In y Google Sign In se
+agregan más adelante para ampliar los métodos de acceso.
 
 **Por qué así:** no requiere proveedor de SMS (costo variable por mensaje, que la spec
-§12 descarta para el MVP) ni cuenta de Apple Developer activa. Supabase Auth ya soporta
-vincular varios proveedores a la misma cuenta, así que agregar Apple/Google después no
-obliga a migrar usuarios.
+§12 descarta para el MVP). Supabase Auth ya soporta vincular varios proveedores a la misma
+cuenta, así que agregar Apple/Google después no obliga a migrar usuarios.
 
 **Consecuencia que hay que tener presente:** el teléfono se captura en el onboarding
 pero **no queda verificado**. El match de contactos (spec §3) se apoya en el hash del
@@ -34,6 +36,123 @@ en los matches de sus contactos. Mitigaciones ya aplicadas:
 
 Cuando se agregue Apple/Google, evaluar verificar el teléfono por OTP SMS para cerrar
 del todo este hueco.
+
+### 1.1.1 De código OTP a contraseña: por qué, y qué se ganó de paso
+
+**El motivo directo es la revisión de Apple.** App Review necesita entrar a la app con una
+cuenta de demostración que el equipo de Apple pueda usar. Con acceso por código al correo
+eso no funciona: el código llega a una casilla que Apple no tiene, y una cuenta que no se
+puede abrir es un rechazo garantizado.
+
+**El motivo de fondo es que el correo dejaba de ser un lujo y pasaba a ser un punto único
+de falla.** Con OTP, *cada* ingreso dependía de que un correo llegara. Cualquier problema
+del proveedor —y hubo uno, §1.1.2— no degradaba la app: la cerraba entera. Con contraseña,
+el correo solo hace falta para confirmar la cuenta una vez y para recuperarla si se olvida.
+
+**Lo que cambió en el cliente:**
+
+| Antes | Ahora |
+|---|---|
+| `sign-in` (correo) → `verify` (código) | `sign-in` (correo + contraseña) |
+| — | `sign-up` (correo + contraseña + repetir) |
+| — | `confirm-email` (código, solo si *Confirm email* está prendido) |
+| — | `forgot-password` → `reset-password` (código + contraseña nueva) |
+
+**Cuatro decisiones que no son obvias:**
+
+- **Los errores se traducen por `code`, no por el texto.** `src/lib/auth-errors.ts`. El
+  mensaje de Supabase cambia entre versiones; el código es contrato estable. Y el fallo del
+  proveedor de correo tiene copy propio, porque **no es culpa de quien usa la app y no se
+  arregla reintentando**: decirle "revisa tu conexión" la manda a perseguir un problema que
+  no tiene.
+- **El registro maneja los tres resultados posibles**, no dos. Con *Confirm email*
+  prendido, Supabase **no delata** que un correo ya tiene cuenta —sería una forma de
+  averiguar quién usa la app— y responde 200 con `identities: []` en vez de un error. Sin
+  ese caso, alguien que ya tenía cuenta vería un "listo" y nunca recibiría nada.
+- **Recuperar la contraseña usa código, no link.** Un link abre el navegador del teléfono y
+  obliga a resolver el deep link de vuelta. Con `{{ .Token }}` todo pasa dentro de la app.
+- **El código de recuperación abre sesión antes de que la contraseña esté escrita.** Es
+  cómo funciona `verifyOtp({ type: 'recovery' })`, y el efecto es que el guardia de
+  navegación saca la pantalla de encima entre las dos llamadas. Por eso la contraseña se
+  valida **antes** de mandar nada, un fallo del `updateUser` **cierra la sesión**, y el
+  aviso va por `Alert` —lo único que sobrevive a la navegación—. Quedar adentro con la
+  contraseña vieja, creyendo que se cambió, es peor que no entrar.
+- **Al entrar no se valida el largo de la contraseña**, solo que no esté vacía. Quien la
+  creó cuando el mínimo era otro tiene que poder seguir entrando.
+
+### 1.1.2 El bug del correo: verificar el dominio no cambia el remitente
+
+**Síntoma reportado:** pedir el código con un correo cualquiera mostraba *"Error sending
+confirmation email"* bajo el campo. Con el correo del dueño funcionaba.
+
+**Causa, leída en los logs de Auth y no adivinada:**
+
+```
+POST /otp → 500   user_confirmation_requested
+"550 You can only send testing emails to your own email address
+ (renzoarroyo09@gmail.com). To send emails to other recipients,
+ please verify a domain at resend.com/domains..."
+```
+
+Resend estaba mandando desde `onboarding@resend.dev`, su remitente de pruebas, que **solo
+entrega a la casilla de la propia cuenta de Resend**. Estaba anotado como pendiente en
+§1.6.2 desde el 18/08; lo que faltaba era conectar que ese pendiente **era** este bug.
+
+**El detalle que hace perder tiempo:** el dominio `todosbien.app` ya estaba verificado en
+Resend, con DKIM, SPF y MX puestos. No alcanzaba. Verificar el dominio en Resend y elegir
+el remitente en Supabase son **dos ajustes en dos paneles distintos**, y el que manda es el
+segundo. Hasta cambiar *Sender email* a `hola@todosbien.app`, Resend siguió tratando cada
+envío como correo de prueba.
+
+**Verificado contra el proyecto real:** un registro con una dirección que no es la del
+dueño pasó de `500 unexpected_failure` a `200`, sin error en los logs. La cuenta de prueba
+se borró después; el `on delete cascade` limpió `profiles`, `user_settings` y
+`notification_preferences` sin dejar huérfanos.
+
+**La lección:** el mensaje del proveedor estaba completo en los logs de Auth desde el
+primer intento fallido. Mirar ahí antes de tocar el cliente habría evitado sospechar del
+código de la app, que no tenía nada que ver.
+
+### 1.1.3 Cambiar la contraseña y borrar la cuenta
+
+Las dos son consecuencia directa de §1.1.1: existen porque ahora hay contraseñas y porque
+el registro pasó a ser un alta explícita. Viven en **Mi cuenta → SEGURIDAD**.
+
+**Cambiar contraseña** (`src/app/change-password.tsx`). Pide la actual antes de cambiarla.
+No es un chequeo cosmético del cliente: se reautentica con `signInWithPassword`, que es una
+llamada real que el servidor rechaza si la contraseña no es la correcta. Sin eso, cualquiera
+con el teléfono desbloqueado se queda con la cuenta, porque `updateUser` no pregunta nada.
+Al terminar corre `signOut({ scope: 'others' })`: cambiar la contraseña sin echar al que ya
+entró en otro teléfono no lo saca de ningún lado, que es la mitad del sentido de cambiarla.
+
+**Borrar la cuenta** (`src/app/delete-account.tsx` + migración 0013). Requisito **5.1.1(v)**
+de App Store Review: si la app deja crear una cuenta, tiene que dejar borrarla desde adentro
+—no por correo de soporte ni por una web—, y esconderlo es causal de rechazo tanto como no
+tenerlo.
+
+Cuatro decisiones que no son obvias:
+
+- **La contraseña se valida en Postgres, no en la app.** `delete_my_account(password_attempt)`
+  la compara con `extensions.crypt()` contra `auth.users.encrypted_password`. Validarla solo
+  en el cliente protege del teléfono desbloqueado pero no de alguien que ya tenga el token de
+  sesión y llame al RPC directo; eso únicamente lo cierra el servidor.
+- **Una cuenta sin contraseña se borra sin pedirla.** No es un agujero: son las que van a
+  entrar por Apple o Google, donde el proveedor ya autenticó y no hay nada que comparar.
+- **El borrado es un solo `delete` sobre `auth.users`.** Las 13 tablas cuelgan de `profiles`
+  con `on delete cascade` y `profiles` de `auth.users` con la misma regla. Verificado contra
+  el esquema real con `pg_constraint`, no asumido.
+- **`revenuecat_events` NO se borra.** Es la bitácora de facturación y tiene que sobrevivir
+  para resolver un reembolso o un reclamo posterior. Solo la lee `service_role`.
+
+**Verificado contra la base real**, 3/3 aserciones: sin sesión rechaza (`28000`); con sesión
+y contraseña incorrecta rechaza (`28P01`) **y el usuario sigue vivo**; con la correcta borra y
+arrastra las 6 tablas donde había datos sembrados.
+
+**Y verificado a mano sobre una cuenta real**, que es donde apareció lo que no se veía en las
+aserciones: **borrar la cuenta pierde el Premium.** El derecho quedó atado al `app_user_id`
+viejo, así que la cuenta nueva arranca en Plan gratuito aunque la suscripción siga cobrándose.
+La salida es **«Restaurar compras»**, que dispara un `TRANSFER` en RevenueCat y el webhook
+vuelve a marcar `is_premium`. La pantalla ahora lo dice; nadie lo iba a adivinar.
 
 ### 1.2 Ubicación — background, pero capturada SOLO cuando ocurre un sismo
 
@@ -155,8 +274,9 @@ persona todavía no confirmó. Así una alerta nueva no reescribe ninguna fila.
 
 ### 1.6.1 Correo: SMTP propio con Resend (obligatorio, no opcional)
 
-**Decisión de acceso confirmada:** solo **código OTP por correo**. Apple y Google se
-suman más adelante para ampliar métodos, no para reemplazarlo. Sin contraseñas.
+> **Actualizado el 2026-08-20.** El acceso ya no es por código (§1.1.1), así que el correo
+> dejó de ser la puerta de entrada. Sigue haciendo falta para **confirmar la cuenta** y
+> para **recuperar la contraseña**, y todo lo de abajo sobre el SMTP sigue vigente.
 
 **Por qué hizo falta SMTP propio.** Desde el **3 de junio de 2026**, los proyectos free
 *nuevos* de Supabase no pueden editar las plantillas de correo si usan el SMTP incluido.
@@ -173,23 +293,23 @@ problema del redirect a `localhost` en móvil desaparece sin tocar código.
 
 Guía paso a paso: **`docs/GUIA-CORREO-RESEND.md`**.
 
-> ⚠️ **Hay que editar DOS plantillas, no una.** Con `shouldCreateUser: true`, un usuario
-> **nuevo** recibe la plantilla *Confirm signup* y uno **existente** la de *Magic Link*.
-> Si se edita solo una, la mitad de los usuarios sigue recibiendo un link.
+> ⚠️ **Las plantillas que importan cambiaron con el paso a contraseña.** Ahora son
+> *Confirm signup* (cuenta nueva) y ***Reset Password*** (recuperar contraseña). La de
+> *Magic Link* ya no se usa. Las dos vigentes tienen que mandar `{{ .Token }}`; la de
+> *Reset Password* viene de fábrica con `{{ .ConfirmationURL }}`, así que si se olvida, la
+> app pide un código de 8 dígitos y a la persona le llega un link.
 
-### 1.6.2 🔴 PENDIENTE: dominio propio (bloquea dos cosas distintas)
+### 1.6.2 Dominio propio: resuelto para el correo, pendiente para las invitaciones
 
-Hoy se usa el dominio de pruebas de Resend (`onboarding@resend.dev`), que
-**solo puede enviar correos a la casilla de la propia cuenta de Resend**. Alcanza para
-desarrollar, no para tener usuarios.
+El dominio `todosbien.app` está verificado en Resend y el remitente de Supabase es
+`hola@todosbien.app`. Eso cierra el bloqueo del correo (ver §1.1.2, que documenta el bug
+que causó tenerlo a medias).
 
-Cuando haya dominio verificado hay que tocarlo en **dos lugares que no están
-relacionados entre sí**:
+Queda pendiente el otro uso del dominio, que **no está relacionado con el correo**:
 
-| Dónde | Qué cambia |
+| Dónde | Qué falta |
 |---|---|
-| Resend + Supabase SMTP | El remitente pasa de `onboarding@resend.dev` a algo tipo `hola@tudominio.com` |
-| `src/lib/config.ts` → `INVITE_BASE_URL` | Hoy apunta a `https://todosbien.app/i`, que **no existe**. Es el link de invitación de la spec §3 y necesita además una landing page con botones a las tiendas |
+| `src/lib/config.ts` → `INVITE_BASE_URL` | Apunta a `https://todosbien.app/i`, que **todavía no existe**. Es el link de invitación de la spec §3 y necesita una landing page con botones a las tiendas |
 
 ### 1.6.3 La ubicación se captura sola, no solo al tocar un botón
 
@@ -426,7 +546,7 @@ Apple rechaza las apps que no ofrecen forma de recuperarla en un teléfono nuevo
 
 ### 1.9.2 Mi cuenta: editar los propios datos
 
-Hasta ahora el nombre, la foto y el teléfono se pedían una sola vez en el onboarding y
+Hasta ahora el nombre y el teléfono se pedían una sola vez en el onboarding y
 después no había forma de cambiarlos; Ajustes solo enlazaba al plan de acción.
 
 `src/app/account.tsx` (modal "Mi cuenta") permite editarlos y muestra el plan: **Plan
@@ -439,6 +559,28 @@ Dos decisiones del formulario:
   consecuencia real —dejan de encontrarte por número— así que el campo lo advierte.
 - **El hash solo se recalcula si el número cambió.** Reescribirlo sin necesidad
   invalidaría invitaciones pendientes que dependen de ese hash.
+
+### 1.9.2.1 No hay foto de perfil: el avatar es de iniciales
+
+**Decisión del 2026-08-20: se eliminó el selector de foto** del onboarding y de Mi cuenta.
+Todos los avatares de la app son las iniciales sobre el azul de marca.
+
+**Por qué.** Lo que había nunca funcionó como parecía: `avatarUrl` guardaba el **URI local
+del teléfono**, así que la foto se veía en el propio dispositivo y en ningún otro. Para que
+funcionara de verdad hacía falta Supabase Storage, o sea almacenamiento y ancho de banda
+pagos, por una función que no aporta nada al núcleo —saber que tu gente está bien— en un
+círculo de personas que ya se conocen por su nombre.
+
+De paso se van dos cosas que sí tenían costo real:
+
+- El permiso de fotos de iOS (`NSPhotoLibraryUsageDescription`), que App Review pregunta
+  para qué se usa. Un permiso menos que justificar.
+- Las dependencias `expo-image-picker` y `expo-image`, que ya no las usaba nadie.
+
+**Qué se dejó en pie a propósito:** la columna `avatar_url` sigue existiendo en `profiles`
+y en la caché de SQLite. Borrarla del cliente obligaría a subir `PRAGMA user_version` y
+migrar la caché de cada teléfono para eliminar una columna que ya queda siempre en NULL. No
+se lee ni se escribe desde ningún lado.
 
 ### 1.9.3 Los simulacros se completan a los 3, no al primero
 
@@ -607,6 +749,7 @@ falta, indexar por ubicación en vez de recorrer `user_settings` entera.
 | `0009_quake_feed_and_premium` | `get_quake_feed(scope)` para Noticias Sísmicas, cierre de la fuga premium en alertas mundiales, índices del feed |
 | `0010_alert_fanout` | Predicado compartido `private.quake_applies()`, fan-out sismo → usuarios, cola `alert_deliveries`, `claim/mark_alert_deliveries`, cron cada minuto |
 | `0011_alert_fanout_fixes` | Las dos correcciones que encontró la verificación de 0010 (ver §1.12). Ya están dentro de 0010; existe para que el historial remoto sea honesto |
+| `0013_delete_account` | `delete_my_account(password_attempt)`: borra la propia cuenta validando la contraseña **en el servidor** con `extensions.crypt()`. Todo lo demás cae por cascada desde `profiles`. Requisito 5.1.1(v) de Apple (§1.1.3) |
 | `0012_revenuecat_webhook` | Secreto del webhook en Vault + `get_revenuecat_secret()`, bitácora `revenuecat_events` (su PK es el candado de idempotencia contra los reintentos de RevenueCat), poda anual |
 
 **Separación de privacidad clave:** `profiles` guarda lo compartible (nombre, avatar,
@@ -685,7 +828,7 @@ más, y el endpoint rechaza con 401 cualquier llamada sin el secreto correcto (p
 
 | Zona | Pantallas |
 |---|---|
-| Acceso | intro de valor (3 slides), correo, código OTP |
+| Acceso | intro de valor (3 slides), entrar, crear cuenta, confirmar correo, olvidé mi contraseña, contraseña nueva |
 | Onboarding | perfil + teléfono, permisos con contexto, contactos, plan de acción, listo |
 | Tabs | Inicio, Círculo, Chats, Ajustes |
 | Modales | detalle de contacto, chat, plan de acción, agregar contactos, invitar, simulacro |
@@ -729,6 +872,10 @@ No alcanza con que compile. Se corrió en un iPhone 17 simulado (`expo prebuild 
 > Andamio de QA: para entrar al simulador sin depender del correo se creó el usuario
 > `qa.simulador@example.com` con contraseña temporal. **La contraseña ya se quitó.** La
 > cuenta sigue viva solo para poder seguir probando; **borrarla antes de lanzar.**
+>
+> Con el acceso por contraseña (§1.1.1) este andamio dejó de ser un caso especial: probar
+> ya no depende de interceptar un correo. La cuenta de demostración de App Review va a
+> ocupar este lugar, y esta se puede borrar.
 
 ---
 
@@ -864,10 +1011,24 @@ Siguiente bloque natural de trabajo, en orden:
 
 - **🟡 El fix del callejón sin salida de ubicación no está verificado en pantalla.**
   Compila, pasa lint y la app arranca en el simulador, pero las tres pantallas que cambian
-  (§1.6.3.1) están detrás del login y desde una sesión de agente no hay forma de
-  autenticarse: la cuenta de QA quedó sin contraseña a propósito y el código OTP llega a la
-  casilla del dueño. Falta recorrerlo a mano: conceder el permiso desde Ajustes y confirmar
-  que `user_status` queda con coordenadas y que los dos avisos desaparecen.
+  (§1.6.3.1) están detrás del login. Falta recorrerlo a mano: conceder el permiso desde
+  Ajustes y confirmar que `user_status` queda con coordenadas y que los dos avisos
+  desaparecen.
+  > Con el paso a contraseña (§1.1.1) esto **se destrabó**: antes una sesión de agente no
+  > podía autenticarse porque el código OTP llegaba a la casilla del dueño. Ahora alcanza
+  > con darle contraseña a una cuenta de prueba.
+- **🟡 Las cinco pantallas de acceso nuevas no están verificadas en pantalla.** Typecheck,
+  lint y el bundle de iOS en verde, y el registro contra el proyecto real devuelve 200 con
+  el correo saliendo (§1.1.2). Falta recorrer a mano el circuito completo: crear cuenta,
+  confirmar con el código, cerrar sesión, entrar, y recuperar la contraseña.
+- ~~**No hay forma de borrar la cuenta desde la app.**~~ y ~~**No se puede cambiar la
+  contraseña estando adentro.**~~ Las dos hechas el 2026-08-20 (§1.1.3), y el borrado
+  probado de punta a punta sobre una cuenta real.
+- **🔴 Falta la cuenta de demostración para App Review.** Es el motivo por el que se pasó a
+  contraseña (§1.1.1) y todavía no está hecha: hay que crear una cuenta con el onboarding
+  ya completo y contactos de ejemplo, y cargar sus credenciales en App Store Connect →
+  *App Review Information*. Una cuenta vacía deja al revisor mirando una pantalla sin nada
+  y es motivo de rechazo tanto como una que no abre.
 - **Frecuencia del cron sin decidir.** Ver el recuadro de §1.11: 2 min → 30 s gana ~45 s
   sobre ~6 min. Va después del push.
 - **Fortaleza del hash de teléfono.** Se hashea con SHA-256 más una sal fija que vive en
@@ -875,8 +1036,8 @@ Siguiente bloque natural de trabajo, en orden:
   que descompile la app: el espacio de móviles peruanos es forzable por fuerza bruta.
   Aceptable para el MVP; si el volumen crece, evaluar un esquema de intersección privada
   de conjuntos del lado del servidor.
-- **Avatar sin subir.** `avatarUrl` guarda hoy el URI local del dispositivo, así que la
-  foto se ve solo en el propio teléfono. Falta wirear Supabase Storage.
+- ~~**Avatar sin subir.**~~ Resuelto por eliminación el 2026-08-20: **no hay foto de
+  perfil** (§1.9.2.1). El avatar es de iniciales y no hay nada que subir.
 - **Chat grupal.** El backend ya lo soporta (`create_group_conversation`, con validación
   de que cada integrante sea contacto aceptado); falta la UI para crearlo.
 - **Simulacro en modo "avisar al círculo".** La opción existe en la UI y queda guardada
@@ -915,6 +1076,7 @@ donaciones.
 
 | Fecha | Qué pasó |
 |---|---|
+| 2026-08-20 | **Acceso por contraseña y adiós a la foto de perfil.** (1) El bug de *"Error sending confirmation email"* con correos ajenos resultó no ser de la app: Resend seguía mandando desde `onboarding@resend.dev`, que solo entrega a la casilla del dueño de la cuenta. El dominio `todosbien.app` ya estaba verificado con DKIM, SPF y MX —lo que faltaba era cambiar el *Sender email* en Supabase, que es **otro panel** (§1.1.2). Verificado contra el proyecto real: el registro con una dirección ajena pasó de 500 a 200, sin error en los logs. (2) El acceso pasó de código OTP a **correo + contraseña**, que es lo que exige App Review para poder entrar con una cuenta de demostración; de paso el correo deja de ser punto único de falla en cada ingreso (§1.1.1). Cinco pantallas donde había dos, con recuperación de contraseña por código en vez de link. Se descubrió al implementarlo que `verifyOtp({type:'recovery'})` **abre sesión antes** de que la contraseña nueva esté escrita, así que el guardia de navegación saca la pantalla de encima entre las dos llamadas: se resolvió validando antes, cerrando sesión si falla la escritura y avisando por `Alert`, lo único que sobrevive a la navegación. (3) **Eliminada la foto de perfil** (§1.9.2.1): guardaba el URI local del teléfono, o sea que solo se veía en el propio dispositivo, y hacerla real pedía Supabase Storage pago. Se fueron con ella el permiso de fotos de iOS y las dependencias `expo-image-picker` y `expo-image`. Typecheck, lint y bundle de iOS en verde; **las pantallas nuevas quedan sin verificar a mano** (ver Deudas). |
 | 2026-08-17 | Arranque. Decisiones 1.1 a 1.9 tomadas. Schema completo con RLS aplicado en Supabase, advisors corregidos, 12 tips sembrados, edge function `match-contacts` desplegada, RLS verificada con 17 aserciones contra la base real. Cliente Expo: infraestructura offline-first, acceso, onboarding de 4 pasos, tabs con barra nativa glass, Home en sus dos modos, círculo, chat, simulacro y ajustes. |
 | 2026-08-19 | **Un sismo real destapó que la ubicación nunca se sembraba.** Un M4,8 a 42 km de Lurín (49,1 km de Lima) no disparó alerta pese a estar dentro del radio y sobre el umbral. Diagnosticado contra la base: `user_status` sin coordenadas, así que la regla del radio de `get_active_alert()` ni se evaluaba. El fondo era un **callejón sin salida** de diseño —sin ubicación nunca hay alerta activa, y sin alerta activa nunca se captura ubicación— del que solo se salía reinstalando. Se descartaron las tres sospechas iniciales con datos: la ingesta funcionó (6 min del sismo a la base), el IGP no llegó tarde y el build del cliente es irrelevante porque la regla vive en el servidor (§1.6.3.1). Corregido con `syncLocationPermission()` en cada refresco, más aviso en Ajustes y en la Home. **De paso**: la pestaña Nacional se congelaba al volver del segundo plano, porque `useFocusEffect` no dispara si la pantalla ya estaba enfocada, y era la única lista sin pull-to-refresh (§1.6.4). Documentada también la **latencia real** y la decisión de **no hacer alerta temprana**: son 14 segundos hasta que llega la onda S, el SASPe ya existe y alerta por sirenas justamente porque un push no llega a tiempo (§1.11). Typecheck, lint y build de iOS en verde; **las pantallas nuevas quedan sin verificar a mano** (ver Deudas). |
 | 2026-08-19 | **Noticias Sísmicas** (§1.6.4): pestaña informativa con toggle Nacional/Global, detalle reutilizando el componente del banner de alerta, y bloqueo premium con vista previa ofuscada + pantalla de venta con los precios de la spec §13 (sin cobro: falta RevenueCat). Se agregó el feed `4.5_week` del USGS, sin el cual la lista Global habría estado casi vacía. **Cerrada una fuga premium** que venía de antes: las alertas mundiales no validaban `is_premium` y el usuario podía activárselas solo (§1.6.5). Verificado en simulador; se corrigió que el botón del paywall quedaba tapado por la tab bar. |

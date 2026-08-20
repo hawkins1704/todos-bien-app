@@ -1,10 +1,8 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -34,32 +32,16 @@ export default function OnboardingProfileScreen() {
 
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void kvGet<MyProfile>(KV.myProfile).then((profile) => {
       if (profile?.displayName) setDisplayName(profile.displayName);
-      if (profile?.avatarUrl) setAvatarUrl(profile.avatarUrl);
     });
   }, []);
 
   const nameOk = displayName.trim().length >= 2;
-
-  const pickAvatar = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.6,
-    });
-
-    if (!result.canceled && result.assets[0]) setAvatarUrl(result.assets[0].uri);
-  };
 
   const submit = async () => {
     if (!nameOk || !userId || saving) return;
@@ -68,7 +50,7 @@ export default function OnboardingProfileScreen() {
     setError(null);
 
     try {
-      await updateMyProfile(userId, { displayName: displayName.trim(), avatarUrl });
+      await updateMyProfile(userId, { displayName: displayName.trim() });
 
       const trimmedPhone = phone.trim();
       if (trimmedPhone) {
@@ -114,24 +96,12 @@ export default function OnboardingProfileScreen() {
           <OnboardingStep
             step={1}
             title="¿Cómo te van a ver?"
-            subtitle="Tu círculo te va a reconocer por este nombre y esta foto."
+            subtitle="Tu círculo te va a reconocer por este nombre."
           />
 
-          <Pressable
-            onPress={() => void pickAvatar()}
-            accessibilityRole="button"
-            accessibilityLabel="Elegir foto de perfil"
-            style={({ pressed }) => [styles.avatarPicker, pressed ? styles.pressed : null]}>
-            <Avatar
-              displayName={displayName || '?'}
-              avatarUrl={avatarUrl}
-              size={92}
-              status={null}
-            />
-            <Text variant="footnote" tone="accent" weight="600">
-              {avatarUrl ? 'Cambiar foto' : 'Agregar foto (opcional)'}
-            </Text>
-          </Pressable>
+          <View style={styles.avatarPreview}>
+            <Avatar displayName={displayName || '?'} size={92} status={null} />
+          </View>
 
           <View style={styles.field}>
             <Text variant="footnote" tone="secondary" weight="600">
@@ -203,7 +173,7 @@ export default function OnboardingProfileScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { gap: Spacing.lg, paddingHorizontal: Spacing.xl },
-  avatarPicker: { alignItems: 'center', gap: Spacing.sm },
+  avatarPreview: { alignItems: 'center' },
   field: { gap: Spacing.xs },
   input: {
     borderRadius: Radius.lg,
@@ -213,5 +183,4 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
   },
   cta: { marginTop: Spacing.sm },
-  pressed: { opacity: 0.7 },
 });

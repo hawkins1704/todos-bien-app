@@ -1,5 +1,4 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
@@ -7,9 +6,18 @@ import { initialsOf } from '@/lib/format';
 import { StatusIcons, StatusLabels, type StatusKey } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
+/**
+ * Avatar de iniciales sobre el color de marca.
+ *
+ * **No hay foto de perfil, a propósito.** Existió como selector de imagen, pero
+ * lo único que hacía era guardar el URI local del teléfono: la foto se veía en
+ * el propio dispositivo y en ningún otro. Hacerla funcionar de verdad pedía
+ * Supabase Storage, o sea almacenamiento y ancho de banda pagos por una función
+ * que no aporta nada al núcleo de la app —saber que tu gente está bien— cuando
+ * el círculo es de personas que ya se conocen por su nombre.
+ */
 export type AvatarProps = {
   displayName: string;
-  avatarUrl?: string | null;
   size?: number;
   /**
    * Estado que pinta el anillo, estilo "historias". Si es null no se dibuja
@@ -23,7 +31,6 @@ export type AvatarProps = {
 
 export function Avatar({
   displayName,
-  avatarUrl,
   size = 64,
   status = null,
   showStatusBadge = true,
@@ -59,38 +66,29 @@ export function Avatar({
         ]}
       />
 
-      {avatarUrl ? (
-        <Image
-          source={{ uri: avatarUrl }}
-          style={{ borderRadius: size / 2, height: size, width: size }}
-          contentFit="cover"
-          transition={150}
-        />
-      ) : (
-        <View
-          style={[
-            styles.fallback,
-            {
-              backgroundColor: colors.accent,
-              borderRadius: size / 2,
-              height: size,
-              width: size,
-            },
-          ]}>
-          {/* `lineHeight` va junto al `fontSize`, no puede quedar el del
-              variant: `headline` fija 22px y a partir de avatares grandes la
-              letra (0.36 × size) no entra en esa caja y se corta por abajo. */}
-          <Text
-            variant="headline"
-            style={{
-              color: colors.accentText,
-              fontSize: initialsSize,
-              lineHeight: Math.round(initialsSize * 1.2),
-            }}>
-            {initialsOf(displayName)}
-          </Text>
-        </View>
-      )}
+      <View
+        style={[
+          styles.initials,
+          {
+            backgroundColor: colors.accent,
+            borderRadius: size / 2,
+            height: size,
+            width: size,
+          },
+        ]}>
+        {/* `lineHeight` va junto al `fontSize`, no puede quedar el del variant:
+            `headline` fija 22px y a partir de avatares grandes la letra
+            (0.36 × size) no entra en esa caja y se corta por abajo. */}
+        <Text
+          variant="headline"
+          style={{
+            color: colors.accentText,
+            fontSize: initialsSize,
+            lineHeight: Math.round(initialsSize * 1.2),
+          }}>
+          {initialsOf(displayName)}
+        </Text>
+      </View>
 
       {status && showStatusBadge ? (
         <View
@@ -119,7 +117,7 @@ const styles = StyleSheet.create({
   wrapper: { alignItems: 'center', justifyContent: 'center' },
   dimmed: { opacity: 0.55 },
   ring: { position: 'absolute' },
-  fallback: { alignItems: 'center', justifyContent: 'center' },
+  initials: { alignItems: 'center', justifyContent: 'center' },
   badge: {
     alignItems: 'center',
     borderWidth: 2,

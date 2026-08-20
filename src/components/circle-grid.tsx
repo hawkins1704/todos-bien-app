@@ -62,7 +62,6 @@ export function CircleGrid({ members, activeQuakeId, showStatus }: CircleGridPro
             style={({ pressed }) => [styles.item, pressed ? styles.pressed : null]}>
             <Avatar
               displayName={member.displayName}
-              avatarUrl={member.avatarUrl}
               size={62}
               status={status}
               showStatusBadge={showStatus}
