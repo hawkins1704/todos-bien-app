@@ -96,7 +96,19 @@ export type ContactMatch = {
 export const FREE_DRILL_LIMIT = 3;
 
 /**
- * Un sismo se considera "activo" mientras la alerta sigue siendo accionable.
- * Pasado ese tiempo la Home vuelve al modo tranquilo (spec §5.2).
+ * Cuánto dura el modo alerta: **6 horas** desde la hora del sismo (spec §5.3).
+ *
+ * Pasado ese tiempo la Home vuelve sola al modo tranquilo. No hay nada que
+ * "cerrar" ni ningún estado que expirar en la base: el modo se deriva de
+ * `occurred_at`, así que el paso a tranquilo ocurre por el mero avance del reloj.
+ *
+ * ⚠️ **Este valor está duplicado en el servidor** y los dos tienen que moverse
+ * juntos: `get_active_alert()` filtra con `q.occurred_at > now() - interval
+ * '6 hours'` (migración 0010). Si acá fuera más largo, la Home entraría en modo
+ * alerta con un sismo que el servidor ya dejó de devolver y la pantalla quedaría
+ * sin datos; si fuera más corto, el servidor seguiría mandando un sismo que la
+ * app ya no muestra. No se puede compartir una constante entre TypeScript y SQL,
+ * así que lo único que los mantiene unidos es este comentario y el de la
+ * migración.
  */
 export const ACTIVE_ALERT_WINDOW_MS = 6 * 60 * 60 * 1000;

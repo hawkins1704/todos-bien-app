@@ -231,8 +231,10 @@ Si alguien toca eso, la app empieza a facturar.
 
 **Lo que sí cuesta y no se usa:** buscar un lugar por nombre es **Places API** y convertir
 coordenadas en dirección es **Geocoding API**, las dos de pago. Ninguna hace falta acá
-porque las coordenadas ya las tenemos. Es la trampa que espera al punto de encuentro
-premium: "toca el mapa y deja el pin" es $0, "escribe la dirección y búscala" no.
+porque las coordenadas ya las tenemos: los dos mapas son de **solo lectura** y no hay
+ninguna pantalla donde la persona elija un punto. Mientras eso siga así, el costo es cero
+por construcción y no por cuidado — y sigue así, porque el selector de punto de encuentro
+en mapa quedó descartado el 2026-08-20 (§1.2.2).
 
 **Se descartó MapLibre Native**, que era la alternativa realmente open source y sin Google.
 Para dos pines de solo lectura obliga a elegir y mantener un tile server (OpenFreeMap,
@@ -262,6 +264,98 @@ de mapas, que es donde de verdad se explora.
 `google.com/maps`, así que en un iPhone sin Google Maps instalada terminaba en el
 navegador. Ahora usa el esquema nativo: `https://maps.apple.com/?ll=` en iOS y `geo:` en
 Android, que respeta la app de mapas que la persona haya elegido por defecto.
+
+### 1.2.2 El punto de encuentro NO se marca en mapa — descartado, no pospuesto
+
+**Decisión (2026-08-20):** el plan de acción es texto, siempre. No va a existir un
+selector de punto de encuentro en mapa, ni en el tier gratuito ni en Premium.
+
+Estaba en la spec en dos lugares: §8 como "fase futura" y §13 como beneficio Premium
+("múltiples planes de acción con punto de encuentro marcado en mapa"). **Los dos se
+reescribieron**, no se marcaron como pendientes. Lo que sí queda de ese beneficio Premium
+son los **múltiples planes de acción** —uno para la casa, otro para el trabajo, otro para
+el colegio—, cada uno en texto.
+
+**Por qué.** Un punto de encuentro tiene que poder decirse en voz alta y recordarse de
+memoria, incluidos los niños, que son a quienes más les sirve. "El parque de la esquina"
+cumple; `-12.0464, -77.0428` no. Un pin en un mapa se ve bien en una captura de pantalla y
+falla justo en el escenario para el que existe: sin batería, sin señal, o con alguien que
+no es el dueño del teléfono tratando de acordarse de dónde había que ir.
+
+**Lo que NO cambia:** el tip *"Acuerda un punto de encuentro"* (migración 0005, fuente Cruz
+Roja Peruana) sigue igual y sigue recomendando la práctica. Descartamos mapearla en la app,
+no la práctica en la vida real — el tip incluso dice que se anote en el plan de acción, que
+es exactamente el campo de texto que ya existe.
+
+**Consecuencia técnica que conviene tener presente:** era la única funcionalidad del
+proyecto que iba a necesitar un mapa **interactivo**. Sin ella, los dos mapas de §1.2.1 son
+de solo lectura y no hay ninguna pantalla donde alguien elija un punto, así que la app
+nunca va a necesitar **Places API** ni **Geocoding API** —las dos de pago—. El costo de
+mapas queda en cero por diseño y no por vigilancia.
+
+### 1.2.3 "Mi ubicación" en modo alerta, y cuánto dura el modo alerta
+
+Dos cosas que salieron juntas el 2026-08-20.
+
+**1. La ubicación se puede actualizar a mano durante la alerta.**
+`src/components/my-location-card.tsx`, montada en la Home **después del círculo**.
+
+El hueco que cierra: la captura automática ocurre **una sola vez**, al dispararse la
+alerta, y responde "dónde estaba cuando ocurrió". Pero un sismo no termina en el instante
+del sismo — la persona evacúa, va al punto de encuentro, sale a buscar a alguien— y hasta
+ahora su círculo se quedaba hasta 6 horas mirando una posición que había dejado de ser
+cierta a los diez minutos, **sin ninguna señal de que estaba vieja**.
+
+Card aparte y no dentro de "Mi estado" porque son dos acciones distintas: cómo estoy y
+dónde estoy, y una se actualiza sin tocar la otra.
+
+**Dónde va, y el error que costó descubrirlo.** El primer intento la puso entre "Mi
+estado" y el círculo, agrupando lo que la persona reporta sobre sí misma. Se lee ordenado
+y estaba mal. Medido bloque por bloque en un iPhone de 852 pt: la tarjeta ocupa ~326 pt
+(mapa 150 + botón + nota + padding) y empujaba el arranque del círculo de y≈535 a **y≈877,
+o sea completamente fuera de pantalla**. Ver cómo está tu gente es el propósito de la app;
+que exija scroll durante un sismo no es un detalle de estética.
+
+**Comprimir no alcanzaba, y eso se midió antes de decidir:** borrar el mapa entero —lo más
+agresivo posible sin eliminar la funcionalidad— dejaba el círculo arrancando en y≈711,
+todavía pegado al borde inferior. El problema no era el tamaño de nada sino el **orden**.
+Movida detrás del círculo, este vuelve a y≈535 y entra completo, y la ubicación **asoma**
+abajo — que es exactamente lo que se quiere de una acción de seguimiento: se hace minutos
+después de mirar cómo está tu gente, no antes. Eso último es explícito en la UI
+("Tu estado no cambia") y en el código: el estado que se reescribe es
+`effectiveStatus ?? 'unconfirmed'`, no `myStatus.status`. **La diferencia importa**: si
+alguien reportó "estoy bien" en el sismo de la semana pasada y hoy solo actualiza su
+ubicación, copiar ese estado lo daría por confirmado en un evento en el que todavía no
+dijo nada, y el contador "X/Y confirmados" mentiría.
+
+**Esto NO es tracking, y la distinción es la que sostiene la promesa del producto.** La
+captura la dispara la persona tocando un botón; no hay `startLocationUpdatesAsync()` ni
+nada en segundo plano. Sigue valiendo la regla de oro de §1.2 —una captura automática, y
+solo cuando ocurre un sismo—; esto suma capturas **manuales** mientras la alerta está
+activa, que es exactamente cuando compartir dónde estás es el propósito de la app. Por eso
+la tarjeta **solo se monta en la rama de alerta** de la Home: fuera de una alerta no hay
+nada que avisar, y un botón para refrescar la posición sería el seguimiento que
+prometemos no hacer.
+
+**2. El modo alerta dura 6 horas, y ahora está escrito.**
+
+Ya duraba 6 horas —el valor existía en el código desde el principio— pero **no estaba en
+la spec**: solo vivía en `ACTIVE_ALERT_WINDOW_MS` y en el `interval '6 hours'` de
+`get_active_alert()`. Peor: el comentario de la constante decía "(spec §5.2)" y esa
+sección nunca dijo nada del plazo, así que la referencia mandaba a un lugar vacío. Ahora
+está en la spec como **§5.3**, con el razonamiento de por qué 6 y no menos ni más.
+
+El modo se **deriva** de `occurred_at`: no hay nada que cerrar ni ningún estado que
+expirar, el paso a tranquilo ocurre por el avance del reloj, sin escribir en la base y sin
+que importe si la app estaba abierta.
+
+⚠️ **Duplicación real que no se puede evitar:** el 6 vive en TypeScript y en SQL, y no hay
+forma de compartir una constante entre los dos. Si se separan, se rompe en las dos
+direcciones: con el cliente más largo, la Home entra en modo alerta con un sismo que el
+servidor ya no devuelve y la pantalla queda sin datos; con el cliente más corto, el
+servidor manda un sismo que la app no muestra. Quedó advertido en el JSDoc de la constante
+y en la spec §5.3. La migración 0010 **no se tocó**: ya está aplicada y reescribir una
+migración aplicada es peor que la duplicación.
 
 ### 1.3 Estilos — StyleSheet + tokens de tema
 
@@ -1514,6 +1608,15 @@ seguía sin existir.
 
 ### Deudas conocidas
 
+- **🟡 "Mi ubicación" en modo alerta no está verificada en dispositivo.** Typecheck, lint y
+  bundle de iOS en verde, pero **no se probó en el simulador a propósito**: el GPS del
+  simulador es una posición fija inventada, así que "me moví y actualizo" —que es
+  justamente lo que hay que comprobar— ahí no se puede observar. Falta en un teléfono real:
+  con una alerta activa (o un simulacro), ver el mapa con la posición propia, caminar unos
+  metros, tocar «Actualizar mi ubicación» y confirmar tres cosas — que el pin se mueve, que
+  `user_status` queda con las coordenadas nuevas, y que **el estado reportado no cambia**.
+  Probar también el camino sin permiso concedido, que debe abrir el diálogo hacia Ajustes
+  en vez de fallar en silencio. Ver §1.2.3.
 - **🟡 Los dos mapas embebidos no están verificados en pantalla.** Typecheck, lint y bundle
   de iOS en verde, y las props usadas están confirmadas contra los tipos de
   `react-native-maps` 1.27.2 (`cacheEnabled` y `userInterfaceStyle` en ambas plataformas,
@@ -1612,9 +1715,10 @@ seguía sin existir.
 ## 5. Fuera de alcance del MVP (documentado en la spec)
 
 Respaldo por SMS · historial extendido de ubicaciones · exportar PDF de preparación ·
-tier B2B · punto de encuentro en mapa (es premium; `react-native-maps` ya está instalado
-desde §1.2.1, lo que falta es el mapa **interactivo** para elegir el punto — y ojo con
-Places/Geocoding, que sí se pagan) · donaciones.
+tier B2B · donaciones.
+
+> El **punto de encuentro marcado en mapa** ya no figura acá: no está pospuesto, está
+> **descartado** (§1.2.2). "Fuera de alcance" significa "todavía no"; esto es "no".
 
 ---
 
@@ -1622,6 +1726,8 @@ Places/Geocoding, que sí se pagan) · donaciones.
 
 | Fecha | Qué pasó |
 |---|---|
+| 2026-08-20 | **"Mi ubicación" en la Home de alerta, y la ventana de 6 horas por fin escrita** (§1.2.3). La captura automática ocurre una sola vez, al dispararse la alerta, así que responde "dónde estaba cuando ocurrió" — pero la persona evacúa, va al punto de encuentro o sale a buscar a alguien, y su círculo se quedaba **hasta 6 horas mirando una posición vieja sin ninguna señal de que lo era**. Ahora hay una tarjeta con el mapa de la posición propia y un botón para volver a tomarla. **Va después del círculo, y el primer intento la puso antes**: medido en un iPhone de 852 pt, esos ~326 pt de tarjeta empujaban el arranque del círculo a y≈877 —fuera de pantalla— y ver cómo está tu gente es el propósito de la app. Comprimir no alcanzaba (sin mapa, el círculo seguía arrancando en y≈711): el problema era el orden, no el tamaño. **No es tracking**: la dispara la persona, no la app, y la tarjeta solo se monta en la rama de alerta — fuera de una alerta no hay nada que avisar y ese botón sería el seguimiento que prometemos no hacer. Detalle que no era obvio: actualizar la ubicación reescribe el estado como `effectiveStatus ?? 'unconfirmed'` y **no** como `myStatus.status`, porque copiar el estado crudo daría por confirmado en este sismo a quien reportó "estoy bien" en el anterior, y el contador "X/Y confirmados" mentiría. **Segundo hallazgo, de la pregunta que lo originó:** cuánto dura el modo alerta no estaba definido en ninguna parte salvo el código —6 h en `ACTIVE_ALERT_WINDOW_MS` y 6 h en el `interval` de `get_active_alert()`— y encima el comentario de la constante citaba "spec §5.2", una sección que nunca habló del plazo. Se escribió como **spec §5.3** con el porqué, y quedó advertida la duplicación TypeScript/SQL, que no tiene arreglo posible: no hay forma de compartir una constante entre los dos y separarlos rompe en ambas direcciones. La migración 0010 no se tocó, porque reescribir una migración ya aplicada es peor que la duplicación. |
+| 2026-08-20 | **El punto de encuentro en mapa queda descartado, no pospuesto** (§1.2.2). Salió de revisar §1.2.1: al documentar que Places API y Geocoding API son las dos que sí se pagan, quedó a la vista que la única funcionalidad que las iba a necesitar era el selector de punto de encuentro en mapa — y esa funcionalidad no convence por producto, no por costo. **Un lugar de reunión tiene que poder decirse en voz alta y recordarse de memoria, incluidos los niños; una coordenada no cumple ninguna de las dos**, y falla justo en el escenario para el que existe: sin batería, sin señal, o con alguien que no es el dueño del teléfono. Se reescribieron los dos lugares de la spec que lo prometían (§8 "fase futura" y §13 beneficio Premium) en vez de dejarlos como pendientes, y se sacó de "Fuera de alcance del MVP", que significa "todavía no" y acá corresponde "no". **Lo que sobrevive del beneficio Premium** son los múltiples planes de acción —casa, trabajo, colegio—, cada uno en texto. **Lo que no cambia** es el tip "Acuerda un punto de encuentro" (0005, Cruz Roja Peruana): se descartó mapear la práctica, no la práctica. Efecto lateral que vale la pena: sin ninguna pantalla donde alguien *elija* un punto, la app nunca va a tocar Places ni Geocoding, así que el costo de mapas queda en cero por diseño y no por vigilancia. |
 | 2026-08-20 | **Mapas embebidos, revirtiendo la decisión del MVP** (§1.2.1). El detalle del sismo y el del contacto muestran ahora un mini mapa con `react-native-maps` 1.27.2. La decisión anterior —solo deep link, sin mapa— se había tomado para evitar el costo y la API key de Google, y **el costo resultó no existir**: verificado contra la tabla de precios, el mapa nativo **sin Map ID** cae en el SKU `Maps SDK`, con tope "Unlimited" y precio "—". Lo que sí cobra es pedir un Map ID (SKU `Dynamic Maps`, 10.000/mes y luego $7 por millar), y eso lo exigen el *cloud styling*, los *Advanced Markers* y el *data-driven styling* — **por eso el tema oscuro se resuelve con `userInterfaceStyle` y no con `customMapStyle`**, que obligaría a Map ID y pondría a facturar la app. Descartados MapLibre (obliga a mantener un tile server a cambio de nada visible para dos pines de solo lectura) y `expo-maps` (su propia doc de SDK 57 lo declara **alpha** con "frequent breaking changes"). El mapa **no es interactivo a propósito**: vive dentro de un `ScrollView` y un mapa arrastrable le pelea el gesto al scroll, así que va con `cacheEnabled` —se renderiza una vez y se muestra como imagen— y el toque completo abre la app de mapas. En **Android no renderiza** mientras no exista la API key, porque sin ella Google pinta un rectángulo gris con su logo: se detecta leyendo el config plugin de `app.json`, para no tener una constante que se desincronice. **De paso**, `mapsUrl()` dejó de forzar Google: devolvía siempre `google.com/maps`, así que en un iPhone sin Google Maps instalada terminaba en el navegador; ahora usa `maps.apple.com` en iOS y `geo:` en Android, que respeta la app de mapas elegida por defecto. Typecheck, lint y bundle de iOS en verde; **sin verificar en pantalla todavía** (ver Deudas). |
 | 2026-08-20 | **Los permisos, como lista de tareas** (§1.14). Se cerró la deuda que hacía invisibles a todas las demás: los tres permisos se pedían **solo en el onboarding**, así que un toque apurado en «No permitir» dejaba a alguien sin esa capacidad para siempre, sin pista dentro de la app ni forma de arreglarlo. El caso concreto: de las tres cuentas del proyecto **solo una tenía token de push**, y por eso al amigo que probó las conexiones no le llegó nada — ni le habría llegado aunque los avisos de §1.13 hubieran existido antes. Ahora los tres viven en una tarjeta con la misma forma que el checklist de la Home, en verde / ámbar / plomo, y cada fila que falta dice **qué se pierde** en vez de solo pintarse de un color. Conceder notificaciones **registra el token en el acto**, que es el paso sin el cual conceder no sirve de nada. El rojo se dejó fuera a propósito: en esta app significa «necesito ayuda» (§1.4.1) y gastarlo en un permiso le quitaría el significado al que sí lo es. **Encontrado y corregido de paso** (§1.14.1): `app.json` declaraba `RECORD_AUDIO` y `WRITE_CONTACTS` y **nada en `src/` los usaba** — pedir el micrófono en una app de sismos es lo que un revisor de Play marca. Quitar el segundo del array **no alcanzaba**, porque el config plugin de `expo-contacts` lo agrega él mismo siempre; hizo falta `android.blockedPermissions`. Verificado corriendo `prebuild` y leyendo el manifiesto generado, que es la única forma de saberlo: los plugins escriben ahí, no en `app.json`. |
 | 2026-08-20 | **Limpieza de la fila de prueba de QA, y un descuido que apareció al hacerla.** Se borró la entrega de alerta insertada a mano en una sesión anterior (un M3,1 en **Alaska** a 9.517 km, con `quake_applies` diciendo `false`) y el aviso de «no responde» que colgaba de ella — en ese orden, porque al revés el cron la habría vuelto a encolar en el barrido siguiente. Comprobado después: las tres entregas que quedan son del M7,2 real, todas con la regla en `true` y jitter de 17 a 28 s, consistente con `random() * 30 s`. **El descuido:** `notification_deliveries` había quedado **sin poda**, cuando sus dos tablas hermanas la tienen desde el día uno — y es la que más crece, con una fila por mensaje de chat y por destinatario (migración 0017). |

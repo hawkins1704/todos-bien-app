@@ -82,9 +82,22 @@ depender solo del color, por accesibilidad ante daltonismo rojo-verde).
 - Selector rápido del propio estado ("Mi estado"), con los 3 estados manuales.
 - Grilla del círculo de contactos, cada uno como avatar circular con anillo de color
   según su estado (estilo "historias" de Instagram), y contador de "X/Y confirmados".
+- **Mi ubicación**: mapa de solo lectura con la posición propia y un botón para
+  actualizarla. La captura automática ocurre una sola vez, al dispararse la alerta, y
+  responde a "dónde estaba cuando ocurrió"; pero la persona evacúa, va al punto de
+  encuentro o sale a buscar a alguien, y su círculo se quedaría mirando una posición
+  vieja sin saber que lo es. El botón la vuelve a tomar **solo cuando la persona lo
+  toca**: no hay refresco automático ni seguimiento en segundo plano en ningún momento.
+  Actualizar la ubicación **no cambia el estado reportado**.
 - Banner de tip del día.
 - Chip/indicador de estado de conexión (ver sección 16.1), visible también en este
   estado.
+
+**El orden de arriba es el orden en pantalla, y es deliberado.** La grilla del círculo va
+antes que "Mi ubicación": ver cómo está tu gente es el propósito de la app y no puede
+exigir scroll, mientras que actualizar la propia posición es una acción de seguimiento que
+se hace minutos después. Cualquier bloque nuevo en esta pantalla va **debajo** del círculo
+salvo que haya una razón fuerte para lo contrario.
 
 ### 5.2 Sin alerta activa (la mayoría del tiempo)
 No repetir la lógica de "confirmar estado" cuando no hay nada que confirmar. En su
@@ -103,6 +116,31 @@ lugar:
 - El círculo de contactos se mantiene visible en modo neutral, como referencia rápida
   (último plan, última ubicación conocida), sin urgencia de "confirmar" nada.
 - Chip/indicador de estado de conexión (ver sección 16.1).
+
+### 5.3 Cuánto dura el modo alerta
+
+**6 horas desde la hora del sismo** (`occurred_at`, no la hora en que llegó el aviso).
+Cumplido el plazo la Home vuelve sola al modo tranquilo.
+
+No hay nada que cerrar ni ningún estado que expirar: el modo se **deriva** de la hora del
+sismo, así que el paso a tranquilo ocurre por el mero avance del reloj, sin escribir nada
+en la base y sin que importe si la app estaba abierta o cerrada.
+
+Por qué 6 h y no menos: es la ventana en la que todavía tiene sentido reportarse y
+moverse. Alguien que estaba en la calle o sin señal puede tardar horas en poder abrir la
+app, y el propósito de la pantalla —decirle a tu círculo cómo y dónde estás— sigue vigente
+todo ese tiempo. Por qué no más: pasado ese punto la información deja de ser una respuesta
+de emergencia y pasa a ser historial, y mantener la Home en rojo cuando ya no hay nada que
+hacer desgasta la señal para la próxima vez.
+
+Durante esas 6 horas la ubicación se puede actualizar cuantas veces se quiera con el botón
+de §5.1. Fuera de la ventana no, y eso es deliberado: sin alerta activa no hay nada que
+avisar, y un botón para refrescar la posición sería el seguimiento que la app promete no
+hacer (ver §8, nota técnica).
+
+⚠️ **El valor vive en dos lugares que hay que mover juntos**: `ACTIVE_ALERT_WINDOW_MS` en
+`src/types/domain.ts` y el `interval '6 hours'` de `get_active_alert()` en la migración
+0010. No se puede compartir una constante entre TypeScript y SQL.
 
 ## 6. Fuente y disparo de alertas sísmicas
 
@@ -151,16 +189,23 @@ un sismo "en tu zona" (ver defaults en sección 6).
 
 - Campo de texto libre (ej. "ir al parque de la vuelta de mi casa") en v1.
 - Se muestra junto con la última ubicación registrada del contacto al tocar su ícono.
-- Fase futura (no en MVP): punto de encuentro marcable en mapa, plan alterno, contacto
-  de referencia fuera de la zona.
+- Fase futura (no en MVP): plan alterno, contacto de referencia fuera de la zona.
+
+**El plan de acción es siempre texto.** El punto de encuentro se describe con palabras
+("el parque de la esquina", "la plaza de enfrente"), nunca se marca en un mapa. Decidido
+el 2026-08-20: **no habrá selector de punto de encuentro en mapa**, ni gratis ni premium.
+Un lugar de reunión tiene que poder decirse en voz alta y recordarse de memoria —
+incluidos los niños, que es a quienes más les sirve — y una coordenada no cumple ninguna
+de las dos. El tip "Acuerda un punto de encuentro" sigue existiendo y sigue recomendando
+la práctica; lo que no existe es mapearla.
 
 **Nota técnica sobre ubicación**: obtener las coordenadas GPS del teléfono (para
 "última ubicación registrada") se hace directamente con `expo-location`, sin ningún
-API externo ni costo. En el MVP, no renderizar un mapa embebido para esto — mostrar
-las coordenadas o un botón "Abrir en Google Maps" (deep link a la app de mapas del
-teléfono, sin API key). Un SDK de mapas (`react-native-maps`, que en Android requiere
-API key de Google Maps con tier gratuito amplio) solo es necesario para la función
-premium de plan de acción con punto de encuentro marcado en mapa — no antes.
+API externo ni costo. Desde el 2026-08-20 **sí hay mapas embebidos**, pero son de solo
+lectura: reciben una coordenada y la dibujan, en el detalle del sismo y en el del
+contacto. No facturan nada (ver `docs/ESTADO-DEL-PROYECTO.md` §1.2.1). Como no existe
+ninguna pantalla donde la persona *elija* un punto, la app **no usa Places API ni
+Geocoding API**, que son las dos que sí se pagan.
 
 ## 9. Modo simulacro
 
@@ -219,8 +264,8 @@ permisos y la revisión de las tiendas de apps).
 - Alertas de sismos en otras ciudades del Perú y, si es técnicamente viable, de otras
   partes del mundo (misma fuente USGS, sin filtro geográfico).
 - Simulacros ilimitados.
-- Múltiples planes de acción con punto de encuentro marcado en mapa (casa, trabajo,
-  colegio).
+- Múltiples planes de acción, uno por situación (casa, trabajo, colegio). Cada uno en
+  texto, igual que el plan único del tier gratuito.
 
 ### Explícitamente fuera de alcance del MVP (documentado para fase futura)
 - Respaldo por SMS (buen valor potencial, pero implica sumar un proveedor de SMS y

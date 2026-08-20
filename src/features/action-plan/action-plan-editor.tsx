@@ -10,9 +10,13 @@ import { useTheme } from '@/theme/use-theme';
 const MAX_LENGTH = 1000;
 
 /**
- * Plan de acción en texto libre (spec §8, v1).
+ * Plan de acción en texto libre (spec §8).
  *
- * El punto de encuentro marcado en mapa es premium y de fase futura: no va acá.
+ * **El texto no es una etapa previa a un mapa.** Marcar el punto de encuentro en un mapa
+ * estuvo en la spec como fase futura y quedó **descartado** el 2026-08-20
+ * (docs/ESTADO-DEL-PROYECTO.md §1.2.2): un lugar de reunión sirve si se puede decir en voz
+ * alta y recordar de memoria, y una coordenada no cumple ninguna de las dos. Lo que sí
+ * sigue en pie para Premium son varios planes de este mismo tipo, uno por situación.
  */
 const EXAMPLES = [
   'Salir al parque de la esquina de la casa y esperar ahí.',

@@ -9,6 +9,7 @@ import { CalmBanner } from '@/components/calm-banner';
 import { CircleGrid } from '@/components/circle-grid';
 import { ConnectionChip } from '@/components/connection-chip';
 import { DrillBanner } from '@/components/drill-banner';
+import { MyLocationCard } from '@/components/my-location-card';
 import { PreparednessChecklist } from '@/components/preparedness-checklist';
 import { QuakeCard } from '@/components/quake-card';
 import { StatusPicker } from '@/components/status-picker';
@@ -187,6 +188,30 @@ export default function HomeScreen() {
                 <CircleGrid members={accepted} activeQuakeId={activeQuake.id} showStatus />
               </View>
             </Card>
+
+            {/*
+              Va DESPUÉS del círculo, no antes.
+
+              El primer intento la puso entre "Mi estado" y el círculo, agrupando
+              lo que la persona reporta sobre sí misma. Se lee ordenado y estaba
+              mal: la tarjeta mide ~326 pt y empujaba el círculo a y≈877 en un
+              iPhone de 852, o sea **completamente fuera de pantalla**. Ver a tu
+              gente es el propósito de la app; que exija scroll durante un sismo
+              es un error de prioridad, no de estética.
+
+              Comprimirla no alcanzaba: aun borrando el mapa entero el círculo
+              seguía arrancando cerca del borde inferior. El orden era el
+              problema. Acá la ubicación asoma bajo el círculo, que es justo lo
+              que se quiere de una acción de seguimiento — la haces minutos
+              después de mirar cómo está tu gente, no antes.
+            */}
+            <MyLocationCard
+              myStatus={myStatus}
+              activeQuakeId={activeQuake.id}
+              effectiveStatus={myEffectiveStatus}
+              isDrill={isDrilling}
+              onUpdated={reloadLocal}
+            />
 
             {tip ? <TipCard tip={tip} variant="compact" onNext={nextTip} /> : null}
           </>
