@@ -12,7 +12,7 @@ import { useAppData } from '@/context/app-data';
 import { useAuth } from '@/context/auth';
 import { ensureInitialLocation } from '@/lib/alert-response';
 import { updateMySettings } from '@/lib/api';
-import { registerPushToken } from '@/lib/notifications';
+import { syncPushToken } from '@/lib/notifications';
 import { syncMe } from '@/lib/sync';
 import { Radius, Spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
@@ -42,8 +42,9 @@ export default function OnboardingReadyScreen() {
 
       await syncMe(userId);
 
-      // Sale sin ruido mientras las credenciales de push no estén listas.
-      await registerPushToken(userId).catch(() => null);
+      // Sale sin ruido si falta el permiso o las credenciales. Si acá no queda
+      // registrado, lo recoge el refresco (ver syncPushToken).
+      await syncPushToken(userId).catch(() => false);
 
       markOnboardingComplete();
       await refresh();

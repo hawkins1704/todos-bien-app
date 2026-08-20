@@ -19,6 +19,7 @@ import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
 import { useDrill } from '@/context/drill';
 import { useDailyTip } from '@/hooks/use-daily-tip';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { captureLocationForActiveAlert } from '@/lib/alert-response';
 import { isOlderThan, timeAgo } from '@/lib/format';
 import { captureLocationOnce } from '@/lib/location';
@@ -45,13 +46,13 @@ export default function HomeScreen() {
     tips,
     lastMonitoringCheck,
     online,
-    syncing,
     pendingWrites,
     refresh,
     reloadLocal,
   } = useAppData();
 
   const { tip, next: nextTip } = useDailyTip(tips);
+  const { refreshing, onRefresh } = usePullToRefresh(refresh);
   const [reporting, setReporting] = useState(false);
 
   const alertActive = isAlertActive(activeQuake);
@@ -116,8 +117,8 @@ export default function HomeScreen() {
           // El spinner se ancla al borde del ScrollView, que sin simulacro
           // empieza en y=0. Sin este offset queda tapado por el status bar.
           <RefreshControl
-            refreshing={syncing}
-            onRefresh={() => void refresh()}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
             progressViewOffset={topInset}
             tintColor={colors.textSecondary}
           />

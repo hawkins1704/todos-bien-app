@@ -39,6 +39,33 @@ export type OutboxItem = {
   lastError: string | null;
 };
 
+/**
+ * Avisa cuando la cola cambia de tamaño.
+ *
+ * El contador "N cambios por enviar" es estado que vive fuera de React y que
+ * cambia por su cuenta: el vaciado del outbox es asíncrono y nadie lo espera.
+ * Sin este aviso, la única forma de que la UI se enterara era volver a leer
+ * SQLite, y eso solo pasaba en el refresco. Consecuencia real: reportabas "estoy
+ * bien", la escritura salía de inmediato, y la pantalla seguía diciendo "1
+ * cambio por enviar" hasta el próximo pull-to-refresh. En una app donde ese
+ * cartel significa "tu círculo todavía no sabe cómo estás", mentir para el lado
+ * del miedo no es un detalle cosmético.
+ */
+type OutboxListener = () => void;
+
+const listeners = new Set<OutboxListener>();
+
+export function onOutboxChange(listener: OutboxListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function notifyOutboxChange(): void {
+  for (const listener of listeners) listener();
+}
+
 export async function enqueue(kind: OutboxKind, payload: unknown): Promise<void> {
   const db = await getDb();
 
@@ -54,6 +81,8 @@ export async function enqueue(kind: OutboxKind, payload: unknown): Promise<void>
     JSON.stringify(payload),
     new Date().toISOString(),
   );
+
+  notifyOutboxChange();
 }
 
 export async function readPending(limit = 50): Promise<OutboxItem[]> {
@@ -80,6 +109,7 @@ export async function readPending(limit = 50): Promise<OutboxItem[]> {
 export async function markSent(id: number): Promise<void> {
   const db = await getDb();
   await db.runAsync('DELETE FROM outbox WHERE id = ?', id);
+  notifyOutboxChange();
 }
 
 export async function markFailed(id: number, error: string): Promise<void> {

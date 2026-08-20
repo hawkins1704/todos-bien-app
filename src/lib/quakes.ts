@@ -1,3 +1,4 @@
+import { describePlace } from '@/lib/geo';
 import { ACTIVE_ALERT_WINDOW_MS, type QuakeEvent } from '@/types/domain';
 
 /**
@@ -19,15 +20,15 @@ export function isAlertActive(quake: QuakeEvent | null, now = Date.now()): boole
 }
 
 /**
- * Nombre corto de zona para el banner: el IGP y el USGS devuelven cadenas
- * largas como "34 km al S de Mala, Cañete - Lima".
+ * Nombre corto de zona: el IGP y el USGS devuelven cadenas largas como
+ * "34 km al S de Mala, Cañete - Lima" o "63 km NNE of Ruteng, Indonesia".
+ *
+ * Delega en `describePlace` para que haya **un solo** parser. La versión que
+ * había acá solo entendía el " de " del IGP, así que con el USGS devolvía
+ * "63 km NNE of Ruteng": dejaba el prefijo en inglés y tiraba el país.
  */
 export function shortPlace(quake: QuakeEvent): string {
-  const place = quake.place?.trim();
-  if (!place) return 'Zona no especificada';
-
-  const afterDistance = place.split(/\s+de\s+/i).slice(1).join(' de ') || place;
-  return afterDistance.split(/\s*[-,]\s*/)[0]?.trim() || place;
+  return describePlace(quake.place, quake.source).spot;
 }
 
 /**

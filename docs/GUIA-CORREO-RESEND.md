@@ -1,4 +1,23 @@
-# Guía: el correo de la app (Resend + Supabase)
+# El correo de la app (Resend + Supabase)
+
+> **Estado: funcionando** (verificado el 2026-08-20 contra los logs de auth). Este archivo
+> no es una lista de tareas: es el **registro de una configuración que vive fuera del
+> repo**. El remitente, el SMTP y el HTML de las plantillas solo existen dentro de los
+> dashboards de Supabase y Resend, así que si algo se rompe o se rota una clave, esto es lo
+> único que dice cuáles eran los valores buenos.
+>
+> Lo que dicen los logs: `/otp` devolvió **500** tres veces entre las 00:50 y las 07:55 del
+> 20/08 con el error `550 You can only send testing emails…`, y a partir de las 08:11
+> `/recover` y `/signup` responden 200. O sea que el problema descrito más abajo **no es
+> teórico ni viejo**: ocurrió, y el arreglo fue exactamente el que está documentado acá.
+>
+> Consulta útil para volver a mirarlo:
+>
+> ```sql
+> -- MCP de Supabase, o Logs Explorer
+> select timestamp, log_attributes['path'], log_attributes['status'], log_attributes['error']
+> from logs where source = 'auth_logs' order by timestamp desc
+> ```
 
 Desde el 2026-08-20 el acceso es **correo + contraseña**, no código OTP. El correo dejó de
 ser la puerta de entrada, pero sigue haciendo falta en dos momentos:

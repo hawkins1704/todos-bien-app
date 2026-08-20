@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { respondToConnection } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { effectiveStatus, isAlertActive } from '@/lib/quakes';
@@ -22,9 +23,9 @@ export default function CircleScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
-  const { accepted, incomingRequests, outgoingRequests, activeQuake, syncing, refresh } =
-    useAppData();
+  const { accepted, incomingRequests, outgoingRequests, activeQuake, refresh } = useAppData();
 
+  const { refreshing, onRefresh } = usePullToRefresh(refresh);
   const [responding, setResponding] = useState<string | null>(null);
   const alertActive = isAlertActive(activeQuake);
 
@@ -49,8 +50,8 @@ export default function CircleScreen() {
           // El spinner se ancla al borde del ScrollView, que acá empieza en y=0
           // (debajo del status bar). Sin este offset queda tapado por el reloj.
           <RefreshControl
-            refreshing={syncing}
-            onRefresh={() => void refresh()}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
             progressViewOffset={insets.top}
             tintColor={colors.textSecondary}
           />

@@ -10,6 +10,8 @@ export const KV = {
   lastQuakeCheck: 'last_quake_check',
   activeDrillId: 'active_drill_id',
   pendingInviteCode: 'pending_invite_code',
+  /** Último token de push que se escribió en el servidor (ver `syncPushToken`). */
+  pushToken: 'push_token',
 } as const;
 
 export async function kvGet<T>(key: string): Promise<T | null> {

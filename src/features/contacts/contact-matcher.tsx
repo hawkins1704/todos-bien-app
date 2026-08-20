@@ -62,7 +62,11 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
 
       setMatches(found);
       setPhase('done');
-    } catch {
+    } catch (caught) {
+      // El `catch` mudo que había acá fue medio bug: la pantalla decía "intenta
+      // de nuevo" ante un fallo que no se arreglaba reintentando nunca, y el
+      // motivo no aparecía en ningún lado del cliente.
+      console.warn('[contactos] falló la revisión de la agenda', caught);
       setError('No pudimos revisar tu agenda. Intenta de nuevo.');
       setPhase('idle');
     }

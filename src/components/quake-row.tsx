@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { magnitudeSeverity } from '@/components/quake-card';
 import { Text } from '@/components/ui/text';
 import { elapsedShort, formatMagnitude } from '@/lib/format';
-import { shortPlace } from '@/lib/quakes';
+import { describePlace } from '@/lib/geo';
 import { Radius, Spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import type { QuakeEvent } from '@/types/domain';
@@ -23,14 +23,25 @@ export function QuakeRow({
   quake,
   onPress,
   blurred = false,
+  showRegion = false,
 }: {
   quake: QuakeEvent;
   onPress?: () => void;
   /** Vista previa bloqueada: se ofusca el contenido, no se puede tocar. */
   blurred?: boolean;
+  /**
+   * Agrega la línea de país y continente.
+   *
+   * Se enciende solo en el feed global. En el nacional todos los sismos son de
+   * Perú, así que repetir "Perú · América del Sur" en cada fila sería ruido en
+   * la línea donde debería ir información.
+   */
+  showRegion?: boolean;
 }) {
   const { colors, status } = useTheme();
   const palette = status[magnitudeSeverity(quake.magnitude)];
+  const lugar = describePlace(quake.place, quake.source);
+  const region = showRegion ? lugar.label : null;
 
   return (
     <Pressable
@@ -40,7 +51,7 @@ export function QuakeRow({
       accessibilityLabel={
         blurred
           ? 'Contenido premium bloqueado'
-          : `Sismo de magnitud ${formatMagnitude(quake.magnitude)} en ${shortPlace(quake)}, ${elapsedShort(quake.occurredAt)}`
+          : `Sismo de magnitud ${formatMagnitude(quake.magnitude)} en ${lugar.spot}${region ? `, ${region.replace(' · ', ', ')}` : ''}, ${elapsedShort(quake.occurredAt)}`
       }
       style={({ pressed }) => [
         styles.row,
@@ -54,8 +65,19 @@ export function QuakeRow({
 
       <View style={styles.copy}>
         <Text variant="callout" weight="500" numberOfLines={1}>
-          {blurred ? '••••••••••••••••' : shortPlace(quake)}
+          {blurred ? '••••••••••••••••' : lugar.spot}
         </Text>
+
+        {blurred && showRegion ? (
+          <Text variant="caption" tone="secondary" numberOfLines={1}>
+            ••••••••, ••••
+          </Text>
+        ) : region ? (
+          <Text variant="caption" tone="secondary" numberOfLines={1}>
+            {region}
+          </Text>
+        ) : null}
+
         <View style={styles.meta}>
           <Text variant="caption" tone="tertiary">
             {blurred ? '••••••' : elapsedShort(quake.occurredAt)}

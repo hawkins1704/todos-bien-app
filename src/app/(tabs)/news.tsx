@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -13,16 +13,35 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MagnitudeLegend } from '@/components/magnitude-legend';
 import { PremiumCta } from '@/components/premium-cta';
 import { QuakeRow } from '@/components/quake-row';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { fetchQuakeFeed, PremiumRequiredError, type QuakeFeedScope } from '@/lib/api';
 import { Radius, Spacing, TabBarExtraInset } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import type { QuakeEvent } from '@/types/domain';
+
+/**
+ * Cuánto tiempo se considera fresca una lista ya traída.
+ *
+ * No es un número elegido a ojo: **la ingesta corre cada 2 minutos**
+ * (`pg_cron` → `ingest-quakes`, migración 0007). Pedir el feed más seguido que
+ * eso no puede traer nada que no esté ya en pantalla; es un viaje garantizado a
+ * cambio de nada.
+ */
+const FEED_FRESH_MS = 2 * 60 * 1000;
+
+type Feed = {
+  quakes: QuakeEvent[];
+  /** El servidor cortó por falta de premium (o se cortó antes de pedirlo). */
+  locked: boolean;
+  fetchedAt: number;
+};
 
 /**
  * Noticias Sísmicas: pantalla puramente informativa, separada del flujo de
@@ -30,6 +49,23 @@ import type { QuakeEvent } from '@/types/domain';
  *
  * No dispara nada ni pide confirmar estado — para eso está la Home. Acá el
  * usuario explora sismos por su cuenta.
+ *
+ * **Cuándo se pide el feed (revisado el 2026-08-20).** Antes se pedía en cada
+ * foco de la pestaña, así que cambiar de tab y volver recargaba entero y dejaba
+ * la pantalla en blanco con un spinner. Y cambiar Nacional/Global pedía **dos
+ * veces**: una desde el handler y otra porque al cambiar `scope` cambiaba la
+ * identidad del callback de `useFocusEffect`, que volvía a dispararlo.
+ *
+ * Ahora los mismos disparadores siguen ahí —foco, volver del segundo plano— pero
+ * pasan por un chequeo de frescura contra `FEED_FRESH_MS`, y cada scope guarda
+ * lo suyo. Volver a una lista traída hace 20 segundos no pide nada y se ve al
+ * instante. El pull-to-refresh **siempre** fuerza: si la persona lo pide a mano,
+ * no se le contesta con una caché.
+ *
+ * No hay temporizador que recargue solo mientras la pantalla está abierta. Esta
+ * pestaña no es el canal de alertas —eso es la Home, y a futuro el push (§3)— y
+ * un sismo tarda 4 a 6 minutos en publicarse de todos modos (§1.11): quien esté
+ * esperando uno recién ocurrido va a tirar de la lista.
  */
 export default function NewsScreen() {
   const insets = useSafeAreaInsets();
@@ -38,11 +74,19 @@ export default function NewsScreen() {
   const { mySettings } = useAppData();
 
   const [scope, setScope] = useState<QuakeFeedScope>('nacional');
-  const [quakes, setQuakes] = useState<QuakeEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [bloqueado, setBloqueado] = useState(false);
+  const [feed, setFeed] = useState<Feed | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Lo traído de cada scope. Va en un ref y no en estado a propósito: si `load`
+   * dependiera de un estado que él mismo escribe, cambiaría de identidad en cada
+   * fetch y volvería a disparar el efecto de foco. Ese es exactamente el ciclo
+   * que causaba las recargas de más.
+   */
+  const cache = useRef(new Map<QuakeFeedScope, Feed>());
+
+  /** El scope vigente, legible desde callbacks sin volverlos a crear. */
+  const scopeRef = useRef<QuakeFeedScope>('nacional');
 
   const isPremium = mySettings?.isPremium ?? false;
 
@@ -51,49 +95,74 @@ export default function NewsScreen() {
   const fondo = insets.bottom + TabBarExtraInset;
 
   const load = useCallback(
-    async (target: QuakeFeedScope, modo: 'inicial' | 'refresco' = 'inicial') => {
-      // En un refresco no se vacía la pantalla a un spinner: la lista que ya
-      // está en pantalla sigue siendo válida hasta que llegue la nueva.
-      if (modo === 'inicial') setLoading(true);
-      else setRefreshing(true);
-      setError(null);
+    async (target: QuakeFeedScope, { force = false }: { force?: boolean } = {}) => {
+      const guardado = cache.current.get(target);
+      const esElVisible = () => scopeRef.current === target;
+
+      if (!force && guardado && Date.now() - guardado.fetchedAt < FEED_FRESH_MS) return;
+
+      if (esElVisible()) setError(null);
+
+      const guardar = (nuevo: Feed) => {
+        cache.current.set(target, nuevo);
+        if (esElVisible()) setFeed(nuevo);
+      };
 
       // Sin premium ni siquiera se pide el feed global: el servidor lo
       // rechazaría igual, y así se evita el viaje.
       if (target === 'global' && !isPremium) {
-        setBloqueado(true);
-        setQuakes([]);
-        setLoading(false);
-        setRefreshing(false);
+        guardar({ quakes: [], locked: true, fetchedAt: Date.now() });
         return;
       }
 
       try {
-        setQuakes(await fetchQuakeFeed(target));
-        setBloqueado(false);
+        guardar({ quakes: await fetchQuakeFeed(target), locked: false, fetchedAt: Date.now() });
       } catch (caught) {
         if (caught instanceof PremiumRequiredError) {
-          setBloqueado(true);
-          setQuakes([]);
-        } else {
+          guardar({ quakes: [], locked: true, fetchedAt: Date.now() });
+        } else if (esElVisible()) {
+          // El error se muestra igual cuando ya hay lista: un refresco que
+          // falla en silencio deja creyendo que los datos están al día.
           setError('No pudimos cargar los sismos. Revisa tu conexión.');
         }
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
       }
     },
     [isPremium],
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      void load(scope);
-    }, [load, scope]),
+  /**
+   * El spinner de tirar-para-refrescar lo maneja el hook, no `load`: así los
+   * refrescos automáticos (foco, volver del segundo plano) revalidan en
+   * silencio. Prenderlo por código dejaba el spinner trabado — ver
+   * `usePullToRefresh`.
+   *
+   * Fuerza siempre: si la persona tira de la lista a mano, no se le contesta con
+   * una caché por más fresca que esté. Lee `scopeRef` en vez de `scope` para no
+   * cambiar de identidad al cambiar de pestaña.
+   */
+  const { refreshing, onRefresh } = usePullToRefresh(
+    useCallback(() => load(scopeRef.current, { force: true }), [load]),
   );
 
   /**
-   * Refrescar al volver del segundo plano.
+   * Al pasar a premium, lo guardado del feed global es una vista bloqueada que
+   * ya no corresponde. Se descarta para que la próxima visita lo pida de verdad.
+   */
+  useEffect(() => {
+    if (!isPremium) return;
+    if (cache.current.get('global')?.locked) cache.current.delete('global');
+  }, [isPremium]);
+
+  // `scopeRef` en vez de `scope`: si el callback cambiara al cambiar de scope,
+  // `useFocusEffect` lo volvería a ejecutar y se pediría dos veces.
+  useFocusEffect(
+    useCallback(() => {
+      void load(scopeRef.current);
+    }, [load]),
+  );
+
+  /**
+   * Volver del segundo plano.
    *
    * `useFocusEffect` NO alcanza: solo dispara al enfocar la pantalla por
    * navegación. Si la app se manda a segundo plano con esta pestaña ya abierta
@@ -101,25 +170,37 @@ export default function NewsScreen() {
    * Pasó de verdad: un M4,8 en Lurín estaba en el IGP y en nuestra base a los 6
    * minutos, y la app seguía mostrando la lista vieja sin forma de forzarla,
    * porque tampoco había pull-to-refresh.
+   *
+   * No fuerza: pasa por el chequeo de frescura. Volver a la app diez segundos
+   * después no puede traer nada nuevo; volver una hora después, sí.
    */
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void load(scope, 'refresco');
+      if (state === 'active') void load(scopeRef.current);
     });
     return () => subscription.remove();
-  }, [load, scope]);
+  }, [load]);
 
   const cambiarScope = (target: QuakeFeedScope) => {
+    if (target === scope) return;
+    scopeRef.current = target;
     setScope(target);
+    setError(null);
+    // Lo ya visto se pinta al instante; `load` decide si además hace falta pedir.
+    setFeed(cache.current.get(target) ?? null);
     void load(target);
   };
+
+  const quakes = feed?.quakes ?? [];
+  const bloqueado = feed?.locked ?? false;
+  const loading = !feed && !error;
 
   // El spinner no necesita `progressViewOffset`: a diferencia de la Home, acá la
   // lista arranca debajo del encabezado, que ya reservó el safe area de arriba.
   const refreshControl = (
     <RefreshControl
       refreshing={refreshing}
-      onRefresh={() => void load(scope, 'refresco')}
+      onRefresh={onRefresh}
       tintColor={colors.textSecondary}
     />
   );
@@ -174,6 +255,20 @@ export default function NewsScreen() {
             ? 'Sismos en Perú de los últimos 7 días · fuente IGP'
             : 'Sismos en el mundo de los últimos 7 días, magnitud 4,5 o más · fuente USGS'}
         </Text>
+
+        {/* La leyenda se calla en la vista bloqueada: ahí las filas son muestras
+            inventadas y explicar su color sería darles una credibilidad que no
+            tienen. */}
+        {!bloqueado ? <MagnitudeLegend /> : null}
+
+        {/* Con lista en pantalla, un refresco que falla se avisa acá y la lista
+            se queda: borrar datos buenos por un fallo de red es peor que
+            mostrarlos un poco viejos. */}
+        {error && feed ? (
+          <Text variant="caption" tone="danger">
+            {error} Mostrando la última lista que pudimos traer.
+          </Text>
+        ) : null}
       </View>
 
       {loading ? (
@@ -182,7 +277,7 @@ export default function NewsScreen() {
         </View>
       ) : bloqueado ? (
         <ListaBloqueada />
-      ) : error ? (
+      ) : !feed ? (
         // Scrolleable a propósito, aunque no haya nada que scrollear: es el
         // único modo de reintentar. Un error sin salida obliga a cambiar de
         // pestaña y volver para que se dispare el foco.
@@ -215,7 +310,13 @@ export default function NewsScreen() {
             <View style={[styles.separador, { backgroundColor: colors.border }]} />
           )}
           renderItem={({ item }) => (
-            <QuakeRow quake={item} onPress={() => router.push(`/quake/${item.id}`)} />
+            <QuakeRow
+              quake={item}
+              // Solo en Global: en Nacional todos son de Perú y repetirlo en
+              // cada fila ocuparía la línea sin decir nada.
+              showRegion={scope === 'global'}
+              onPress={() => router.push(`/quake/${item.id}`)}
+            />
           )}
           ListHeaderComponent={
             <Text variant="caption" tone="tertiary" style={styles.contador}>
@@ -269,7 +370,9 @@ function ListaBloqueada() {
       <View style={styles.muestras} pointerEvents="none">
         {muestras.map((quake, index) => (
           <View key={quake.id} style={{ opacity: 0.55 - index * 0.07 }}>
-            <QuakeRow quake={quake} blurred />
+            {/* `showRegion` para que la vista previa tenga el mismo alto que la
+                lista real: si no, al pagar las filas crecerían de golpe. */}
+            <QuakeRow quake={quake} blurred showRegion />
           </View>
         ))}
       </View>

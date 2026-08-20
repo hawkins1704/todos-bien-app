@@ -7,7 +7,9 @@ import { syncLocationPermission } from '@/lib/alert-response';
 import { readCircle } from '@/lib/db/circle';
 import { getDb } from '@/lib/db';
 import { KV, kvGet } from '@/lib/db/kv';
-import { pendingCount } from '@/lib/db/outbox';
+import { syncPushToken } from '@/lib/notifications';
+import { onOutboxChange, pendingCount } from '@/lib/db/outbox';
+import { supabase } from '@/lib/supabase';
 import { flushOutbox, syncEverything } from '@/lib/sync';
 import type { CircleMember, MyProfile, MySettings, MyStatus, QuakeEvent, Tip } from '@/types/domain';
 
@@ -27,11 +29,19 @@ type AppDataState = {
   lastMonitoringCheck: string | null;
   lastCircleSync: string | null;
   online: boolean;
-  syncing: boolean;
   pendingWrites: number;
   /** Relee SQLite sin tocar la red. Instantáneo. */
   reloadLocal: () => Promise<void>;
-  /** Baja del servidor y luego relee. Puede fallar sin romper la UI. */
+  /**
+   * Baja del servidor y luego relee. Puede fallar sin romper la UI.
+   *
+   * A propósito **no** expone una bandera de "sincronizando". La tenía, y las
+   * pantallas la ataban al `RefreshControl`: cada refresco automático —arrancar,
+   * volver del segundo plano, recuperar la red— prendía el spinner de
+   * pull-to-refresh sin que nadie tirara de la lista, y encima se quedaba
+   * trabado (ver `usePullToRefresh`). Quien necesite saber cuándo terminó tiene
+   * la promesa que devuelve.
+   */
   refresh: () => Promise<void>;
 };
 
@@ -52,7 +62,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [tips, setTips] = useState<Tip[]>([]);
   const [lastMonitoringCheck, setLastMonitoringCheck] = useState<string | null>(null);
   const [lastCircleSync, setLastCircleSync] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
   const [pendingWrites, setPendingWrites] = useState(0);
 
   const online = networkState.isInternetReachable ?? networkState.isConnected ?? false;
@@ -109,12 +118,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     if (!userId) return;
 
-    setSyncing(true);
-
     try {
       await syncEverything(userId);
-    } catch {
-      // Sin red o con red mala no pasa nada: seguimos mostrando la caché.
+    } catch (primerIntento) {
+      // Reintento único, y no es paranoia defensiva: acá se decide si la Home
+      // muestra "todo en calma" o "SISMO EN LIMA".
+      //
+      // El momento en que este refresco corre —volver a la app después de un
+      // rato— es exactamente cuando más probable es que falle: supabase-js
+      // congela su timer de renovación mientras la app está en segundo plano
+      // (ver `startAutoRefresh` en lib/supabase.ts), así que al volver puede
+      // haber un instante con el token vencido. Ese instante es una carrera
+      // contra este refresco, y si lo pierde, el `catch` se comía el error, la
+      // pantalla se quedaba con la caché vieja y la persona veía "todo bien"
+      // justo después de que temblara. Solo se recuperaba tirando de la lista
+      // a mano.
+      //
+      // `getSession()` renueva el token si hace falta, así que el segundo
+      // intento ya va con credenciales buenas.
+      if (__DEV__) console.warn('[sync] primer intento falló, reintentando', primerIntento);
+
+      try {
+        await supabase.auth.getSession();
+        await syncEverything(userId);
+      } catch {
+        // Ahora sí: sin red no pasa nada, seguimos mostrando la caché.
+      }
     }
 
     try {
@@ -127,8 +156,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       // Se reintenta solo en el próximo refresco.
     }
 
+    try {
+      // Mismo caso que el permiso de ubicación, con el de notificaciones: el
+      // token solo se registraba en el onboarding, que no se repite nunca (ver
+      // syncPushToken). Va aparte para que un fallo acá no impida lo de arriba.
+      await syncPushToken(userId);
+    } catch {
+      // Se reintenta solo en el próximo refresco.
+    }
+
     await reloadLocal();
-    setSyncing(false);
   }, [userId, reloadLocal]);
 
   useEffect(() => {
@@ -138,6 +175,21 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void reloadLocal().then(() => refresh());
   }, [reloadLocal, refresh]);
+
+  // El contador de pendientes se corrige solo cuando la cola cambia.
+  //
+  // Vaciar el outbox es asíncrono y nadie lo espera —a propósito: reportar tu
+  // estado no puede quedar colgado de la red—, así que el `reloadLocal()` que
+  // viene justo después de reportar lee el contador ANTES de que la escritura
+  // termine y muestra "1 cambio por enviar" para algo que ya salió. Se corregía
+  // recién en el siguiente refresco.
+  useEffect(
+    () =>
+      onOutboxChange(() => {
+        void pendingCount().then(setPendingWrites);
+      }),
+    [],
+  );
 
   // Al recuperar conectividad se vacía el outbox solo, sin acción del usuario.
   useEffect(() => {
@@ -191,7 +243,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       lastMonitoringCheck,
       lastCircleSync,
       online,
-      syncing,
       pendingWrites,
       reloadLocal,
       refresh,
@@ -210,7 +261,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       lastMonitoringCheck,
       lastCircleSync,
       online,
-      syncing,
       pendingWrites,
       reloadLocal,
       refresh,

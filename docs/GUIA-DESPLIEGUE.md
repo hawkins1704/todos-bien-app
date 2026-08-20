@@ -55,11 +55,12 @@ Ya está hecho, no hay que repetirlo:
 - [x] `eas.json` con los perfiles `development`, `preview` y `production`
 - [x] `eas-cli` 20.4.0
 
-> ⚠️ **Consecuencia de que el `projectId` ya exista.** `registerPushToken()`
-> (`src/lib/notifications.ts`) se auto-desactivaba porque no lo encontraba. Ahora lo
-> encuentra, así que **en cuanto corras la app en un dispositivo físico con permiso de
-> notificaciones concedido, va a empezar a registrar tokens** en la tabla `push_tokens`.
-> En el simulador sigue sin pasar nada: `Device.isDevice` es `false`.
+> ⚠️ **El token se registra en cada refresco, no solo en el onboarding.** `syncPushToken()`
+> (`src/lib/notifications.ts`) corre al abrir la app y al volver del segundo plano, y solo
+> escribe cuando el token cambió. Antes vivía únicamente en el último paso del onboarding,
+> que no se repite nunca: quien lo había completado antes de que existiera el `projectId`
+> quedaba sin token para siempre. En el simulador sigue sin pasar nada: `Device.isDevice`
+> es `false`.
 
 Verificá que estás en la cuenta correcta antes de empezar:
 
@@ -200,6 +201,10 @@ Anotalas ahora, se usan al enviar:
 ## Fase 3 · Android: Firebase y FCM
 
 Independiente de Apple. Se puede hacer en cualquier momento.
+
+> **Esta fase es solo el push.** La tienda (Play Console, ficha, productos, facturación) es
+> un trabajo aparte y con otra cuenta de Google: está listado en `docs/QUE-FALTA.md` §3.
+> Confundir el proyecto de Firebase con el de Play Console es el error clásico de Android.
 
 ### 3.1 Crear el proyecto de Firebase
 
@@ -432,8 +437,8 @@ RevenueCat. **Es un proyecto aparte del de Firebase** aunque los dos sean de Goo
 ## Sign in with Apple
 
 **Hoy no hace falta.** Apple lo exige solo si la app ofrece login con otros proveedores
-externos (Google, Facebook). Todos Bien usa únicamente código por correo (§1.1), así que
-no aplica.
+externos (Google, Facebook). Todos Bien usa correo y contraseña propios (§1.1), así que no
+aplica.
 
 Cuando se agregue Google Sign In, **en el mismo momento** hay que agregar Sign in with
 Apple o la revisión rechaza la app.
@@ -442,28 +447,16 @@ Apple o la revisión rechaza la app.
 
 ## Checklist antes de publicar
 
-Cosas que no dependen de las tiendas pero bloquean el lanzamiento:
+👉 **Se mudó a `docs/QUE-FALTA.md`**, que es el índice único de trabajo pendiente.
 
-- [ ] **Borrar la cuenta desde la app** (guía **5.1.1(v)** de Apple). Toda app que permita
-      crear una cuenta tiene que permitir borrarla desde adentro; no alcanza con un correo
-      ni con una página web. Es causal de rechazo directa.
-- [ ] **Cuenta de demostración para App Review.** Apple necesita entrar a la app: hay que
-      crear una cuenta con el onboarding terminado y contactos de ejemplo, y cargar correo
-      y contraseña en App Store Connect → *App Review Information*. Es el motivo por el que
-      el acceso pasó a contraseña (§1.1.1 del estado del proyecto). Una cuenta vacía deja
-      al revisor mirando una pantalla sin nada: también es motivo de rechazo.
-- [ ] **Borrar el usuario de QA** `qa.simulador@example.com` (§2 del estado del proyecto).
-- [ ] **Plantilla *Reset Password* con `{{ .Token }}`.** Viene de fábrica con un link. Si
-      queda así, la app pide un código de 8 dígitos y a la persona le llega una URL: la
-      recuperación de contraseña queda rota sin dar ningún error.
-      Ver `docs/GUIA-CORREO-RESEND.md`.
-- [ ] **Landing page de invitación.** `INVITE_BASE_URL` apunta a `https://todosbien.app/i`,
-      que todavía no existe: hoy los links de invitación no llevan a ningún lado. El
-      dominio ya está verificado en Resend para el correo (§1.6.2), falta la página.
-- [x] ~~**Avatar a Supabase Storage.**~~ Ya no aplica: se eliminó la foto de perfil, el
-      avatar es de iniciales (§1.9.2.1 del estado del proyecto).
-- [ ] Revisión legal de términos y limitación de responsabilidad (spec §18).
-- [ ] Política de privacidad publicada en una URL (App Store la pide obligatoriamente).
+Estaba duplicado con la sección "Pendiente" del estado del proyecto, y dos listas de lo
+mismo en archivos distintos se separan siempre. Esta guía queda para el **cómo**: el
+procedimiento de cada consola y por qué en ese orden.
+
+Una cosa que ya está resuelta y conviene no volver a buscar: **borrar la cuenta desde la
+app** (guía 5.1.1(v) de Apple) existe en Mi cuenta → SEGURIDAD → Borrar mi cuenta. Al
+llenar el formulario de revisión, Apple pregunta **dónde está**: la ruta es
+*Ajustes → tocar el perfil → SEGURIDAD → Borrar mi cuenta*.
 
 ---
 
@@ -481,3 +474,6 @@ Cosas que no dependen de las tiendas pero bloquean el lanzamiento:
 | Se compró pero sigue diciendo "Plan gratuito" | El webhook no llegó o no mapeó al usuario | `select * from public.revenuecat_events order by received_at desc limit 5` |
 | El evento llegó con `outcome = 'unmapped'` | El `app_user_id` no es el UUID de Supabase | Verificar que `Purchases.logIn()` corra (`syncPurchasesUser` en `src/lib/purchases.ts`) |
 | RevenueCat reporta 401 en el webhook | El header `Authorization` no coincide con el secreto de Vault | `select public.get_revenuecat_secret();` y volver a pegarlo, sin `Bearer` |
+| La base dice `sent` pero el push no llega | Expo responde `ok` cuando **acepta** el mensaje, no cuando Apple lo entrega | Pedir el *receipt*: `POST https://exp.host/--/api/v2/push/getReceipts` con el `id` del ticket. Ahí sí está el veredicto de Apple |
+| El receipt dice `TopicDisallowed` | La APNs Key cargada en EAS no está autorizada para este bundle ID: suele ser una clave vieja heredada de otro proyecto, o restringida a otro tema | `eas credentials -p ios` → mirá la fecha de *Push Key*; si es mucho más vieja que los certificados, ahí está. **Add a new push key**. No hace falta rebuildear: la clave vive en los servidores de Expo |
+| El receipt dice `DeviceNotRegistered` | La app se desinstaló o revocó el permiso | El sender ya borra ese token solo |

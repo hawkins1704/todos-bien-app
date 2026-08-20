@@ -3,18 +3,19 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { KV, kvGet, kvSet } from '@/lib/db/kv';
 import { supabase } from '@/lib/supabase';
 
 /**
  * Notificaciones push (spec §7).
  *
- * ESTADO: el permiso y los handlers ya funcionan. El registro del token está
- * a la espera de que la cuenta de Apple Developer vuelva a estar activa, porque
- * hace falta crear la APNs Key, cargarla en EAS y tener un projectId de EAS.
- * Ver docs/ESTADO-DEL-PROYECTO.md §3.
+ * El registro del token tiene una sola función, `syncPushToken()`, que se llama
+ * desde dos lados: el onboarding y **cada refresco**. Que sea idempotente es lo
+ * que permite eso, y lo segundo es lo que evita que alguien quede sin token
+ * para siempre por haber concedido el permiso en el momento equivocado.
  *
- * `registerPushToken()` se puede llamar hoy sin romper nada: detecta que falta
- * el projectId y sale sin hacer ruido.
+ * Sale sin ruido si falta algo (simulador, sin `projectId`, sin permiso): que
+ * no haya push no puede trabar el resto de la app.
  */
 
 Notifications.setNotificationHandler({
@@ -78,25 +79,54 @@ function easProjectId(): string | null {
 }
 
 /**
- * Registra el token de push del dispositivo.
- * Devuelve null (sin lanzar) mientras las credenciales no estén listas.
+ * Registra por qué NO se registró el token.
+ *
+ * Son cinco motivos distintos y ninguno lanza error, así que sin esto el
+ * síntoma es siempre el mismo —`push_tokens` vacía— y no hay forma de saber
+ * cuál de los cinco fue. Solo en desarrollo: en producción no aporta nada.
  */
-export async function registerPushToken(userId: string): Promise<string | null> {
-  if (!Device.isDevice) return null;
+function skip(reason: string): false {
+  if (__DEV__) console.log(`[push] token no registrado: ${reason}`);
+  return false;
+}
+
+/**
+ * Registra el token de push del dispositivo, si hace falta.
+ *
+ * Se llama desde el onboarding (al conceder el permiso) **y desde cada
+ * refresco**. Esa segunda llamada no es redundante: es lo único que cubre todo
+ * lo que pasa después del onboarding.
+ *
+ * Sin ella había un callejón sin salida idéntico al de la ubicación (§1.6.3.1),
+ * y tampoco era teórico: el registro vivía **solo** en el último paso del
+ * onboarding, que no se repite nunca. Entonces:
+ *
+ * - Quien concedió el permiso desde los Ajustes del sistema, después del
+ *   onboarding, nunca registraba el token.
+ * - Y peor, quien completó el onboarding cuando todavía no existía el
+ *   `projectId` de EAS —o sea, todas las cuentas creadas antes del 2026-08-19—
+ *   tampoco, porque en ese momento la función salía en silencio por diseño.
+ *
+ * El resultado era una app instalada en un teléfono real con `push_tokens`
+ * vacía y sin ninguna forma de arreglarlo salvo reinstalar.
+ *
+ * Se pide el token en cada refresco pero **solo se escribe cuando cambió**: el
+ * token rota muy de vez en cuando y no tiene sentido gastar una escritura por
+ * cada vez que alguien vuelve a la app.
+ */
+export async function syncPushToken(userId: string): Promise<boolean> {
+  if (!Device.isDevice) return skip('es el simulador, no entrega tokens de APNs');
 
   const projectId = easProjectId();
-  if (!projectId) {
-    // Todavía no hay proyecto EAS: push queda pendiente, pero el onboarding
-    // no se puede trabar por esto.
-    return null;
-  }
+  if (!projectId) return skip('falta el projectId de EAS en app.json');
 
   const granted = await getNotificationPermission();
-  if (!granted) return null;
+  if (!granted) return skip('el permiso de notificaciones no está concedido');
 
   await ensureAndroidChannels();
 
   const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+  if ((await kvGet<string>(KV.pushToken)) === token) return skip('ya estaba registrado, sin cambios');
 
   const { error } = await supabase.from('push_tokens').upsert(
     {
@@ -109,5 +139,8 @@ export async function registerPushToken(userId: string): Promise<string | null> 
   );
 
   if (error) throw error;
-  return token;
+
+  await kvSet(KV.pushToken, token);
+  if (__DEV__) console.log('[push] token registrado:', token);
+  return true;
 }

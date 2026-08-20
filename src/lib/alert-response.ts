@@ -110,7 +110,10 @@ export async function syncLocationPermission(userId: string): Promise<boolean> {
  * "X/Y confirmados" exige `status <> 'unconfirmed'`, así que la persona sigue
  * figurando como no confirmada, pero su círculo ya puede ver dónde estaba.
  */
-export async function captureLocationForActiveAlert(quake: QuakeEvent): Promise<boolean> {
+export async function captureLocationForActiveAlert(
+  quake: QuakeEvent,
+  { jitter = true }: { jitter?: boolean } = {},
+): Promise<boolean> {
   if (capturing) return false;
 
   const before = await kvGet<MyStatus>(KV.myStatus);
@@ -124,7 +127,12 @@ export async function captureLocationForActiveAlert(quake: QuakeEvent): Promise<
     // instante exacto al dispararse una alerta. No bloquea nada de la UI: si la
     // persona toca su estado ahora mismo, esa escritura va por su propio camino
     // y es inmediata.
-    await sleep(Math.random() * ALERT_WRITE_JITTER_MS);
+    //
+    // Se puede desactivar (`jitter: false`) para la tarea de fondo: iOS da ~30
+    // segundos en total y el GPS se puede comer buena parte, así que gastar
+    // hasta 8 en esperar arriesga perder la captura entera. La dispersión ahí ya
+    // la aplica el servidor al repartir los envíos con `send_after`.
+    if (jitter) await sleep(Math.random() * ALERT_WRITE_JITTER_MS);
 
     const fix = await captureLocationOnce();
     if (!fix) return false;

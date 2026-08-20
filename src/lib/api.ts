@@ -232,6 +232,31 @@ export async function redeemInvitation(code: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Rescata el motivo real de un fallo de edge function.
+ *
+ * `functions.invoke` devuelve siempre el mismo `FunctionsHttpError` genérico
+ * ("Edge Function returned a non-2xx status code") y deja el detalle dentro de
+ * `context`, que es la `Response` sin leer. Eso convirtió un bug concreto —la
+ * URL del `.in()` pasada de largo -- en un "no pudimos revisar tu agenda" sin
+ * ninguna pista, y hubo que ir a los logs del servidor para verlo.
+ */
+async function withFunctionDetail(error: Error): Promise<Error> {
+  const context = (error as { context?: unknown }).context;
+  if (!(context instanceof Response)) return error;
+
+  try {
+    const body = (await context.clone().json()) as { error?: unknown };
+    if (typeof body.error === 'string') {
+      return new Error(`${error.message} — ${context.status}: ${body.error}`);
+    }
+  } catch {
+    // Cuerpo vacío o que no es JSON: se queda el error original.
+  }
+
+  return error;
+}
+
 /** Llama a la edge function; solo viajan hashes, nunca la agenda. */
 export async function matchContacts(
   entries: { hash: string; localName: string }[],
@@ -249,7 +274,7 @@ export async function matchContacts(
     }[];
   }>('match-contacts', { body: { hashes: entries.map((e) => e.hash) } });
 
-  if (error) throw error;
+  if (error) throw await withFunctionDetail(error);
 
   return (data?.matches ?? []).map((m) => ({
     userId: m.user_id,

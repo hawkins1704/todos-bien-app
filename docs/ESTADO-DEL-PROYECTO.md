@@ -260,6 +260,42 @@ al elegirlo, anotadas ahí también:
 - `accentSoft` y el accent del tema oscuro se derivan del mismo H/S moviendo solo la
   luminosidad. Mezclar con blanco o negro desatura y ensucia el tono.
 
+### 1.4.2 🔴 El spinner de pull-to-refresh se quedaba trabado al volver del segundo plano
+
+**Lo que se veía (reportado el 2026-08-20, con capturas):** abrir la app después de un
+rato dejaba el spinner de tirar-para-refrescar colgado arriba, con todo el contenido
+corrido hacia abajo, sin que nadie hubiera tirado de nada. Pasaba en **todas** las
+pantallas con pull-to-refresh. Cambiar de pestaña y volver lo enderezaba, porque eso
+fuerza un layout nuevo — el arreglo por accidente que confirma dónde estaba el problema.
+
+**La causa no era de estilos.** `RefreshControl.refreshing` no es un indicador de "hay una
+sincronización en curso": es la respuesta visual a un gesto. La Home y Círculo lo ataban a
+`syncing`, una bandera global de `AppDataProvider`, y Sismos lo prendía dentro de `load()`.
+Con eso, **cualquier** refresco automático lo encendía: arrancar la app, volver del segundo
+plano (`AppState` → `active`), recuperar la red, o incluso aceptar una solicitud en Círculo.
+
+Prenderlo por código hace que iOS empuje el contenido hacia abajo con una animación. Si eso
+ocurre mientras la vista no está en pantalla —la app volviendo del segundo plano, o una
+pestaña que `react-native-screens` tiene desmontada— la animación nunca corre hasta el
+final, y al apagarse `refreshing` el scroll se queda corrido con el spinner a la vista.
+
+**Qué se cambió.** El estado del spinner vive ahora en `usePullToRefresh`
+(`src/hooks/use-pull-to-refresh.ts`) y **solo lo enciende el gesto**; se apaga cuando la
+promesa de la acción termina, falle o no. Los refrescos automáticos pasaron a ser
+silenciosos: la lista se reemplaza sola cuando llegan los datos, que es exactamente lo que
+se espera de una caché que se revalida sola (§1.6.4.1). Lo usan las cuatro pantallas —
+Home, Círculo, Chats y Sismos.
+
+De paso se **borró `syncing` del contexto**, que quedaba sin un solo consumidor. No es
+limpieza cosmética: era la trampa a la vista para que el próximo `RefreshControl` la
+volviera a atar, y además hacía re-renderizar todo el árbol bajo `AppDataProvider` dos
+veces por sincronización de fondo. Quien necesite saber cuándo terminó un refresco tiene
+la promesa que devuelve `refresh()`.
+
+> Lo que **no** se tocó: los disparadores. Volver del segundo plano sigue refrescando —eso
+> existe por una razón real, ver §1.6.3.1 y §1.6.4—; lo único que cambió es que ya no
+> dibuja un spinner que nadie pidió.
+
 ### 1.5 Sin toggle de tema claro/oscuro
 
 El mockup de Figma Make incluye un botón para alternar tema. **No se implementa**: la app
@@ -453,6 +489,100 @@ error sin pull-to-refresh obligaba a cambiar de pestaña y volver para reintenta
 en `contentContainerStyle` el centrado va con `flexGrow: 1`, porque `flex: 1` fija la
 altura al viewport y mata el gesto de arrastre.
 
+### 1.6.4.1 Cuándo se pide el feed: la pestaña recargaba en cada foco
+
+**Lo que se veía:** entrar a Noticias Sísmicas recargaba la lista entera y la dejaba en
+blanco con un spinner, cada vez, aunque se volviera a los cinco segundos.
+
+**Medido antes de tocar nada**, contando las llamadas a `get_quake_feed` en los logs de un
+solo usuario:
+
+| | |
+|---|---|
+| Llamadas en 24 h | **179** |
+| Mediana entre una y la siguiente | **5 segundos** |
+| Llamadas a menos de 2 min de la anterior | **153 (85,5 %)** |
+
+Una mediana de 5 segundos contra una ingesta que corre **cada 2 minutos**: el 85 % de las
+llamadas no podía traer absolutamente nada nuevo. Con un usuario da igual; con un padrón
+real es tráfico y cuota de Supabase quemados en devolver lo mismo.
+
+**Y había un bug de paso:** cambiar Nacional/Global pedía **dos veces**. Una desde el
+handler y otra porque al cambiar `scope` cambiaba la identidad del callback de
+`useFocusEffect`, que se volvía a ejecutar.
+
+**Qué se cambió.** No se quitó ningún disparador —foco y volver del segundo plano siguen
+ahí, y el de §1.6.4 existe por una razón real— sino que ahora **pasan por un chequeo de
+frescura de 2 minutos**, que es el intervalo del cron: pedir más seguido que la fuente que
+alimenta la tabla es tirar el viaje. Además cada scope guarda lo suyo, así que ir y volver
+entre Nacional y Global es instantáneo y sin red.
+
+Tres detalles que no son obvios:
+
+- **La caché va en un `useRef`, no en estado.** Si `load` dependiera de un estado que él
+  mismo escribe, cambiaría de identidad en cada fetch y volvería a disparar el efecto de
+  foco: exactamente el ciclo que se estaba arreglando.
+- **El pull-to-refresh fuerza siempre.** Si la persona tira de la lista a mano, contestarle
+  con una caché —por más fresca que esté— es no hacerle caso.
+- **Un refresco que falla ya no borra la lista.** Antes el error reemplazaba los datos;
+  ahora la lista se queda y el fallo se avisa en una línea bajo el encabezado. Mostrar datos
+  un poco viejos es mejor que no mostrar nada, pero callarse el fallo no.
+
+**Lo que NO se hizo, a propósito: un temporizador que recargue solo mientras la pantalla
+está abierta.** Esta pestaña no es el canal de alertas —eso es la Home, y a futuro el push
+(§3)— y un sismo tarda 4 a 6 minutos en publicarse (§1.11), así que quien esté esperando uno
+recién ocurrido va a tirar de la lista igual. Un poller sería un segundo mecanismo de
+refresco, paralelo al de `app-data`, con su propia forma de quedar desincronizado.
+
+### 1.6.4.2 Leyenda de magnitud y procedencia en el feed global
+
+Dos agregados a Noticias Sísmicas que salieron de la misma pregunta: **la lista mostraba
+datos sin explicarlos.**
+
+**La leyenda de color** (`src/components/magnitude-legend.tsx`). El cuadro de magnitud usa
+tres colores y en ninguna parte se decía qué significan. Peor: la escala **reutiliza la
+paleta de estados de personas**, donde el rojo es "necesito ayuda", así que sin contexto un
+sismo rojo se puede leer como una alerta activa. Los tres tramos —leve hasta 4,5, moderado
+4,5 a 5,9, fuerte 6,0 o más— van con el rango escrito, no solo con el color, por la misma
+razón de daltonismo que el resto de la app.
+
+Los cortes están **duplicados** respecto de `magnitudeSeverity()` a propósito: esa función
+mapea un número a un color y la leyenda necesita el camino inverso, el rango que produce
+cada color, que no se saca de ella sin invertirla. Si se mueve un corte hay que moverlo en
+los dos lados.
+
+**País y continente en el feed global** (`src/lib/geo.ts`). Antes cada fila decía solo la
+localidad. Ahora, en Global, agrega una línea con *Indonesia · Asia*.
+
+**Lo que hizo falta descubrir para poder hacerlo:**
+
+- **`region` y `country_code` están en NULL para todo el USGS.** El único dato geográfico es
+  `place`, una cadena en inglés (`"63 km NNE of Ruteng, Indonesia"`). O sea que país y
+  continente hay que **interpretarlos de un texto**, no leerlos de una columna; por eso el
+  mapa vive en el cliente y no en la base.
+- **`shortPlace()` estaba roto para el USGS y nadie lo había notado.** Solo entendía el
+  `" de "` del IGP, así que con el formato en inglés devolvía **"63 km NNE of Ruteng"**:
+  dejaba el prefijo en inglés en pantalla y tiraba el país. Ahora hay un solo parser.
+- **Para Estados Unidos el USGS no dice el país**: pone el estado (`", Alaska"`) y a veces
+  la sigla (`", CA"`). Sin la lista de los 50 estados más sus siglas, todos esos eventos
+  quedaban sin resolver.
+- **El feed global incluye sismos del IGP.** `get_quake_feed('global')` devuelve todo lo
+  canónico sobre 4,5, no solo lo del USGS, así que ahí caen los sismos peruanos con su
+  formato en español, donde lo que sigue a la última coma es un departamento y no un país.
+  Para esos la procedencia no se deduce del texto: la dice `source`.
+- **Un tercio largo de los eventos no tiene país** porque ocurren en el mar (`"Banda Sea"`,
+  `"Pacific-Antarctic Ridge"`). A esos **no se les inventa continente**: se muestran con el
+  nombre traducido y nada más.
+
+**El mapa se construyó midiendo, no de memoria:** se agruparon los `place` ya ingeridos por
+lo que va después de la última coma, y de ahí salieron las cuatro formas de arriba.
+**Verificado contra los 297 `place` distintos de la base: 0 sin resolver** —288 con país y
+continente, 9 regiones marítimas—. Un territorio desconocido se muestra crudo antes que
+perderse: mejor una palabra en inglés que no saber de qué parte del mundo se habla.
+
+En Nacional la línea no se pinta: todos los sismos son de Perú y repetirlo en cada fila
+ocuparía con ruido la línea donde debería ir información.
+
 ### 1.6.5 🔴 Fuga premium encontrada y cerrada
 
 Al implementar lo anterior se descubrió que **el beneficio premium no existía como tal**:
@@ -464,6 +594,47 @@ O sea que cualquier usuario gratis podía activarse las alertas mundiales por su
 contra lo que define la spec §12. Se cerró en la migración `0009`: se revocó el permiso
 de escritura sobre esa columna y la condición mundial ahora exige
 `is_premium and alert_worldwide_enabled`.
+
+### 1.6.6 🔴 La detección de contactos se rompía con una agenda de verdad
+
+**Síntoma:** «Procesando N contactos…» y después *«No pudimos revisar tu agenda. Intenta de
+nuevo»*, siempre, con el permiso concedido. Reintentar no servía nunca.
+
+**Causa.** `match-contacts` buscaba los hashes con
+`.in('phone_hash', clean)`. **PostgREST no manda la lista de un `.in()` en el cuerpo: la
+mete entera en el query string**, y cada hash son 64 caracteres hex más la coma. Con una
+agenda real eso arma una URL de decenas de KB y la petición **ni siquiera sale**: el cliente
+HTTP de Deno corta con `TypeError: error sending request` y la función devuelve 500.
+
+Medido contra el proyecto real, llamando la función con lotes de tamaño creciente:
+
+| Hashes | URL aprox. | Resultado |
+|---|---|---|
+| 200 | ~13 KB | 200 ✅ |
+| 240 | ~15,6 KB | 500 ❌ |
+| 400 · 800 | 26–52 KB | 500 ❌ |
+
+O sea que el techo está en los ~16 KB de cabecera, y **el bug se disparaba a partir de unos
+230 números**: prácticamente cualquier agenda real. Con la agenda chica de un simulador no se
+reproduce nunca, que es por lo que sobrevivió hasta ahora.
+
+**Arreglo:** la consulta se parte en lotes de 100 hashes (~6,5 KB, con margen deliberado
+porque es un límite de infraestructura que nadie garantiza por escrito) que corren en
+paralelo y se unen. Verificado con 240, 400, 800 y 2000 hashes: todos 200, y 2000 tarda 1,5 s.
+La aserción que más importa no es que no falle sino que **encuentre**: con el hash real
+sembrado en la posición 1500 de 2000 —o sea en el lote 16 de 20— la función lo devuelve con
+su perfil.
+
+**El medio bug que lo hizo difícil de ver.** El cliente tenía un `catch` mudo y
+`functions.invoke` devuelve siempre el mismo error genérico, dejando el detalle dentro de
+`context`, que es una `Response` sin leer. Resultado: un fallo con causa exacta y conocida
+llegaba a la pantalla como "intenta de nuevo" —consejo falso, porque reintentar no lo
+arreglaba— y hubo que ir a los logs del servidor para verlo. Ahora `withFunctionDetail()`
+(`src/lib/api.ts`) lee ese cuerpo y el `catch` deja rastro en consola.
+
+> **Sigue en pie:** `MAX_HASHES = 2000` recorta en silencio. Con lotes ya no hay razón
+> técnica para ese techo; se deja como freno contra un cliente que mande cualquier cosa.
+> Una agenda de más de 2000 números perdería los últimos sin avisar.
 
 ### 1.7 Un sismo, un solo evento: `canonical_id`
 
@@ -749,17 +920,22 @@ falta, indexar por ubicación en vez de recorrer `user_settings` entera.
 | `0009_quake_feed_and_premium` | `get_quake_feed(scope)` para Noticias Sísmicas, cierre de la fuga premium en alertas mundiales, índices del feed |
 | `0010_alert_fanout` | Predicado compartido `private.quake_applies()`, fan-out sismo → usuarios, cola `alert_deliveries`, `claim/mark_alert_deliveries`, cron cada minuto |
 | `0011_alert_fanout_fixes` | Las dos correcciones que encontró la verificación de 0010 (ver §1.12). Ya están dentro de 0010; existe para que el historial remoto sea honesto |
-| `0013_delete_account` | `delete_my_account(password_attempt)`: borra la propia cuenta validando la contraseña **en el servidor** con `extensions.crypt()`. Todo lo demás cae por cascada desde `profiles`. Requisito 5.1.1(v) de Apple (§1.1.3) |
 | `0012_revenuecat_webhook` | Secreto del webhook en Vault + `get_revenuecat_secret()`, bitácora `revenuecat_events` (su PK es el candado de idempotencia contra los reintentos de RevenueCat), poda anual |
+| `0013_delete_account` | `delete_my_account(password_attempt)`: borra la propia cuenta validando la contraseña **en el servidor** con `extensions.crypt()`. Todo lo demás cae por cascada desde `profiles`. Requisito 5.1.1(v) de Apple (§1.1.3) |
 
 **Separación de privacidad clave:** `profiles` guarda lo compartible (nombre, avatar,
 plan de acción) y es legible por las conexiones. `user_settings` guarda lo privado
 (teléfono, hash, umbrales de alerta, premium) y **solo lo lee su dueño**.
 
-**Advisors:** sin hallazgos de `anon`. Quedan 5 warnings de
+**Advisors:** sin hallazgos de `anon`. Quedan 6 warnings de
 `authenticated_security_definer_function_executable`, que son **esperados**: esos RPC
 están hechos para ser llamados por usuarios autenticados y cada uno valida `auth.uid()`
-en su cuerpo.
+en su cuerpo. El sexto, `delete_my_account`, además valida la contraseña (§1.1.3).
+
+> 🟡 **Advisor nuevo desde el paso a contraseña: `auth_leaked_password_protection`.**
+> Supabase puede contrastar cada contraseña contra HaveIBeenPwned y rechazar las que ya
+> aparecieron en filtraciones. Está apagado. Antes daba igual —no había contraseñas—;
+> ahora es un interruptor en Authentication → Providers → Email que conviene prender.
 
 Además hay un INFO `rls_enabled_no_policy` sobre `alert_deliveries` que **también es
 intencional**: es una tabla interna de la cola de avisos, con RLS activa, cero políticas
@@ -770,7 +946,7 @@ esa es exactamente la intención.
 
 | Función | Qué hace | Auth |
 |---|---|---|
-| `match-contacts` | Compara hashes de teléfono contra los números registrados. Recibe solo hashes SHA-256; la agenda en texto plano nunca llega al servidor. | JWT del usuario |
+| `match-contacts` | Compara hashes de teléfono contra los números registrados. Recibe solo hashes SHA-256; la agenda en texto plano nunca llega al servidor. **v2:** consulta por lotes de 100, si no se rompe con cualquier agenda real (§1.6.6). | JWT del usuario |
 | `ingest-quakes` | Consulta IGP y USGS y escribe en `quake_events`. La dispara `pg_cron` cada 2 min. | Secreto compartido en Vault |
 
 **Ingesta de sismos — funcionando en producción.** Verificada de punta a punta: el cron
@@ -831,7 +1007,7 @@ más, y el endpoint rechaza con 401 cualquier llamada sin el secreto correcto (p
 | Acceso | intro de valor (3 slides), entrar, crear cuenta, confirmar correo, olvidé mi contraseña, contraseña nueva |
 | Onboarding | perfil + teléfono, permisos con contexto, contactos, plan de acción, listo |
 | Tabs | Inicio, Círculo, Chats, Ajustes |
-| Modales | detalle de contacto, chat, plan de acción, agregar contactos, invitar, simulacro |
+| Modales | detalle de contacto, chat, plan de acción, agregar contactos, invitar, simulacro, Mi cuenta, cambiar contraseña, borrar cuenta |
 
 **Home en sus dos modos** (spec §5): con alerta activa muestra banner de magnitud/zona/
 tiempo, selector de estado, grilla del círculo con anillos de color y contador
@@ -879,15 +1055,19 @@ No alcanza con que compile. Se corrió en un iPhone 17 simulado (`expo prebuild 
 
 ---
 
-## 3. Push notifications: el hueco más importante que queda
+## 3. Push notifications: cerrado en iOS, pendiente en Android
 
-### 3.1 Qué significa hoy NO tener push
+> **Cambio de estado (2026-08-20).** Esta sección se llamaba *"el hueco más importante que
+> queda"* desde el arranque del proyecto. Ya no lo es: la cadena completa funciona en iOS y
+> está verificada con datos reales. Se conserva el diagnóstico original porque explica
+> **por qué** el diseño es así, no solo qué hace.
 
-Hoy lo único que dispara la sincronización de la alerta es `AppState → 'active'`
-(`src/context/app-data.tsx`), es decir **abrir o volver a la app**. No hay ninguna tarea
-de background registrada (`registerTaskAsync` no se llama en ningún lado todavía).
+### 3.1 El problema que resolvía (histórico)
 
-Escenario real — y ya no es hipotético, **pasó el 2026-08-19** (§1.6.3.1):
+Antes, lo único que disparaba la sincronización de la alerta era `AppState → 'active'`, es
+decir **abrir o volver a la app**.
+
+Escenario real — no hipotético, **pasó el 2026-08-19** (§1.6.3.1):
 
 | Hora | Qué pasa |
 |---|---|
@@ -915,91 +1095,83 @@ forma de que un servidor despierte un teléfono es una notificación push.
 
 ### 3.2 Los dos trabajos distintos del push
 
-1. **Aviso visible** — "Sismo de magnitud 6,2 cerca tuyo". Es lo que ve la persona.
-2. **Push silencioso** (`_contentAvailable: true`) — no muestra nada, despierta la app
-   unos segundos en background y ahí corre `captureLocationForActiveAlert()`
-   (`src/lib/alert-response.ts`), guardando dónde estaba **en ese momento**, con la app
-   cerrada.
+1. **Aviso visible** — "Sismo de magnitud 5,6". Es lo que ve la persona.
+2. **Push silencioso** (`contentAvailable`) — despierta la app unos segundos en background
+   y ahí corre `captureLocationForActiveAlert()`, guardando dónde estaba **en ese
+   momento**, con la app cerrada.
 
-El código de captura **ya existe y está probado**. Lo que falta es el gatillo.
+Los dos viajan en **un solo mensaje**, no en dos: iOS entrega una notificación con
+contenido visible y `content-available` a la vez, así que no hay motivo para gastar dos
+envíos ni para arriesgar que llegue uno y no el otro.
 
-### 3.3 Credenciales: ya nada está bloqueado (desde 2026-08-19)
+### 3.3 La cadena, y dónde vive cada pieza
 
-> **Cambio de estado.** Hasta el 19/08/2026 iOS estaba bloqueado por la cuenta de Apple
-> Developer suspendida. **La cuenta de Apple y la de Expo ya están activas**, así que se
-> puede hacer el pipeline completo en las dos plataformas a la vez.
+```
+sismo → ingest-quakes → quake_events → fan_out_pending_quakes → alert_deliveries
+                                                                       ↓
+   user_status ← tarea de fondo ← APNs ← Expo Push ← send-alerts ←──────┘
+```
 
-| Plataforma | Qué necesita | Estado |
+| Pieza | Dónde | Migración |
 |---|---|---|
-| **iOS** | **APNs Key** generada en el portal de Apple Developer y cargada en EAS | 🟢 Desbloqueado |
-| **Android** | Proyecto de **Firebase** (gratis) + service account de **FCM** subida a EAS | 🟢 Desbloqueado |
-| Ambas | `projectId` de EAS (`eas init`, gratis) | 🟢 Pendiente de correr |
+| Ingesta cada 2 min | `supabase/functions/ingest-quakes` | 0007 |
+| Fan-out sismo → usuarios, cada 1 min | `private.fan_out_pending_quakes()` | 0010 / 0011 |
+| Cola con jitter y expiración | `alert_deliveries` | 0010 |
+| **Envío**, cada 1 min | `supabase/functions/send-alerts` | 0014 |
+| Registro del token | `syncPushToken()` en `src/lib/notifications.ts` | 0001 |
+| **Captura en segundo plano** | `src/lib/background-alert.ts` | — |
 
-**Lo que ya está hecho del lado del cliente** (no se arranca de cero):
+**Verificado de punta a punta el 2026-08-20** con un sismo sintético cerca de Lima: del
+push a la ubicación subida pasaron **2 segundos**, con la app en segundo plano y sin
+tocarla. El discriminador de la prueba fue `status = 'unconfirmed'`, un valor que solo
+puede escribir la tarea de fondo porque no existe como botón.
 
-- Tabla `push_tokens` con RLS (migración 0001).
-- `src/lib/notifications.ts`: permisos, canales de Android y `registerPushToken()`, que
-  **se auto-desactiva sin `projectId`** en vez de romper el onboarding.
-- Se llama desde `(onboarding)/ready.tsx`, así que en cuanto exista el `projectId` los
-  tokens empiezan a registrarse solos.
-- `captureLocationForActiveAlert()` ya existe y está probada (§1.6.3).
-
-**Lo que falta:** `eas init`, las credenciales de cada tienda, el **fan-out en el
-servidor** (evento → usuarios → envío) y la **tarea de background** que responde al push
-silencioso (`registerTaskAsync` todavía no se llama en ningún lado).
+**Lo que NO está verificado:** el caso **app terminada del todo**. No se puede probar con
+un dev client, porque iOS levanta el bundle desde Metro y necesita la Mac accesible.
+Requiere un build standalone.
 
 > ⚠️ **El push no se puede probar en el simulador de iOS**: no entrega tokens de APNs.
-> Hace falta un **dev build en un dispositivo físico**. El emulador de Android sí sirve,
-> siempre que tenga Google Play services. Esto cambia el circuito de verificación que se
-> venía usando hasta ahora.
+> Hace falta un dispositivo físico. El emulador de Android sí sirve, siempre que tenga
+> Google Play services.
 
 Ver también §1.2 sobre el límite de iOS: los push silenciosos están limitados en
 frecuencia y **no se garantiza su entrega**, por eso el diseño mantiene la red de
-seguridad de capturar también al abrir la app.
+seguridad de capturar también al abrir la app. La tarea de fondo es idempotente
+justamente para que las dos rutas puedan convivir sin duplicar nada.
 
-### 3.4 Lo que la cuenta de Apple destraba, y qué trabajo implica cada cosa
+### 3.4 Dos lecciones que costaron tiempo
 
-Ya no están bloqueados, pero ninguno es gratis en esfuerzo:
+**`TopicDisallowed`.** La primera alerta real salió con `status = 'sent'` en la base y
+nunca llegó al teléfono. Causa: la APNs Key que EAS tenía cargada era de **un año antes**,
+heredada de otro proyecto, y Apple no la autorizaba para este bundle ID. La pista estaba a
+la vista en `eas credentials`: *Push Key — Updated 1 year ago*, al lado de certificados de
+*1 day ago*. Se resolvió generando una clave nueva desde EAS; **no hizo falta rebuildear**,
+porque la clave vive en los servidores de Expo y no en el binario.
 
-| Tema | Qué falta hacer ahora |
-|---|---|
-| Push iOS | Generar APNs Key en el portal y subirla a EAS |
-| Build en dispositivo iOS físico | Perfil de aprovisionamiento vía EAS + registrar el dispositivo |
-| Sign in with Apple | Habilitar la capability, y además el provider en Supabase Auth |
-| RevenueCat (iOS) | El código ya está (§1.9.1.1). Falta apuntar el webhook a la edge function, cambiar la clave `test_...` por la `appl_...` y probar una compra de sandbox |
-| RevenueCat (Android) | Ficha en Play Console, productos, service account con permisos de facturación y la clave `goog_...` en `.env`. Es sobre todo trabajo de consola, no de código |
-| Planes familiares | Depende de RevenueCat (spec §13 y §15) |
+**`sent` no significa "entregado".** Expo devuelve `ok` cuando **acepta** el mensaje, no
+cuando Apple lo entrega. Durante todo el episodio anterior la base decía "enviado" mientras
+el teléfono no sonaba. El veredicto real está en los *receipts*
+(`/--/api/v2/push/getReceipts`), que hoy **no se consultan**: ver Deudas.
 
-👉 **La guía está escrita: `docs/GUIA-DESPLIEGUE.md`** (cumple lo que pide la spec §20).
-Cubre el orden completo —Apple, App Store Connect, Firebase/FCM, TestFlight y
-RevenueCat—, por qué ese orden y no otro, y qué hace EAS solo contra qué es manual.
+### 3.5 Android: lo que falta
 
-El punto que más ahorra tiempo: **el primer `eas build -p ios` crea el App ID, el
-certificado, el perfil y la APNs Key**. Por eso conviene correrlo ANTES de crear la ficha
-en App Store Connect, y no al revés: así el identificador sale de `app.json` y no puede
-quedar desalineado. Lo que EAS **no** hace es crear la ficha en App Store Connect.
+Solo está hecho el proyecto de Firebase y el `google-services.json` en la raíz del repo.
+Falta la service account de FCM en EAS y todo Play Console. Ver
+`docs/QUE-FALTA.md`, que es el índice único de trabajo pendiente.
 
 ---
 
 ## 4. Pendiente (no bloqueado)
 
-Siguiente bloque natural de trabajo, en orden:
+👉 **El trabajo pendiente vive en `docs/QUE-FALTA.md`**, que es el índice único: código,
+iOS y Android en un solo lugar.
 
-1. ~~**Fan-out de la alerta**~~ — **hecho** (migración 0010, ver §1.12). La cola ya se llena
-   sola; falta quien la consuma.
-2. **El sender**: edge function que reserve lotes con `claim_alert_deliveries()`, arme los
-   mensajes, los mande a la Expo Push API y cierre con `mark_alert_deliveries()`. El
-   contrato con la base ya está definido y probado; lo que falta es el hop HTTP. Se puede
-   escribir ya, pero no se puede verificar de punta a punta hasta que haya tokens, que
-   requieren `eas init` + credenciales.
-3. ~~**`eas init`**~~ — **hecho**: `projectId` en `app.json` y `eas.json` creados. Faltan las **credenciales** (APNs Key y FCM), que salen del primer build. Ver `docs/GUIA-DESPLIEGUE.md`.
-4. **Tarea de background** (`registerTaskAsync`) que responde al push silencioso y llama a
-   `captureLocationForActiveAlert()`, que ya existe y está probada.
-5. **Landing page de invitación** con botones a las tiendas. `INVITE_BASE_URL` en
-   `src/lib/config.ts` apunta hoy a un dominio que todavía no existe.
-6. Pruebas de carga con k6 o Artillery (spec §16.2).
-7. Sentry para errores de cliente.
-8. Revisión legal de términos y limitación de responsabilidad (spec §18).
+Estaba repartido entre este documento y el checklist de la guía de despliegue, y dos listas
+de lo mismo en archivos distintos se separan siempre. Acá quedan las **deudas conocidas**,
+que son otra cosa: problemas de lo que ya está construido, no trabajo nuevo.
+
+Lo que se cerró del plan original: el fan-out (0010), el sender (0014), `eas init` y la
+tarea de fondo. El bloque de push está completo en iOS (§3).
 
 > **Cómo ver el modo alerta hoy.** La regla funciona y ya hubo un sismo real que la cumplía
 > —el M4,8 de Lurín del 2026-08-19, a 49,1 km de Lima (§1.6.3.1)—, así que la afirmación
@@ -1042,20 +1214,38 @@ Siguiente bloque natural de trabajo, en orden:
   de que cada integrante sea contacto aceptado); falta la UI para crearlo.
 - **Simulacro en modo "avisar al círculo".** La opción existe en la UI y queda guardada
   en `drills.mode`, pero el aviso real a los contactos depende de push.
-- **🔴 El token de push solo se registra durante el onboarding.** `registerPushToken()`
-  se llama desde un único lugar, `(onboarding)/ready.tsx`. Quien ya terminó el onboarding
-  —o lo hizo cuando todavía no existía el `projectId` de EAS, que es el caso de todas las
-  cuentas actuales— **nunca vuelve a registrar el token**, porque el onboarding no se
-  repite. Verificado contra la base: `push_tokens` está vacía pese a haber corrido la app
-  en un iPhone físico. Es el mismo callejón sin salida de §1.6.3.1, con otro permiso:
-  la solución es la misma, llamarlo también desde el refresco (`refresh()` en
-  `app-data.tsx`, junto a `syncLocationPermission()`) y no solo una vez.
-- **Android sin empezar.** Firebase creado y `google-services.json` en el repo, pero falta
-  la service account de FCM en EAS, la ficha en Play Console, los productos y la clave
-  `goog_...` de RevenueCat. Decisión tomada: va después de cerrar iOS.
+- **🟡 `alert_deliveries.status = 'sent'` significa "Expo lo aceptó", no "llegó".** El
+  veredicto real de Apple está en los *receipts*, que hay que pedir aparte unos minutos
+  después con el `ticket_id` que devuelve el envío. Hoy ese id **no se guarda**, así que no
+  hay forma de saber si una alerta se entregó. Con un usuario el problema se nota enseguida
+  —pasó, con `TopicDisallowed` (§3.4)—; con diez mil, una credencial rota se vería como
+  "todo enviado" mientras nadie recibe nada. No bloquea lanzar, pero es de las cosas que uno
+  quiere tener **antes** de necesitarlas.
+- **🔴 La Home mostró "todo en calma" habiendo una alerta activa, y no se reprodujo.**
+  Al abrir la app tras un push había que tirar de la lista para ver el sismo. El dato que
+  más pesa: el refresco automático y el pull-to-refresh **llaman a la misma función**, así
+  que no es un bug de lógica sino un fallo silencioso del primero — el `catch` de
+  `refresh()` se comía el error y dejaba la caché vieja en pantalla. Se agregó un reintento
+  que primero renueva la sesión, por la sospecha de que el token vence mientras la app está
+  en segundo plano (`supabase.auth` congela su timer ahí). **La sospecha NO se confirmó:**
+  en la verificación posterior el bug no se reprodujo y el reintento nunca llegó a
+  dispararse, así que el arreglo es una red de seguridad, no una causa identificada. Queda
+  abierto y es intermitente. Si vuelve a pasar, la línea `[sync] primer intento falló` en
+  la consola dice si la causa es esa.
+- **🟡 El texto del aviso usa el `place` crudo del USGS, que viene en inglés.** Un sismo
+  peruano llega bien —el IGP da la referencia en español— pero uno global se anuncia como
+  "170 km NE of Lorengau, Papua New Guinea" dentro de una app en español. `src/lib/geo.ts`
+  ya resuelve país y continente para el feed; el sender debería usar lo mismo. Solo afecta
+  a las alertas mundiales, que son premium.
+- **El permiso de notificaciones solo se pide en el onboarding.** Quien lo rechaza ahí no
+  tiene ninguna forma dentro de la app de volver a activarlo: hay que ir a Ajustes de iOS.
+  El registro del token sí quedó cubierto (`syncPushToken()` corre en cada refresco), pero
+  el permiso en sí no se vuelve a ofrecer nunca. En una app de alertas, quedarse sin
+  notificaciones por un toque apurado durante el onboarding es caro.
 - **Notificaciones del feed Global.** La spec de la funcionalidad las incluye como parte
   del beneficio premium. El corte de acceso ya está (`get_quake_feed` + la condición
-  mundial de `get_active_alert`), pero el envío depende de push (§3).
+  mundial de `get_active_alert`) y el envío ya existe (§3), pero **nadie encola** esos
+  avisos: el fan-out solo cubre la alerta de sismo cercano, no el feed mundial.
 - **`TabBarExtraInset` de Android sin verificar.** Los 80dp son el alto nominal de la
   `BottomNavigationView` de Material 3, tomado de la documentación, no medido en un
   dispositivo. Los valores de iOS sí están medidos (§1.4). Al probar en Android hay que
@@ -1076,6 +1266,11 @@ donaciones.
 
 | Fecha | Qué pasó |
 |---|---|
+| 2026-08-20 | **El spinner de pull-to-refresh se quedaba trabado** (§1.4.2). Abrir la app después de un rato dejaba el spinner colgado arriba y el contenido corrido hacia abajo, en las cuatro pantallas que tienen el gesto, sin que nadie hubiera tirado de nada. No era de estilos: `RefreshControl.refreshing` estaba atado a la bandera global `syncing` (Home y Círculo) y se prendía dentro de `load()` (Sismos), así que **cualquier** refresco automático lo encendía — arrancar, volver del segundo plano, recuperar la red, hasta aceptar una solicitud. Prenderlo por código hace que iOS empuje el contenido con una animación; si la vista no está en pantalla en ese momento, la animación no termina y el scroll se queda corrido. Que se arreglara solo al cambiar de pestaña y volver era la pista: eso fuerza un layout nuevo. Ahora el estado vive en `usePullToRefresh` y **solo lo enciende el gesto**; los refrescos automáticos revalidan en silencio, que es lo que ya se esperaba de la caché de §1.6.4.1. Se borró `syncing` del contexto: no le quedaba un solo consumidor y era la trampa a la vista para volver a atarlo. |
+| 2026-08-20 | **Leyenda de magnitud y procedencia en el feed global** (§1.6.4.2). La lista pintaba tres colores sin decir nunca qué significan, y encima la escala reutiliza la paleta de estados de personas —donde el rojo es "necesito ayuda"—, así que un sismo rojo se podía leer como alerta activa. Para el país y el continente hubo que descubrir que **`region` y `country_code` están en NULL para todo el USGS**: el único dato es el `place` en inglés, o sea que la procedencia se interpreta de un texto. Al hacerlo apareció que **`shortPlace()` estaba roto para el USGS** y nadie lo había visto: solo entendía el `" de "` del IGP, así que mostraba "63 km NNE of Ruteng" —prefijo en inglés y sin país—. Otras dos cosas que no se veían venir: para EE. UU. el USGS manda el estado y no el país (a veces la sigla, `", CA"`), y el feed global **incluye sismos del IGP**, con formato en español, donde tras la última coma va un departamento. El mapa se armó agrupando los `place` ya ingeridos, no de memoria; **verificado contra los 297 distintos de la base: 0 sin resolver**. A los eventos en el mar no se les inventa continente. |
+| 2026-08-20 | **Noticias Sísmicas pedía el feed en cada foco** (§1.6.4.1). Medido en los logs antes de tocar nada: 179 llamadas a `get_quake_feed` en 24 h de **un** usuario, con **mediana de 5 segundos** entre una y la siguiente, contra una ingesta que corre cada 2 minutos — el **85,5 %** no podía traer nada nuevo. Además cambiar Nacional/Global pedía dos veces, porque al cambiar `scope` cambiaba la identidad del callback de `useFocusEffect` y se sumaba a la llamada del handler. Se conservaron los disparadores (foco y volver del segundo plano, que existen por el congelamiento de §1.6.4) pero ahora pasan por un umbral de frescura igual al intervalo del cron, y cada scope guarda lo suyo. Decidido **no** poner un temporizador: esta pestaña no es el canal de alertas y sería un segundo mecanismo de refresco en paralelo al de `app-data`. De paso, un refresco fallido ya no borra la lista buena. |
+| 2026-08-20 | **La detección de contactos no funcionaba con ninguna agenda real** (§1.6.6). «No pudimos revisar tu agenda» con el permiso concedido, siempre. No era el permiso: `.in('phone_hash', …)` mete los 64 caracteres de **cada** hash en el query string, así que a partir de ~230 números la URL pasa los 16 KB y la petición ni sale (`TypeError: error sending request`). Medido lote por lote contra el proyecto real: 200 pasa, 240 falla. Arreglado consultando de a 100 en paralelo; verificado con 2000 hashes y —la aserción que importa— con el hash real sembrado en el lote 16 de 20, que sí aparece. **Sobrevivió tanto porque una agenda de simulador tiene 5 contactos.** De paso se arregló lo que lo hizo difícil de diagnosticar: `functions.invoke` devuelve un error genérico y deja el motivo en un `Response` sin leer, y el cliente además lo tragaba con un `catch` mudo — la pantalla aconsejaba "intenta de nuevo" ante un fallo que reintentar no arreglaba nunca. |
+| 2026-08-20 | **Cambiar contraseña y borrar la cuenta** (§1.1.3, migración 0013). Las dos salen de haber pasado a contraseña: la segunda es requisito **5.1.1(v)** de Apple y sin ella el envío se rechaza. Lo que no era obvio: la contraseña se valida **en Postgres** con `extensions.crypt()`, porque hacerlo solo en la app no frena a quien ya tenga el token de sesión y llame al RPC directo. 3/3 aserciones contra la base real, incluida la que confirma que un intento con contraseña incorrecta **no borra nada**. Probado además a mano sobre una cuenta real, y ahí apareció lo que las aserciones no muestran: **borrar la cuenta pierde el Premium**, porque el derecho queda atado al `app_user_id` viejo; se recupera con «Restaurar compras» y la pantalla ahora lo dice. De paso, un advisor nuevo que antes no aplicaba: `auth_leaked_password_protection` está apagado. |
 | 2026-08-20 | **Acceso por contraseña y adiós a la foto de perfil.** (1) El bug de *"Error sending confirmation email"* con correos ajenos resultó no ser de la app: Resend seguía mandando desde `onboarding@resend.dev`, que solo entrega a la casilla del dueño de la cuenta. El dominio `todosbien.app` ya estaba verificado con DKIM, SPF y MX —lo que faltaba era cambiar el *Sender email* en Supabase, que es **otro panel** (§1.1.2). Verificado contra el proyecto real: el registro con una dirección ajena pasó de 500 a 200, sin error en los logs. (2) El acceso pasó de código OTP a **correo + contraseña**, que es lo que exige App Review para poder entrar con una cuenta de demostración; de paso el correo deja de ser punto único de falla en cada ingreso (§1.1.1). Cinco pantallas donde había dos, con recuperación de contraseña por código en vez de link. Se descubrió al implementarlo que `verifyOtp({type:'recovery'})` **abre sesión antes** de que la contraseña nueva esté escrita, así que el guardia de navegación saca la pantalla de encima entre las dos llamadas: se resolvió validando antes, cerrando sesión si falla la escritura y avisando por `Alert`, lo único que sobrevive a la navegación. (3) **Eliminada la foto de perfil** (§1.9.2.1): guardaba el URI local del teléfono, o sea que solo se veía en el propio dispositivo, y hacerla real pedía Supabase Storage pago. Se fueron con ella el permiso de fotos de iOS y las dependencias `expo-image-picker` y `expo-image`. Typecheck, lint y bundle de iOS en verde; **las pantallas nuevas quedan sin verificar a mano** (ver Deudas). |
 | 2026-08-17 | Arranque. Decisiones 1.1 a 1.9 tomadas. Schema completo con RLS aplicado en Supabase, advisors corregidos, 12 tips sembrados, edge function `match-contacts` desplegada, RLS verificada con 17 aserciones contra la base real. Cliente Expo: infraestructura offline-first, acceso, onboarding de 4 pasos, tabs con barra nativa glass, Home en sus dos modos, círculo, chat, simulacro y ajustes. |
 | 2026-08-19 | **Un sismo real destapó que la ubicación nunca se sembraba.** Un M4,8 a 42 km de Lurín (49,1 km de Lima) no disparó alerta pese a estar dentro del radio y sobre el umbral. Diagnosticado contra la base: `user_status` sin coordenadas, así que la regla del radio de `get_active_alert()` ni se evaluaba. El fondo era un **callejón sin salida** de diseño —sin ubicación nunca hay alerta activa, y sin alerta activa nunca se captura ubicación— del que solo se salía reinstalando. Se descartaron las tres sospechas iniciales con datos: la ingesta funcionó (6 min del sismo a la base), el IGP no llegó tarde y el build del cliente es irrelevante porque la regla vive en el servidor (§1.6.3.1). Corregido con `syncLocationPermission()` en cada refresco, más aviso en Ajustes y en la Home. **De paso**: la pestaña Nacional se congelaba al volver del segundo plano, porque `useFocusEffect` no dispara si la pantalla ya estaba enfocada, y era la única lista sin pull-to-refresh (§1.6.4). Documentada también la **latencia real** y la decisión de **no hacer alerta temprana**: son 14 segundos hasta que llega la onda S, el SASPe ya existe y alerta por sirenas justamente porque un push no llega a tiempo (§1.11). Typecheck, lint y build de iOS en verde; **las pantallas nuevas quedan sin verificar a mano** (ver Deudas). |
@@ -1084,6 +1279,10 @@ donaciones.
 | 2026-08-19 | **Fan-out de alertas** (§1.12, migración 0010). La regla de disparo se extrajo a `private.quake_applies()` y `get_active_alert()` se reescribió sobre ella, para que la versión "usuario → sismo" y la "sismo → usuarios" no puedan separarse. Cola `alert_deliveries` con jitter, expiración de avisos viejos y reintentos acotados; cron cada minuto. **15/15 aserciones en verde** contra la base real, y una de ellas destapó un bug: el barrido filtraba por `fanned_out_at < updated_at`, comparación que nunca se cumple porque `now()` es el instante de la transacción, así que un sismo corregido de 4.2 a 4.8 no se reevaluaba. Encontrado también que la tabla nueva heredaba grants completos de `anon`/`authenticated` por el default de Supabase: revocados. |
 | 2026-08-19 | **Cuentas de Apple y Expo activas.** Se levanta el bloqueo que arrastraba §3.3: push iOS, build en dispositivo físico, Sign in with Apple y RevenueCat dejan de estar trabados. Reescritas §3.3 y §3.4 con lo que ya está hecho del lado del cliente y lo que falta de verdad. Anotado el cambio de circuito de verificación: **el push no se puede probar en el simulador de iOS**, hace falta dev build en dispositivo físico. |
 | 2026-08-19 | **Simulacros: el checklist se completa a los 3.** El ítem de la Home mostraba el check verde con un solo simulacro hecho, al lado del texto "1 de 3 completados". Ahora se marca listo recién con los 3, y al agotar el cupo gratuito la pantalla de simulacro ofrece Premium en vez de dejar un botón deshabilitado sin salida (§1.9.3). |
+| 2026-08-20 | **Documentación reorganizada.** El trabajo pendiente estaba repartido entre la sección "Pendiente" de este documento y el checklist de la guía de despliegue: dos listas de lo mismo que ya habían empezado a discrepar. Ahora hay un índice único, `docs/QUE-FALTA.md`, con código, iOS y Android; los otros documentos quedan para el **cómo** y el **por qué**. De paso se reescribió §3, que seguía titulada *"el hueco más importante que queda"* describiendo un push que ya funciona, y se documentó el proceso de Android completo —que estaba solo como una línea suelta— separando Firebase de Play Console, que son cuentas distintas y es el error clásico de esa plataforma. |
+| 2026-08-20 | **La captura en segundo plano funciona: 2 segundos del push a la ubicación subida.** Con la app cerrada y sin tocarla, el iPhone se despertó, consultó si había alerta activa, tomó la posición y la subió. La prueba se diseñó para ser concluyente: `status = 'unconfirmed'` es una firma que **solo** puede dejar la tarea de fondo, porque no existe como botón. Hicieron falta tres intentos: el primero quedó ambiguo porque un toque manual pisó la escritura, y el segundo se invalidó solo —recargar Metro trajo la app al primer plano, que capturó de inmediato, y para cuando llegó el push la tarea no tenía nada que hacer—; eso, de paso, demostró la idempotencia. iOS devolvió un fix de ubicación cacheado en vez de encender el GPS, que es lo ideal dentro de los ~30 s que da el sistema. **Dos bugs encontrados en el camino**, ambos en la ruta crítica: el contador de "cambios por enviar" se congelaba porque nadie volvía a contar cuando el envío asíncrono terminaba (la escritura sí salía; mentía el cartel, para el lado del miedo), resuelto con un aviso del outbox que también arregla el chat; y la Home mostró "todo en calma" con una alerta activa, que quedó **sin reproducir** (ver Deudas). |
+| 2026-08-20 | **El sender: la cadena del push quedó cerrada** (`send-alerts`, migración 0014). La cola de 0010 ya no muere en el vacío: se reserva un lote, se arma el mensaje, se manda a la Expo Push API y se cierra con `mark_alert_deliveries()`. Verificado con un aviso **real entregado a un iPhone**, no con datos inventados. El push lleva contenido visible y `contentAvailable` en el mismo mensaje, para que cuando exista la tarea de background capture la ubicación sin tocar el servidor. **Agujero encontrado al escribirlo:** `claim_alert_deliveries` marcaba el lote como `sending` y, si la edge function se caía antes de cerrarlo, esas filas quedaban ahí **para siempre** —ningún claim posterior las mira, porque solo busca `pending`—; era el modo de falla más probable de todo el circuito, porque depende de un hop HTTP a un tercero. Se agregó el rescate dentro del propio claim (a los 5 min vuelven a la fila) en vez de un cron aparte, para que no exista la posibilidad de olvidarse de agendarlo. También se borran los tokens que Expo reporta como `DeviceNotRegistered`. |
+| 2026-08-20 | **El token de push nunca se registraba después del onboarding.** `push_tokens` estaba vacía pese a que la app corría en un iPhone físico. La causa: el registro vivía solo en el último paso del onboarding, que no se repite, y todas las cuentas existentes lo habían completado cuando aún no existía el `projectId` de EAS. Es el mismo callejón sin salida de §1.6.3.1 con otro permiso, y la solución es la misma: `syncPushToken()` corre también en cada refresco, escribiendo solo cuando el token cambió. Se agregaron logs de diagnóstico porque los cinco motivos de "no se registró" son silenciosos y producen el mismo síntoma. |
 | 2026-08-19 | **Primera compra real en sandbox, circuito cerrado.** `INITIAL_PURCHASE` de App Store → webhook → `is_premium = true` y `alert_worldwide_enabled = true` sobre la cuenta real, verificado en `revenuecat_events`. Antes de eso hubo un `STORE_PROBLEM` / `StoreKitError.unknown` que **no era del código**: el log ya nombraba el producto, así que clave, Offering, productos y StoreKit estaban bien y solo faltaba que el sandbox de Apple respondiera. Queda anotado porque es el error que más tiempo hace perder: RevenueCat lo documenta como más frecuente en sandbox que en producción, y la salida es tester nuevo o reintentar. De paso se confirmó que el cliente anónimo que aparece junto al identificado en el dashboard es normal —el SDK crea uno antes de que `getSession()` resuelva— y no significa que `logIn()` falle. |
 | 2026-08-19 | **RevenueCat integrado de punta a punta** (§1.9.1.1). El botón deja de estar inerte: abre el paywall del dashboard, y `subscription-manager.tsx` agrega **Customer Center** para quien ya paga y **restaurar compras** para quien no —esto último no es opcional, Apple rechaza las apps con compras no consumibles que no ofrecen recuperarlas—. El permiso lo otorga la edge function `revenuecat-webhook` (migración 0012) y nunca la app: `is_premium` sigue fuera del grant de UPDATE. Dos decisiones que no son obvias: **`CANCELLATION` no quita el acceso** (cancelar es "no se renueva", no "se terminó ahora"; quitarlo sería cobrar un mes y no darlo), y el reembolso —que sí corta al instante— se distingue por la fecha de vencimiento ya pasada. Verificado contra la base real: 401 sin secreto, `grant` y `revoke` aplicados sobre el usuario de QA, y un reintento del mismo `event_id` descartado como duplicado. Queda pendiente la compra de sandbox real y cambiar la clave `test_...` por la `appl_...`. |
 | 2026-08-19 | **Cuenta, paywall y color.** (1) Eliminada la pantalla de venta propia: la venta pasa al paywall de RevenueCat y el botón queda inerte en un único punto de enganche, `premium-cta.tsx` (§1.9.1). (2) Nueva pantalla **Mi cuenta** para editar nombre, foto y teléfono —que solo se podían fijar en el onboarding— y ver el plan (§1.9.2). (3) Azul de marca `#0D6BC9`, también en la tab bar: además de diferenciarse del azul de iOS, **arregla un problema de accesibilidad**, porque el azul anterior daba 3.53:1 contra blanco y se usa como color de texto (§1.4.1). Un primer intento a H 216.5° se veía morado y se corrigió. (4) Dos bugs encontrados de paso: `formatE164ForDisplay` adivinaba el código de país con una regex greedy y mostraba `+519 991 227 84` en vez de `+51 999 122 784`; y el avatar sobrescribía el `fontSize` de las iniciales pero no el `lineHeight` del variant, así que a partir de cierto tamaño la letra se cortaba por abajo (se veía en Mi cuenta y en el onboarding, ambos con avatar de 92). |

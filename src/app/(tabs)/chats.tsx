@@ -10,6 +10,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
 import { useAuth } from '@/context/auth';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import {
   openDirectConversation,
   readCachedConversations,
@@ -28,7 +29,6 @@ export default function ChatsScreen() {
   const { accepted } = useAppData();
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [opening, setOpening] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -40,6 +40,8 @@ export default function ChatsScreen() {
       // Sin red seguimos con lo cacheado.
     }
   }, [userId]);
+
+  const { refreshing, onRefresh } = usePullToRefresh(load);
 
   useFocusEffect(
     useCallback(() => {
@@ -73,10 +75,7 @@ export default function ChatsScreen() {
           // (debajo del status bar). Sin este offset queda tapado por el reloj.
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              void load().finally(() => setRefreshing(false));
-            }}
+            onRefresh={onRefresh}
             progressViewOffset={insets.top}
             tintColor={colors.textSecondary}
           />

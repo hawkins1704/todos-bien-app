@@ -14,6 +14,31 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const MAX_HASHES = 2000;
 
+/**
+ * Cuántos hashes entran en UNA consulta a PostgREST.
+ *
+ * `.in()` no manda la lista en el cuerpo: la mete entera en el query string, y
+ * cada hash son 64 caracteres hex más la coma. Con una agenda real eso arma una
+ * URL de decenas de KB y la petición **ni siquiera sale**: el cliente HTTP de
+ * Deno corta con `TypeError: error sending request` y la función devuelve 500.
+ *
+ * Medido contra este proyecto: 200 hashes (~13 KB) pasa, 240 (~15,6 KB) ya
+ * falla. O sea que el techo está cerca de los 16 KB de cabecera. Se usan 100
+ * (~6,5 KB) para dejar margen: es un límite de infraestructura que nadie
+ * garantiza por escrito y que puede bajar sin avisar.
+ *
+ * Este era el bug: cualquiera con más de ~230 números en la agenda —o sea casi
+ * cualquiera— veía "No pudimos revisar tu agenda", y con 50 contactos de prueba
+ * no se reproducía nunca.
+ */
+const HASHES_PER_QUERY = 100;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -69,21 +94,27 @@ Deno.serve(async (req: Request) => {
 
   const admin = createClient(url, serviceKey);
 
-  const { data: settings, error: settingsError } = await admin
-    .from('user_settings')
-    .select('user_id, phone_hash')
-    .in('phone_hash', clean);
+  const pages = await Promise.all(
+    chunk(clean, HASHES_PER_QUERY).map((group) =>
+      admin.from('user_settings').select('user_id, phone_hash').in('phone_hash', group),
+    ),
+  );
 
-  if (settingsError) return json({ error: settingsError.message }, 500);
+  const failed = pages.find((page) => page.error);
+  if (failed?.error) return json({ error: failed.error.message }, 500);
 
-  const matched = (settings ?? []).filter((s) => s.user_id !== user.id);
+  const settings = pages.flatMap((page) => page.data ?? []);
+
+  const matched = settings.filter((s) => s.user_id !== user.id);
   if (matched.length === 0) return json({ matches: [] });
 
   const ids = matched.map((s) => s.user_id);
 
   const [{ data: profiles, error: profilesError }, { data: connections, error: connectionsError }] =
     await Promise.all([
-      admin.from('profiles').select('id, display_name, avatar_url').in('id', ids),
+      // Sin `avatar_url`: la app no tiene foto de perfil, el avatar es de
+      // iniciales. Devolverlo era mandar un campo que nadie lee.
+      admin.from('profiles').select('id, display_name').in('id', ids),
       admin
         .from('connections')
         .select('user_a, user_b, status')
@@ -109,7 +140,6 @@ Deno.serve(async (req: Request) => {
         user_id: s.user_id,
         phone_hash: s.phone_hash,
         display_name: profile.display_name,
-        avatar_url: profile.avatar_url,
         connection_status: connectionByOther.get(s.user_id) ?? null,
       };
     })
