@@ -2,7 +2,6 @@ import * as Crypto from 'expo-crypto';
 
 import { getDb } from '@/lib/db';
 import { enqueue } from '@/lib/db/outbox';
-import { flushOutbox } from '@/lib/sync';
 import { supabase } from '@/lib/supabase';
 
 /** Chat individual y grupal (spec §12, tier free). */
@@ -120,10 +119,30 @@ export async function readCachedConversations(): Promise<ConversationSummary[]> 
   }));
 }
 
+/**
+ * Baja los mensajes del servidor y **reconcilia el envío optimista**.
+ *
+ * 🔴 Acá vivía el bug del mensaje duplicado. `sendMessage()` guarda la fila
+ * local con `id = client_id`, porque en ese momento el id del servidor todavía
+ * no existe. Al subirla, Postgres le pone su propio `id` (`gen_random_uuid()`),
+ * y esta función insertaba esa fila **como si fuera un mensaje nuevo**: quedaban
+ * dos filas con el mismo texto y distinta clave primaria, y la lista pintaba
+ * las dos.
+ *
+ * Se veía exactamente como lo reportó quien lo encontró: el reloj de «pendiente»
+ * al enviar, y al volver a entrar el reloj ya no estaba pero el mensaje aparecía
+ * dos veces. El reloj desaparecía porque el outbox apagaba `pending` en la fila
+ * provisional; la copia del servidor entraba aparte y ya nacía sin reloj.
+ *
+ * El arreglo es traer `client_id` y borrar la provisional antes de insertar la
+ * definitiva. De paso **limpia los duplicados que ya estén guardados**: cada
+ * sincronización vuelve a intentar el borrado, así que los teléfonos que
+ * arrastran el problema se arreglan solos al abrir la conversación.
+ */
 export async function syncMessages(conversationId: string, limit = 100): Promise<void> {
   const { data, error } = await supabase
     .from('messages')
-    .select('id, conversation_id, sender_id, body, created_at, is_drill')
+    .select('id, conversation_id, sender_id, body, created_at, is_drill, client_id')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -133,6 +152,11 @@ export async function syncMessages(conversationId: string, limit = 100): Promise
   const db = await getDb();
   await db.withTransactionAsync(async () => {
     for (const m of data ?? []) {
+      // La fila provisional del envío optimista, si esta copia es el eco de un
+      // mensaje propio. Para los mensajes ajenos no borra nada: su `client_id`
+      // se generó en otro teléfono y no coincide con ninguna clave de acá.
+      await db.runAsync('DELETE FROM messages_cache WHERE id = ?', m.client_id);
+
       await db.runAsync(
         `INSERT INTO messages_cache (id, conversation_id, sender_id, body, created_at, is_drill, pending)
          VALUES (?, ?, ?, ?, ?, ?, 0)
@@ -175,9 +199,17 @@ export async function readCachedMessages(conversationId: string): Promise<ChatMe
 }
 
 /**
- * Envío optimista: el mensaje aparece al instante marcado como pendiente y se
- * sube por el outbox. `client_id` hace la subida idempotente, así que un
- * reintento tras un corte no duplica el mensaje.
+ * Envío optimista: el mensaje aparece al instante marcado como pendiente y
+ * queda en el outbox. `client_id` hace la subida idempotente —hay un índice
+ * único `(conversation_id, sender_id, client_id)`—, así que un reintento tras
+ * un corte no duplica el mensaje en el servidor.
+ *
+ * **No sube nada por sí misma, a propósito.** Antes hacía `void flushOutbox()`
+ * acá adentro, y como nadie sabía cuándo terminaba, el reloj de «pendiente» se
+ * quedaba puesto hasta que algo ajeno provocara una relectura —normalmente el
+ * eco de Realtime—. Si el socket estaba caído, el mensaje ya estaba entregado y
+ * la burbuja seguía mostrando que no. Ahora la subida la dispara quien llama,
+ * que es el único que puede refrescar la pantalla al terminar.
  */
 export async function sendMessage(input: {
   conversationId: string;
@@ -207,8 +239,6 @@ export async function sendMessage(input: {
     isDrill: input.isDrill,
     createdAt,
   });
-
-  void flushOutbox();
 }
 
 export async function markConversationRead(conversationId: string, userId: string): Promise<void> {

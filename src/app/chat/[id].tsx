@@ -27,6 +27,7 @@ import {
 import { elapsedShort } from '@/lib/format';
 import { setOpenConversation } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import { flushOutbox } from '@/lib/sync';
 import { Radius, Spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
@@ -99,6 +100,14 @@ export default function ChatScreen() {
 
     setDraft('');
     await sendMessage({ conversationId, senderId: userId, body, isDrill: isDrilling });
+
+    // La burbuja aparece ya, con el reloj de pendiente: eso es lo optimista.
+    setMessages(await readCachedMessages(conversationId));
+
+    // Y el reloj se apaga en cuanto el servidor la acepta, sin depender de que
+    // el eco de Realtime llegue. Si no hay red, `flushOutbox` vuelve sin
+    // haberla subido y el reloj se queda puesto — que es la verdad.
+    await flushOutbox();
     setMessages(await readCachedMessages(conversationId));
   };
 

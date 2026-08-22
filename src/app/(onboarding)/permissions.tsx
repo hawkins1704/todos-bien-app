@@ -96,7 +96,7 @@ export default function OnboardingPermissionsScreen() {
               <Text variant="headline">Ubicación</Text>
               {locationLevel === 'background' ? (
                 <Text variant="footnote" style={{ color: status.safe.strong }}>
-                  Listo · se capturará al ocurrir un sismo
+                  Listo · se toma cuando haya un sismo cerca
                 </Text>
               ) : locationLevel === 'foreground' ? (
                 <Text variant="footnote" style={{ color: status.helping.strong }}>
@@ -110,12 +110,17 @@ export default function OnboardingPermissionsScreen() {
             </View>
           </View>
 
+          {/* Este texto tiene que nombrar la lectura inicial. `askLocation()`
+              llama a `ensureInitialLocation()` unas líneas más arriba, así que
+              decir "solo cuando ocurre un sismo" sería omitir una captura que
+              ya ocurrió — y eso no es un matiz de marketing, es lo que declara
+              el Nutrition Label. Ver `docs/QUE-PROMETE-LA-APP.md` §3.5. */}
           <Text variant="subhead" tone="secondary" style={styles.explainer}>
             La app toma tu ubicación{' '}
             <Text variant="subhead" weight="700">
-              una sola vez, en el momento en que ocurre un sismo en tu zona
+              una vez ahora, al dar el permiso, y después solo cuando hay un sismo en tu zona
             </Text>
-            , y se la muestra únicamente a los contactos que tú aceptaste.
+            . Se la mostramos únicamente a los contactos que tú aceptaste.
           </Text>
 
           <View style={[styles.promise, { backgroundColor: colors.surfaceSunken }]}>
@@ -172,13 +177,14 @@ export default function OnboardingPermissionsScreen() {
           </View>
 
           <Text variant="subhead" tone="secondary" style={styles.explainer}>
-            Te avisamos solo cuando pasa algo que necesitas saber: un contacto marcó que
-            necesita ayuda, te escribió, o aceptó tu solicitud.
+            Te avisamos solo cuando pasa algo que necesitas saber: un sismo cerca de ti, o un
+            contacto que marcó que necesita ayuda, te escribió o aceptó tu solicitud.
           </Text>
 
           <Text variant="caption" tone="tertiary" style={styles.why}>
-            No mandamos una notificación por cada sismo que ocurre, ni cuando alguien marca
-            que está bien. Puedes apagar cada tipo por separado en Ajustes.
+            El aviso de sismo llega unos minutos después, cuando el IGP lo publica: esto no es
+            alerta temprana. No mandamos nada por sismos lejanos ni cuando alguien marca que
+            está bien. Puedes apagar cada tipo por separado en Ajustes.
           </Text>
 
           {notificationsGranted ? null : (

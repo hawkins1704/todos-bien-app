@@ -439,12 +439,20 @@ export async function completeDrill(
 // Notificaciones
 // ---------------------------------------------------------------------------
 
+/**
+ * Los dos últimos son **noticias**, no alertas, y esa distinción es el punto
+ * (migración 0021). La alerta de sismo no tiene interruptor porque no es una
+ * preferencia: es la razón por la que la app existe. Lo que se puede apagar es
+ * enterarse de sismos que NO te dispararon una alerta.
+ */
 export type NotificationPrefs = {
   contactNeedsHelp: boolean;
   contactMessage: boolean;
   connectionRequest: boolean;
   connectionAccepted: boolean;
   contactNotResponding: boolean;
+  quakeNational: boolean;
+  quakeWorldwide: boolean;
 };
 
 export async function fetchNotificationPrefs(userId: string): Promise<NotificationPrefs | null> {
@@ -463,6 +471,8 @@ export async function fetchNotificationPrefs(userId: string): Promise<Notificati
     connectionRequest: data.connection_request,
     connectionAccepted: data.connection_accepted,
     contactNotResponding: data.contact_not_responding,
+    quakeNational: data.quake_national,
+    quakeWorldwide: data.quake_worldwide,
   };
 }
 
@@ -478,6 +488,8 @@ export async function updateNotificationPrefs(
   if (patch.contactNotResponding !== undefined) {
     payload.contact_not_responding = patch.contactNotResponding;
   }
+  if (patch.quakeNational !== undefined) payload.quake_national = patch.quakeNational;
+  if (patch.quakeWorldwide !== undefined) payload.quake_worldwide = patch.quakeWorldwide;
 
   // Upsert y no update: un `update` sobre una fila que no existe afecta cero
   // filas y **no devuelve error**, así que el interruptor se veía cambiado en

@@ -12,6 +12,13 @@ export const KV = {
   pendingInviteCode: 'pending_invite_code',
   /** Último token de push que se escribió en el servidor (ver `syncPushToken`). */
   pushToken: 'push_token',
+  /**
+   * Migajas de la tarea de fondo, a la espera de subirse (ver
+   * `src/lib/background-trace.ts`). Van acá y no directo al servidor porque la
+   * tarea corre en un arranque headless, donde la red puede no estar
+   * disponible — y eso es justamente lo que se está diagnosticando.
+   */
+  backgroundTrace: 'background_trace',
 } as const;
 
 export async function kvGet<T>(key: string): Promise<T | null> {

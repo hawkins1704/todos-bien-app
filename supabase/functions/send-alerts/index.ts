@@ -13,9 +13,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
  * La dispara pg_cron cada minuto (migración 0014), autenticada con un secreto
  * compartido en Vault, igual que `ingest-quakes`.
  *
- * ## Un push que hace dos trabajos
+ * ## DOS mensajes por dispositivo, no uno
  *
- * El mensaje lleva contenido visible **y** `contentAvailable` (spec §7, §3.2):
+ * El aviso de sismo tiene dos trabajos (spec §7, §3.2):
  *
  * - Visible: "Sismo de magnitud 6,2" — es lo que la persona ve.
  * - Silencioso: despierta la app unos segundos en segundo plano para que
@@ -23,9 +23,20 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
  *   app. Sin esto, la ubicación que se guarda es dónde está cuando abre la app
  *   —a la mañana siguiente, quizá— y la respuesta sería falsa.
  *
- * La tarea de background que responde a esa parte todavía no existe del lado
- * del cliente; mandarlo igual es inocuo y evita tener que tocar el servidor
- * cuando se agregue.
+ * 🔴 **Iban en un solo mensaje, y por eso el segundo trabajo no se hacía
+ * nunca.** La documentación de expo-notifications es explícita sobre qué
+ * dispara una tarea de fondo: el push tiene que contener *"only the `data` key
+ * (no `title`, `body`)"*. Un mensaje con alerta visible **no** despierta la
+ * app; iOS muestra el banner y nada más.
+ *
+ * Se descubrió el 2026-08-21 investigando por qué, tras un M7,2 real, la
+ * ubicación de la única persona con token se capturó recién al abrir la app y
+ * no a los segundos del aviso.
+ *
+ * Ahora van separados: el visible con prioridad alta, y el silencioso sin
+ * título ni cuerpo ni sonido y con prioridad normal (APNs 5), que es lo que
+ * Apple pide para un background update. Un aviso cuenta como entregado si el
+ * **visible** fue aceptado: es el que la persona ve.
  */
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
@@ -178,12 +189,19 @@ Deno.serve(async (req: Request) => {
 
     const messages: unknown[] = [];
     // Paralelo a `messages`: permite mapear cada ticket de vuelta a su aviso.
-    const origin: { deliveryId: string; token: string }[] = [];
+    const origin: {
+      deliveryId: string;
+      userId: string;
+      token: string;
+      channel: 'visible' | 'silent';
+    }[] = [];
 
     for (const delivery of sendable) {
       const { title, body } = buildMessage(delivery);
+      const data = { type: 'quake_alert', quakeEventId: delivery.quake_event_id };
 
       for (const token of byUser.get(delivery.user_id)!) {
+        // 1 · El que la persona ve.
         messages.push({
           to: token,
           title,
@@ -194,17 +212,47 @@ Deno.serve(async (req: Request) => {
           // `ensureAndroidChannels()` los crea al pedir el permiso.
           channelId: 'alerts',
           ttl: TTL_SECONDS,
-          contentAvailable: true,
-          data: { type: 'quake_alert', quakeEventId: delivery.quake_event_id },
+          data,
         });
-        origin.push({ deliveryId: delivery.delivery_id, token });
+        origin.push({
+          deliveryId: delivery.delivery_id,
+          userId: delivery.user_id,
+          token,
+          channel: 'visible',
+        });
+
+        // 2 · El que despierta la app para capturar la ubicación.
+        //
+        // Sin `title`, `body`, `sound` ni `channelId`: cualquiera de esos lo
+        // convierte en un aviso visible y deja de disparar la tarea de fondo.
+        // Prioridad normal porque Apple exige APNs 5 para un background update
+        // — con 10 lo puede rechazar.
+        messages.push({
+          to: token,
+          contentAvailable: true,
+          priority: 'normal',
+          ttl: TTL_SECONDS,
+          data,
+        });
+        origin.push({
+          deliveryId: delivery.delivery_id,
+          userId: delivery.user_id,
+          token,
+          channel: 'silent',
+        });
       }
     }
 
-    // Un aviso se da por entregado si **alguno** de los dispositivos lo aceptó.
+    // Un aviso se da por entregado si **alguno** de los dispositivos aceptó el
+    // mensaje **visible**. El silencioso es mejor-esfuerzo: que no entre no
+    // significa que la persona no se enteró.
     const okByDelivery = new Map<string, boolean>();
     const errorByDelivery = new Map<string, string>();
     const deadTokens: string[] = [];
+
+    // Los ids que devuelve Expo, para poder pedirle después el veredicto real
+    // de APNs. Sin esto, 'sent' solo significa "Expo lo aceptó" (migración 0018).
+    const ticketRows: Record<string, string>[] = [];
 
     for (let i = 0; i < messages.length; i += EXPO_BATCH) {
       const chunk = messages.slice(i, i + EXPO_BATCH);
@@ -216,21 +264,33 @@ Deno.serve(async (req: Request) => {
       } catch (caught) {
         // Se cayó el lote entero: vuelven a 'pending' para el próximo ciclo.
         const message = caught instanceof Error ? caught.message : String(caught);
-        for (const { deliveryId } of chunkOrigin) {
-          if (!okByDelivery.get(deliveryId)) errorByDelivery.set(deliveryId, message);
+        for (const { deliveryId, channel } of chunkOrigin) {
+          if (channel === 'visible' && !okByDelivery.get(deliveryId)) {
+            errorByDelivery.set(deliveryId, message);
+          }
         }
         continue;
       }
 
       tickets.forEach((ticket, index) => {
-        const { deliveryId, token } = chunkOrigin[index];
+        const { deliveryId, userId, token, channel } = chunkOrigin[index];
 
         if (ticket.status === 'ok') {
-          okByDelivery.set(deliveryId, true);
+          if (ticket.id) {
+            ticketRows.push({
+              ticket_id: ticket.id,
+              kind: 'alert',
+              delivery_id: deliveryId,
+              user_id: userId,
+              token,
+              channel,
+            });
+          }
+          if (channel === 'visible') okByDelivery.set(deliveryId, true);
           return;
         }
 
-        if (!okByDelivery.get(deliveryId)) {
+        if (channel === 'visible' && !okByDelivery.get(deliveryId)) {
           errorByDelivery.set(deliveryId, ticket.details?.error ?? ticket.message ?? 'error');
         }
 
@@ -239,6 +299,13 @@ Deno.serve(async (req: Request) => {
         // y cada envío futuro paga el costo.
         if (ticket.details?.error === 'DeviceNotRegistered') deadTokens.push(token);
       });
+    }
+
+    if (ticketRows.length > 0) {
+      // Que falle anotar no puede tumbar el envío: los avisos ya salieron y lo
+      // único que se pierde es poder auditarlos después.
+      const { error } = await admin.rpc('record_push_tickets', { p_rows: ticketRows });
+      if (error) console.error('[send-alerts] no se pudieron anotar los tickets:', error.message);
     }
 
     if (deadTokens.length > 0) {

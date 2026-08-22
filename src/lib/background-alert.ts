@@ -3,6 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 
 import { captureLocationForActiveAlert } from '@/lib/alert-response';
 import { fetchActiveAlert } from '@/lib/api';
+import { traceBackground } from '@/lib/background-trace';
 
 /**
  * La mitad silenciosa del push (spec §7, §3.2).
@@ -37,11 +38,21 @@ const BACKGROUND_ALERT_TASK = 'todos-bien-background-alert';
 TaskManager.defineTask<Notifications.NotificationTaskPayload>(
   BACKGROUND_ALERT_TASK,
   async ({ error }) => {
+    // Lo PRIMERO, antes de cualquier otra cosa. Esta línea es la que distingue
+    // "iOS nunca levantó la app" de "la levantó y se murió": las dos se ven
+    // igual desde el servidor si no queda rastro (ver `background-trace.ts`).
+    await traceBackground('woke', error ? 'con error de TaskManager' : undefined);
+
     if (error) return Notifications.BackgroundNotificationTaskResult.Failed;
 
     try {
       const quake = await fetchActiveAlert();
-      if (!quake) return Notifications.BackgroundNotificationTaskResult.NoData;
+      if (!quake) {
+        await traceBackground('alert:none');
+        return Notifications.BackgroundNotificationTaskResult.NoData;
+      }
+
+      await traceBackground('alert:found', quake.id);
 
       // Sin jitter: iOS da ~30 segundos para todo esto y el GPS se puede comer
       // buena parte. La dispersión que busca la spec §6 ya la aplica el
@@ -49,12 +60,15 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(
       // segundos, así que los dispositivos ni siquiera despiertan a la vez.
       const captured = await captureLocationForActiveAlert(quake, { jitter: false });
 
+      await traceBackground(captured ? 'captured' : 'no-fix');
+
       return captured
         ? Notifications.BackgroundNotificationTaskResult.NewData
         : Notifications.BackgroundNotificationTaskResult.NoData;
-    } catch {
+    } catch (caught) {
       // Sin sesión, sin permiso de ubicación o sin red. No hay nada que
       // reintentar acá: al abrir la app, el refresco vuelve a intentarlo.
+      await traceBackground('error', caught instanceof Error ? caught.message : String(caught));
       return Notifications.BackgroundNotificationTaskResult.Failed;
     }
   },

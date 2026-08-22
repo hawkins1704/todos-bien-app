@@ -50,6 +50,34 @@ const NOTIFICATION_LABELS: { key: keyof NotificationPrefs; title: string; detail
   },
 ];
 
+/**
+ * Noticias de sismos, que **no** son alertas (migración 0021).
+ *
+ * Se listan aparte de las de arriba porque responden a otra pregunta: aquellas
+ * son sobre personas, estas sobre sismos que no te tocaron. La alerta de sismo
+ * no aparece en ninguna de las dos listas y eso es deliberado — no es una
+ * preferencia, es la razón por la que la app existe.
+ */
+const QUAKE_NEWS_LABELS: {
+  key: 'quakeNational' | 'quakeWorldwide';
+  title: string;
+  detail: string;
+  premium: boolean;
+}[] = [
+  {
+    key: 'quakeNational',
+    title: 'Sismos en el país',
+    detail: 'De magnitud 4,5 o más en el Perú, que no te hayan disparado una alerta.',
+    premium: false,
+  },
+  {
+    key: 'quakeWorldwide',
+    title: 'Sismos en el mundo',
+    detail: 'De magnitud 6,0 o más en cualquier parte del planeta.',
+    premium: true,
+  },
+];
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -207,8 +235,48 @@ export default function SettingsScreen() {
           </Card>
 
           <Text variant="caption" tone="tertiary" style={styles.note}>
-            No mandamos notificación por cada sismo que ocurre, ni cuando alguien marca que está
-            bien. Solo por lo que necesitas saber.
+            No mandamos notificación cuando alguien marca que está bien. Solo por lo que
+            necesitas saber.
+          </Text>
+        </Section>
+
+        <Section title="NOTICIAS DE SISMOS">
+          <Card padded={false}>
+            {QUAKE_NEWS_LABELS.map((item, index) => {
+              const bloqueado = item.premium && !mySettings?.isPremium;
+
+              return (
+                <View
+                  key={item.key}
+                  style={[
+                    styles.switchRow,
+                    index > 0
+                      ? { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth }
+                      : null,
+                  ]}>
+                  <View style={styles.flex}>
+                    <Text variant="callout" tone={bloqueado ? 'tertiary' : 'primary'}>
+                      {item.title}
+                    </Text>
+                    <Text variant="caption" tone="tertiary">
+                      {bloqueado ? 'Disponible con Premium.' : item.detail}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={bloqueado ? false : (prefs?.[item.key] ?? true)}
+                    onValueChange={(value) => void togglePref(item.key, value)}
+                    disabled={prefs === null || bloqueado}
+                  />
+                </View>
+              );
+            })}
+          </Card>
+
+          {/* La frase que evita el malentendido que originó todo esto: alguien
+              que apaga estos dos podría creer que se quedó sin alertas. */}
+          <Text variant="caption" tone="tertiary" style={styles.note}>
+            Esto es informativo y podés apagarlo sin miedo: la alerta de un sismo que sí te toca
+            llega siempre, y es igual en Premium que en la versión gratuita.
           </Text>
         </Section>
 
@@ -252,8 +320,8 @@ export default function SettingsScreen() {
             </Card>
           ) : (
             <Text variant="caption" tone="tertiary" style={styles.note}>
-              La ubicación se toma una sola vez, cuando ocurre un sismo en tu zona. La app nunca
-              registra tu recorrido.
+              La ubicación se toma una vez al conceder el permiso, y después solo cuando hay un
+              sismo en tu zona. La app nunca registra tu recorrido.
             </Text>
           )}
         </Section>

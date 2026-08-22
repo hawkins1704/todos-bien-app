@@ -24,14 +24,14 @@ const SLIDES: Slide[] = [
     icon: 'diversity-3',
     title: 'Un toque, y tu gente sabe que estás bien',
     body:
-      'Después de un sismo, las llamadas se saturan. Acá reportas tu estado una vez y todo tu círculo lo ve al instante, sin que nadie tenga que llamar a nadie.',
+      'Después de un sismo, las llamadas se saturan. Acá reportas tu estado una vez y queda ahí para todo tu círculo, sin que nadie tenga que llamar a nadie.',
   },
   {
     key: 'dashboard',
     icon: 'grid-view',
     title: 'Ves a los tuyos de un vistazo',
     body:
-      'Cada persona aparece con un color y un ícono según su estado, junto con dónde estaba cuando ocurrió el sismo. Sin buscar en cinco chats distintos.',
+      'Cada persona aparece con un color y un ícono según su estado, junto con dónde estaba después del sismo. Sin buscar en cinco chats distintos.',
   },
   {
     key: 'offline',

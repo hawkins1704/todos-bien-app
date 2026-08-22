@@ -63,6 +63,15 @@ export const ANDROID_CHANNELS = {
   alerts: 'alerts',
   messages: 'messages',
   social: 'social',
+  /**
+   * Noticias de sismos que NO dispararon una alerta (migración 0021).
+   *
+   * Va en su propio canal, y no en `alerts`, porque en Android eso es una
+   * categoría que la persona puede silenciar desde los ajustes del sistema.
+   * Mezclarlas obligaría a elegir entre enterarse de todo o de nada — y lo que
+   * se apagaría de paso es el aviso que sí importa.
+   */
+  quakes: 'quakes',
 } as const;
 
 /** Android 13+ exige que el canal exista antes de pedir el token. */
@@ -84,6 +93,14 @@ export async function ensureAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNELS.social, {
     name: 'Solicitudes y avisos',
     importance: Notifications.AndroidImportance.DEFAULT,
+  });
+
+  // Importancia baja a propósito: informa sin interrumpir, que es la diferencia
+  // con `alerts`. Un sismo del que te enterás por curiosidad no puede sonar
+  // igual que uno que te tocó.
+  await Notifications.setNotificationChannelAsync(ANDROID_CHANNELS.quakes, {
+    name: 'Noticias de sismos',
+    importance: Notifications.AndroidImportance.LOW,
   });
 }
 

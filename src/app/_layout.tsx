@@ -9,7 +9,6 @@ import { NotificationRouter } from '@/components/notification-router';
 import { AppDataProvider } from '@/context/app-data';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { DrillProvider } from '@/context/drill';
-import { registerBackgroundAlertTask } from '@/lib/background-alert';
 import { configurePurchases, syncPurchasesUser } from '@/lib/purchases';
 import { useColorSchemeName } from '@/theme/use-theme';
 
@@ -19,11 +18,10 @@ void SplashScreen.preventAutoHideAsync();
 // SDK ya tiene las ofertas en caché cuando alguien abre el paywall.
 configurePurchases();
 
-// Importar este módulo es lo que define la tarea de fondo del push silencioso;
-// registrarla le avisa al sistema que existe. Va acá y no en un efecto porque
-// cuando llega un push con la app cerrada, iOS carga el bundle y espera
-// encontrarla ya definida.
-void registerBackgroundAlertTask();
+// La tarea de fondo del push silencioso NO se registra acá: vive en `index.js`,
+// el punto de entrada. Este archivo es una pantalla del router, y en un arranque
+// headless —el que provoca un push con la app cerrada— puede no evaluarse nunca.
+// Ver el comentario de `index.js`.
 
 export default function RootLayout() {
   const scheme = useColorSchemeName();

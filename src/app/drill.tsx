@@ -223,7 +223,7 @@ export default function DrillScreen() {
 
             <Text variant="body" tone="secondary" center>
               Así se vería la alerta de verdad. Lo único que tienes que hacer es tocar tu estado:
-              tu círculo lo ve al instante.
+              tu círculo lo ve apenas abre la app.
             </Text>
 
             <Button title="Continuar" onPress={() => setStep('report')} size="lg" />

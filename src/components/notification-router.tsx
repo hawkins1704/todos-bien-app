@@ -46,7 +46,7 @@ export function NotificationRouter() {
       atendidos.current.add(id);
 
       const data = response.notification.request.content.data as
-        | { type?: string; userId?: string; conversationId?: string }
+        | { type?: string; userId?: string; conversationId?: string; quakeEventId?: string }
         | undefined;
 
       switch (data?.type) {
@@ -68,8 +68,15 @@ export function NotificationRouter() {
           router.push('/circle');
           return;
 
-        // El de sismo ya está donde tiene que estar. La Home es la pantalla de
-        // la alerta activa, así que abrir la app **es** la acción.
+        // La NOTICIA de un sismo sí necesita destino propio, al revés que la
+        // alerta: por definición es un sismo que **no** disparó alerta, así que
+        // la Home no lo está mostrando y quedarse ahí no responde a nada.
+        case 'quake_news':
+          if (data.quakeEventId) router.push(`/quake/${data.quakeEventId}`);
+          return;
+
+        // El de ALERTA de sismo ya está donde tiene que estar. La Home es la
+        // pantalla de la alerta activa, así que abrir la app **es** la acción.
         default:
           return;
       }

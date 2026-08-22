@@ -1203,6 +1203,95 @@ cron y la pantalla no.
 **El cron de fan-out se queda igual.** No es redundante: es el que reevalúa un sismo
 **corregido** de 4.2 a 4.8, que el disparador nuevo no ve.
 
+#### 1.13.5 🔴 Un M6,7 en la Antártida destapó dos fallos (migración 0020)
+
+El 2026-08-22, 08:22 UTC, un sismo en el **mar de Scotia** —a 5.887 km de Lima— le llegó
+**dos veces** al único usuario premium con avisos mundiales. Sus dos contactos, que no
+recibieron ningún aviso, recibieron en cambio *«Renzo Arroyo no responde. No reportó cómo
+está desde el sismo»*, también dos veces.
+
+**Lo primero que hubo que descartar: el disparo del aviso NO era un bug.** La regla mundial
+de premium es magnitud ≥ 6,0 y el sismo era 6,7. Los contactos no son premium, por eso no les
+llegó. `quake_applies` hizo exactamente lo que dice.
+
+**Fallo 1 · La deduplicación solo miraba entre fuentes distintas.**
+
+`link_canonical_quake()` (0008) exigía `q.source <> new.source`, escrito cuando el único
+duplicado imaginado era «el mismo sismo según el IGP y según el USGS». Pero **el USGS publica
+un mismo sismo bajo varios ids propios**: una solución automática de una red contribuyente y
+la revisada de su catálogo.
+
+| id | magnitud | hora | epicentro |
+|---|---|---|---|
+| `attk5wls` | 6,7 | 08:22:40 | −60,500 · −47,200 |
+| `us6000tmrw` | 6,2 | 08:22:37,74 | −60,379 · −47,605 |
+
+2,3 segundos y 26 km: el mismo temblor. Con `source = 'usgs'` en ambos, la condición los dejó
+pasar como sismos distintos, cada uno con su fan-out y su aviso. Se eliminó la condición —
+agrupar dos filas de la misma fuente dentro de 120 s y 250 km es igual de correcto, y el
+comentario original ya decía el criterio: **«queremos una alerta por sacudida, no una por
+catálogo»**.
+
+**Fallo 2 · «Contacto no responde» se mandaba a gente que no sabía del sismo.**
+
+`notify_silent_contacts()` avisaba a **todo** el círculo de quien no había reportado, sin
+comprobar que ese sismo también les aplicara. Con un premium con avisos mundiales eso filtra:
+él recibe el aviso de un sismo en la Antártida, no reporta —razonablemente, no le pasó nada—
+y sus contactos reciben «no responde… desde el sismo» sin haber recibido ningún aviso. **La
+frase no tiene antecedente: “el sismo” no existe para quien la lee.**
+
+Y no es solo ruido: viaja por el canal `alerts`, el mismo del aviso de sismo, que es
+justamente el que no puede acostumbrar a nadie a ignorarlo. Ahora se manda solo a quienes
+tienen una entrega para **ese mismo** sismo.
+
+Lo que quedaba abierto —el umbral mundial reutilizando `alert_countrywide_magnitude`— se
+resolvió con una distinción más profunda que un número: §1.13.6.
+
+#### 1.13.6 La ALERTA y la NOTICIA eran la misma tubería (migración 0021)
+
+Al decidir qué hacer con el umbral mundial apareció que el problema no era el umbral. Eran
+**dos cosas distintas metidas en un solo canal**:
+
+| | Alerta | Noticia |
+|---|---|---|
+| Qué dice | «tembló cerca tuyo» | «hubo un sismo» |
+| Pone la app en modo emergencia | ✅ | ❌ |
+| Dispara el push silencioso y la captura de ubicación | ✅ | ❌ |
+| Activa el contador «X/Y confirmados» | ✅ | ❌ |
+| Si no reportás, avisa a tu círculo | ✅ | ❌ |
+| Se puede apagar | ❌ | ✅ |
+
+Un sismo a 5.887 km entraba por la vía de la alerta y **arrastraba las cuatro consecuencias**.
+Subir el umbral mundial habría hecho que pasara menos seguido; no habría arreglado que
+pasara.
+
+**El modelo nuevo:**
+
+- **La alerta deja de mirar si sos premium.** `quake_applies()` perdió su primera rama, la
+  que decía `p_is_premium and p_worldwide_enabled`. Ahora dispara por cercanía o por magnitud
+  nacional, **idéntico para gratis y para premium**. Los dos parámetros siguen en la firma
+  para no tocar a los seis llamadores, pero ya no se leen.
+- **Lo mundial pasa a ser noticia**, con `private.notify_quake_news()` colgada de
+  `fan_out_quake()` — misma transacción de la ingesta, cero invocaciones nuevas.
+- **Dos interruptores**, `quake_national` (todos) y `quake_worldwide` (solo surte efecto con
+  premium), en canal `quakes` propio. En Android eso es una categoría silenciable desde los
+  ajustes del sistema **sin tocar las alertas**, que es justo la distinción que esto persigue.
+- **Sin doble aviso:** ambas ramas excluyen a quien ya tiene una entrega de alerta para ese
+  sismo. A quien le tembló cerca no se le cuenta como noticia lo que ya vivió.
+
+Umbrales medidos sobre esta base a 7 días: **nacional ≥ 4,5** → 3 por semana (≥ 4,0 habría
+dado 10), **mundial ≥ 6,0** → 3 por semana.
+
+> **Un `NULL` que casi pasa.** La primera versión de la regla devolvía **NULL**, no `false`,
+> para un sismo en mar abierto: `country_code` viene NULL y `NULL = 'PE'` es NULL. En un
+> `WHERE` se comporta como falso y no habría roto nada hoy, pero cualquier llamador futuro que
+> escribiera `not quake_applies(...)` habría recibido NULL y perdido el filtro **en silencio**.
+> Se blindó con `coalesce(..., false)`.
+
+**Verificado** con la función real dentro de una transacción revertida: el M6,7 del mar de
+Scotia le llega **solo al premium**, como `quake_worldwide` por el canal `quakes`; un M7,2 en
+Perú no le llega como noticia a quien ya recibió la alerta.
+
 ### 1.14 Permisos: una lista de tareas, no tres tarjetas
 
 **El problema era de arquitectura de producto, no de UI.** Los tres permisos —ubicación,
@@ -1295,6 +1384,44 @@ pero anotados:
 | `READ/WRITE_EXTERNAL_STORAGE` | `expo-file-system` | Ya vienen acotados con `maxSdkVersion="32"`: en Android 13+ son inertes. Es el patrón estándar |
 | `INTERNET`, `VIBRATE` | plantilla | Obvios y necesarios |
 
+### 1.15 🔴 El chat duplicaba cada mensaje propio en la caché local
+
+Reportado así: *«cuando envío un mensaje me sale un relojito, y cuando salgo del chat y
+regreso ya no está el reloj pero el mensaje se envió doble»*. Las dos mitades de esa frase
+son dos fallos distintos con la misma raíz.
+
+**Lo primero fue descartar lo peor:** que el duplicado estuviera en el servidor, en cuyo caso
+el contacto también habría visto dos mensajes. **No lo estaba** — cero duplicados en
+`public.messages`, y el índice único `(conversation_id, sender_id, client_id)` existe y
+funciona, así que la idempotencia del reintento nunca estuvo comprometida. El problema vivía
+entero en el teléfono de quien enviaba.
+
+**La raíz.** El envío optimista guarda la fila local con `id = client_id`, porque en ese
+momento el id del servidor todavía no existe. Al subirla, Postgres le asigna el suyo
+(`gen_random_uuid()`), y `syncMessages()` insertaba esa copia **como si fuera un mensaje
+nuevo**: dos filas, mismo texto, distinta clave primaria, y la lista pintaba las dos.
+
+| Fila | `id` | `pending` |
+|---|---|---|
+| Provisional, del envío optimista | `client_id` | 0 (la apagaba el outbox) |
+| Copia del servidor, vía `syncMessages` | id del servidor | 0 |
+
+Eso explica también por qué el reloj **desaparecía**: el outbox apagaba `pending` en la
+provisional, y la copia del servidor entraba directamente sin reloj. Ninguna de las dos
+quedaba marcada, y quedaban las dos.
+
+**El arreglo** es traer `client_id` del servidor y borrar la provisional antes de insertar la
+definitiva. Tiene un efecto secundario que importa: **limpia los duplicados ya guardados**,
+porque cada sincronización reintenta el borrado. Los teléfonos que arrastran el problema se
+arreglan solos al abrir la conversación, sin reinstalar ni migrar la base local.
+
+**El reloj, que era el otro fallo.** `sendMessage()` disparaba `void flushOutbox()` por
+dentro, así que nadie sabía cuándo terminaba la subida: el reloj se quedaba puesto hasta que
+algo ajeno provocara una relectura, normalmente el eco de Realtime. **Con el socket caído, el
+mensaje ya estaba entregado y la burbuja seguía diciendo que no.** Ahora la subida la dispara
+la pantalla, que es la única que puede refrescar al terminar: aparece con reloj, y se apaga
+en cuanto el servidor acepta. Si de verdad no hay red, el reloj se queda — que es la verdad.
+
 ---
 
 ## 2. Construido
@@ -1320,6 +1447,10 @@ pero anotados:
 | `0015_social_notifications` | Cola `notification_deliveries` + disparadores para los cinco avisos entre personas, `connection_request` en preferencias, aviso instantáneo al cartero por `pg_net`, cron de «contacto sin responder», y el disparador que encola el fan-out de sismo **en la misma transacción** que la ingesta (§1.13) |
 | `0016_drill_mode_lookup` | Desempate del simulacro que gobierna un reporte: gana el que está en curso. Lo encontró la propia prueba de 0015 (§1.13.2) |
 | `0017_prune_notification_deliveries` | Poda a 30 días de la cola nueva. Descuido de 0015: sus dos tablas hermanas ya podaban, y esta es la que más crece —una fila por mensaje de chat y por destinatario— |
+| `0018_push_receipts` | Tabla `push_receipts` + RPCs: guarda el `ticket_id` de cada mensaje para poder pedirle a Expo el veredicto real de APNs. Hasta acá `'sent'` solo significaba «Expo lo aceptó» (§3.5) |
+| `0019_background_traces` | Tabla `background_traces`: migajas que deja la tarea de fondo, para distinguir «iOS no levantó la app» de «la levantó y murió» — dos cosas que si no, no dejan ningún rastro (§3.8.3) |
+| `0020_duplicate_events_and_silent_scope` | La deduplicación deja de exigir fuentes distintas (el USGS se duplica a sí mismo), y «contacto no responde» se manda solo a quienes ese sismo también les aplicó (§1.13.5) |
+| `0021_quake_news_vs_alert` | Separa la **alerta** de la **noticia**: la alerta deja de mirar si sos premium y queda igual para todos; lo mundial pasa a ser una noticia con interruptor propio (§1.13.6) |
 
 **Separación de privacidad clave:** `profiles` guarda lo compartible (nombre, avatar,
 plan de acción) y es legible por las conexiones. `user_settings` guarda lo privado
@@ -1335,15 +1466,17 @@ en su cuerpo. El sexto, `delete_my_account`, además valida la contraseña (§1.
 > aparecieron en filtraciones. Está apagado. Antes daba igual —no había contraseñas—;
 > ahora es un interruptor en Authentication → Providers → Email que conviene prender.
 
-Además hay tres INFO `rls_enabled_no_policy` —sobre `alert_deliveries`,
-`notification_deliveries` y `revenuecat_events`— que **también son intencionales**: son
-tablas internas, con RLS activa, cero políticas y los grants de `anon`/`authenticated`
-revocados. Nadie más que `service_role` las toca, y esa es exactamente la intención.
+Además hay cuatro INFO `rls_enabled_no_policy` —sobre `alert_deliveries`,
+`notification_deliveries`, `push_receipts` y `revenuecat_events`— que **también son
+intencionales**: son tablas internas, con RLS activa, cero políticas y los grants de
+`anon`/`authenticated` revocados. Nadie más que `service_role` las toca, y esa es
+exactamente la intención.
 
-> Comprobado después de la migración 0015: `claim_notification_deliveries` y
-> `mark_notification_deliveries` **no** aparecen en la lista de funciones ejecutables por
-> `authenticated`, así que los `revoke` quedaron bien puestos. La cola nueva no agregó ni
-> un WARN.
+> Comprobado después de las migraciones 0015 y 0018: ni `claim_notification_deliveries`,
+> ni `mark_notification_deliveries`, ni `record_push_tickets`, ni `list_pending_receipts`,
+> ni `record_push_receipts` aparecen en la lista de funciones ejecutables por
+> `authenticated`, así que los `revoke` quedaron bien puestos. Las tablas nuevas no
+> agregaron ni un WARN.
 
 **Edge Functions desplegadas**
 
@@ -1353,6 +1486,7 @@ revocados. Nadie más que `service_role` las toca, y esa es exactamente la inten
 | `ingest-quakes` | Consulta IGP y USGS y escribe en `quake_events`. La dispara `pg_cron` cada 2 min. | Secreto compartido en Vault |
 | `send-alerts` | Drena `alert_deliveries` y postea a Expo. Borra los tokens muertos (`DeviceNotRegistered`). La dispara `pg_cron` cada minuto. | Secreto compartido en Vault |
 | `send-notifications` | Lo mismo para `notification_deliveries`: los cinco avisos entre personas. La despierta un disparador de Postgres apenas hay algo encolado, con un cron cada 5 min de red de seguridad (§1.13). | Mismo secreto |
+| `check-receipts` | Le pide a Expo el veredicto de APNs/FCM de cada mensaje enviado, y borra los tokens muertos. Es auditoría, no entrega: cron cada 15 min (§3.5). | Mismo secreto |
 
 **Ingesta de sismos — funcionando en producción.** Verificada de punta a punta: el cron
 corre solo, y en las corridas observadas trajo 17 eventos del IGP y 52 del USGS **sin un
@@ -1525,9 +1659,37 @@ forma de que un servidor despierte un teléfono es una notificación push.
    y ahí corre `captureLocationForActiveAlert()`, guardando dónde estaba **en ese
    momento**, con la app cerrada.
 
-Los dos viajan en **un solo mensaje**, no en dos: iOS entrega una notificación con
-contenido visible y `content-available` a la vez, así que no hay motivo para gastar dos
-envíos ni para arriesgar que llegue uno y no el otro.
+> 🔴 **Acá decía lo contrario, y era falso.** El texto original afirmaba: *"Los dos viajan
+> en un solo mensaje, no en dos: iOS entrega una notificación con contenido visible y
+> `content-available` a la vez, así que no hay motivo para gastar dos envíos"*. Suena
+> razonable y **no es cierto**. La documentación de `expo-notifications` es explícita
+> sobre qué dispara una tarea de fondo: el push tiene que contener *"only the `data` key
+> (no `title`, `body`)"*. Un mensaje con alerta visible muestra el banner y **no despierta
+> la app**. O sea que el trabajo n.º 2 —el que sostiene la promesa central del producto—
+> no se hacía nunca, y el comentario que lo explicaba daba la impresión de estar resuelto.
+
+**Van en dos mensajes**, uno por cada trabajo:
+
+| | Visible | Silencioso |
+|---|---|---|
+| Contenido | título, cuerpo, sonido | solo `data` |
+| `contentAvailable` | no | **sí** |
+| Prioridad | `high` (APNs 10) | `normal` (**APNs 5**, que es lo que Apple exige para un background update) |
+| Decide si el aviso cuenta como entregado | **sí** | no: es mejor-esfuerzo |
+
+**Cómo se descubrió.** No por leer el código, sino tirando del hilo de un dato: tras el
+M7,2 real del 2026-08-20, la ubicación de la única persona con token se capturó **5 h 41
+min después**, al abrir la app. Al mirar por qué, apareció que el push silencioso nunca
+tuvo forma de funcionar.
+
+> **Sobre ese dato, una corrección honesta:** el primer diagnóstico dijo que la promesa
+> central "no se cumplió", apoyándose en dos capturas tardías. Una de las dos no probaba
+> nada —esa persona **no tenía token** cuando tembló, su token se creó dos horas después—
+> y la otra venía de un dispositivo corriendo con `expo start`, donde las tareas de fondo
+> son poco fiables de por sí. La conclusión era más fuerte que la evidencia. El bug del
+> mensaje único sí es real y está confirmado contra la documentación, pero **cuánto
+> explica de lo que se vio sigue sin medirse**: hace falta un sismo real con la app en
+> TestFlight.
 
 ### 3.3 La cadena, y dónde vive cada pieza
 
@@ -1583,6 +1745,247 @@ el teléfono no sonaba. El veredicto real está en los *receipts*
 Solo está hecho el proyecto de Firebase y el `google-services.json` en la raíz del repo.
 Falta la service account de FCM en EAS y todo Play Console. Ver
 `docs/QUE-FALTA.md`, que es el índice único de trabajo pendiente.
+
+### 3.6 Receipts: la diferencia entre "Expo lo aceptó" y "llegó"
+
+Hasta el 2026-08-21, `status = 'sent'` significaba **"Expo recibió el mensaje"**. Eso no
+es entrega. Con una credencial de APNs mal asignada el ticket sale `ok` **igual**, y el
+fallo aparece recién en el *receipt*, que hay que pedir después con el `ticket_id`.
+
+Ese id se estaba tirando, y el costo se cobró exactamente cuando importaba: tratando de
+responder por qué un sismo real no despertó ninguna app, **la pregunta era contestable y
+no había con qué**. Los receipts viven 24 horas y el del M7,2 seguía disponible; faltaba
+el id para pedirlo. Quedaban tres horas de margen.
+
+**Cómo quedó.** Una tabla `push_receipts` con una fila por *mensaje a un dispositivo* —no
+por aviso: un aviso va a N teléfonos y ahora además en dos mensajes, así que un `ticket_id`
+como columna de la cola obligaría a elegir cuál guardar y perder el resto—. La edge
+function `check-receipts` la barre cada 15 minutos, entre dos bordes que pone Expo:
+
+- **15 minutos de piso**, que es lo que Expo recomienda esperar; antes el receipt puede no
+  existir todavía.
+- **20 horas de techo**, porque a las 24 los borra. Lo que pasa ese punto se marca vencido
+  en vez de reintentarse para siempre.
+
+De paso es donde de verdad se limpian los tokens muertos: `DeviceNotRegistered` aparece
+mucho más en el receipt que en el ticket.
+
+**Verificado de punta a punta** el 2026-08-21, con datos reales:
+
+| | |
+|---|---|
+| Sonda invisible a los 3 dispositivos (1 dev + 2 TestFlight) | receipt `ok` en los 3 → **la key de APNs está bien en los dos entornos** |
+| Aviso entre personas | 1 ticket anotado, barrido lo marcó `ok` |
+| Alerta de sismo (sismo de prueba M0,1, dirigido a una sola cuenta) | **2 tickets: `visible` y `silent`**, los dos `ok` |
+| Respuesta del barrido | `{"revisados":1,"entregados":1,"fallados":0}` |
+
+Lo que esto **todavía no prueba** es que iOS ejecute la tarea de fondo: un receipt dice
+que Apple aceptó el mensaje, no que el sistema decidió despertar la app.
+
+### 3.7 Qué pasa cuando la app no está corriendo
+
+La pregunta que decide si la promesa del producto es alcanzable: **esta es una app de
+seguro**, que la gente instala y no vuelve a abrir en semanas. ¿Sirve de algo el push
+silencioso si la app no está en segundo plano?
+
+**Sí, y la distinción que lo salva no es "abierta o cerrada" sino _quién_ la cerró.**
+Según la documentación de Apple, *"if an app is terminated for any reason other than the
+user force quitting it, the system launches the app"* ante una notificación remota:
+
+| Cómo dejó de correr | ¿Llega el aviso visible? | ¿Se despierta sola a capturar? |
+|---|---|---|
+| Está abierta | Sí | Sí |
+| En segundo plano / suspendida | Sí | Sí |
+| **iOS la mató por memoria** — lo normal tras días sin abrirla | Sí | **Sí** |
+| El usuario la deslizó fuera del multitarea | **Sí** | No |
+
+O sea que la app olvidada durante semanas **no** está en el caso malo: iOS la terminó por
+memoria hace rato, y esas se relanzan. El único caso que falla es el del gesto deliberado
+de cerrarla, y ni siquiera es permanente — vuelve a ser elegible la próxima vez que se
+abra.
+
+**Y el aviso visible llega siempre, en los cuatro estados.** Lo que se degrada es la
+captura automática, y ahí queda la red: tocar la notificación abre la app y captura, y con
+la ventana de 6 horas esa ubicación igual se asocia al sismo correcto.
+
+Por eso el push silencioso no *es* el sistema: es la optimización para el caso en que la
+persona **no puede o no llega a mirar el teléfono** —dormida, atrapada, herida—, que es
+justo donde más importa y también donde más probable es que funcione, porque el teléfono
+está quieto y nadie cerró nada a mano.
+
+> **Dos honestidades.** iOS estrangula el trabajo en segundo plano de las apps que casi no
+> se usan: aun con el estado correcto, la entrega es mejor-esfuerzo por diseño y no hay
+> forma de garantizarla. Y existe una salida técnica que **se descarta a propósito**: la
+> única excepción a la regla del cierre manual son las apps de ubicación, que iOS sí
+> relanza. Suscribirse a cambios significativos de ubicación haría funcionar incluso ese
+> caso, pero significa recibir ubicación de forma continua — exactamente lo que la app
+> promete no hacer (§1.2), lo que dice su texto de permiso y lo que sostiene su ficha en
+> la App Store. Romper la promesa central para cubrir el caso menos común sería un mal
+> negocio.
+
+**Sobre el copy de la alerta.** Se evaluó agregar "abre la app para que se actualice tu
+ubicación" y se decidió **no hacerlo**. El texto actual —*"Avisa a tu círculo que estás
+bien"*— ya consigue que la persona abra la app, y por un motivo mejor: le habla de su
+gente, no de nuestra plomería. En una emergencia cada palabra de más cuesta atención que
+no sobra, y pedirle que entienda un detalle interno de iOS para hacer bien su parte es
+trasladarle un problema que no es suyo.
+
+### 3.8 🔴 La tarea de fondo vivía donde el arranque headless no la ve
+
+Corregido el mensaje único (§3.2), se corrió una **prueba controlada**: sismo simulado M5,0
+a 5 km del usuario, entrega dirigida a una sola cuenta, app instalada desde TestFlight y
+en segundo plano, teléfono sin tocar.
+
+**No capturó en 7 minutos.** Y el resultado sirvió porque descartó todo lo demás:
+
+| | |
+|---|---|
+| Los dos mensajes salieron | ✅ `silent` + `visible` |
+| APNs los aceptó | ✅ receipt `ok` en ambos |
+| El build declara `remote-notification` en `UIBackgroundModes` | ✅ |
+| Permiso de ubicación en "Siempre" | ✅ |
+| El sismo aplicaba según `quake_applies` | ✅ |
+| El aviso **visible** llegó al teléfono | ✅ confirmado por el usuario |
+| La app se despertó | ❌ |
+
+**La causa.** La documentación de expo-notifications pide definir y registrar la tarea *"in
+the module scope of a JS module which is **required early** by your app (e.g. in the
+`index.ts` file)"*. Estaba en **`src/app/_layout.tsx`**, que es una pantalla del router.
+
+Cuando llega un push silencioso con la app cerrada, iOS levanta el bundle en modo
+**headless**: no monta pantallas ni arranca la navegación, solo ejecuta el código y busca
+la tarea. Pero expo-router carga las rutas **al renderizar**, y ahí no se renderiza nada.
+
+> O sea que la tarea existía justo cuando no hacía falta —con la app abierta— y faltaba
+> justo cuando sí. Por eso nunca se notó en desarrollo: en un arranque normal funciona.
+
+**El arreglo** es un `index.js` como entrada real, que define la tarea **antes** de cargar
+el router, con `main` de `package.json` apuntando ahí. El orden de los imports es parte
+del arreglo, no un detalle de estilo: `expo-router/entry` registra el componente raíz y
+tiene que ir segundo.
+
+**Necesita build nuevo**: el punto de entrada se hornea en el bundle, así que no se puede
+verificar con un TestFlight anterior.
+
+> **Una segunda causa que no se pudo descartar en su momento.** Al mismo dispositivo se le
+> habían mandado **3 pushes silenciosos en hora y media**, y Apple recomienda no pasar de
+> dos o tres por hora antes de empezar a estrangular. Por eso la prueba de confirmación se
+> corrió con **un solo push** y el teléfono tranquilo casi hora y media antes.
+
+### 3.8.1 ✅ Confirmado en dispositivo real — 2026-08-21 18:30 UTC
+
+Con el build nuevo en TestFlight se repitió la prueba: M5,0 simulado a 5 km, entrega
+dirigida a una sola cuenta, app en segundo plano, un único push, teléfono sin tocar.
+
+**La app se despertó sola y escribió la ubicación 1,2 segundos después de que saliera el
+aviso.** Cronología del `edge_logs`, que es el registro del servidor y no depende de lo que
+reporte el cliente:
+
+| Hora (UTC) | Qué |
+|---|---|
+| 18:29:59,93 | Sismo simulado insertado, y la fila de entrega para una sola cuenta |
+| 18:30:00,5 | `send-alerts` entrega los dos mensajes a Expo, que acepta ambos |
+| **18:30:01,27** | El teléfono pregunta `get_active_alert` — **0,7 s después del envío** |
+| **18:30:01,69** | El teléfono escribe `report_status` con la ubicación |
+| 18:30:02,3 | Recién acá el primer refresco completo de la app |
+
+**Por qué esto prueba que fue la tarea de fondo y no la persona abriendo la app** — cuatro
+señales independientes, y cualquiera de ellas sola ya sería difícil de explicar de otro modo:
+
+1. **Velocidad.** 0,7 segundos entre que el mensaje sale del servidor y el teléfono
+   responde. Ningún ser humano ve un banner, desbloquea y abre una app en ese tiempo.
+2. **No hubo jitter.** El camino de la Home (`(tabs)/index.tsx`) llama a
+   `captureLocationForActiveAlert` **con** jitter, que espera de 0 a 8 segundos antes de
+   escribir (`ALERT_WRITE_JITTER_MS`). Entre la consulta y la escritura pasaron **415 ms**.
+   El único llamador que pasa `jitter: false` es `src/lib/background-alert.ts`.
+3. **No hubo refresco previo.** Para que la Home tuviera el sismo cargado hacía falta un
+   `syncMe` completo —`user_settings`, `profiles`, `get_circle`, `tips`—, y el primero
+   aparece a las 18:30:02,3, **después** de que la ubicación ya estaba escrita. Lo que
+   precede a la escritura es una única consulta suelta: exactamente lo que hace la tarea.
+4. **El teléfono estaba dormido.** En todo el minuto anterior al push no hizo ni una sola
+   petición.
+
+**Un detalle que parece un error y no lo es:** `location_at` quedó en 18:29:58,8, o sea
+**antes** del push. Es iOS devolviendo un fix que ya tenía en memoria —
+`getCurrentPositionAsync` con `Accuracy.Balanced`—, y es buena noticia: significa que el
+GPS resolvió al instante en vez de gastar los ~30 segundos que da el sistema.
+
+**Alcance honesto de la prueba.** Los 0,7 segundos delatan que la app estaba **suspendida en
+memoria**, no terminada: un arranque headless en frío tarda de 1 a 3 segundos solo en cargar
+el bundle. O sea que esto confirma el arreglo del §3.2 —el mensaje único— en el caso más
+común, que es la app en segundo plano. El arreglo del `index.js` cubre el caso de app
+terminada por el sistema, y **ese camino no quedó ejercitado acá**. Ver §3.8.2 para el
+intento de probarlo, que salió mal por el diseño de la prueba.
+
+### 3.8.2 🔴 Reiniciar el teléfono NO simula "app cerrada hace semanas"
+
+Para ejercitar el arranque en frío se propuso lo que parecía obvio: reiniciar el teléfono, no
+abrir la app, y repetir la prueba. **Se corrió dos veces y las dos dieron negativo**, sin una
+sola petición de la app:
+
+| Intento | Condiciones | Resultado |
+|---|---|---|
+| 18:47 UTC | 2º push silencioso en 16 min | ❌ nada, receipts `ok` los dos |
+| 20:09 UTC | 1 h 20 min de teléfono tranquilo | ❌ nada, receipts `ok` los dos |
+
+**Los receipts son la pieza que hace útiles a estos negativos:** APNs confirmó haber
+entregado el mensaje silencioso al dispositivo. No fue un problema de entrega ni de
+estrangulamiento — iOS recibió el push y **eligió no levantar la app**.
+
+**La causa es el diseño de la prueba.** Reiniciar no produce el estado que se quería medir,
+produce uno **más estricto**: lo que reportan consistentemente los desarrolladores es que
+tras un reinicio iOS trata a la app como si el usuario la hubiera cerrado a mano, y no la
+relanza con un push silencioso hasta que se abre una vez.
+
+> **Con la honestidad que corresponde:** la documentación de Apple es **ambigua justo acá**.
+> Su texto sobre el cierre manual dice que el usuario debe *"relaunch your app **or restart
+> the device**"* para que el sistema vuelva a lanzarla sola — o sea que reiniciar debería
+> *restaurar* la elegibilidad, lo contrario de lo observado. Dos negativos limpios son
+> evidencia, no prueba.
+
+**Qué queda sin medir.** El caso realista de una app-seguro no es un teléfono recién
+reiniciado: es un teléfono que lleva semanas encendido, con la app **desalojada por presión
+de memoria**. Esa app sí fue lanzada desde el último arranque, así que no cae en esta regla.
+Ese caso sigue sin probarse y no hay forma cómoda de forzarlo.
+
+**Y la ambigüedad de fondo no se resuelve mirando desde el servidor:** "iOS nunca la levantó"
+y "la levantó y la tarea murió antes de llegar a la red" dejan **exactamente el mismo
+rastro** — ninguno. Por eso la tarea de fondo ahora deja una **migaja local** en su primera
+línea (§3.8.3): la próxima vez que ocurra, el dato lo va a dar el uso real y no una prueba
+armada.
+
+**Una propiedad que apareció y vale para el producto:** que iOS se niegue tras un reinicio
+tiene salida natural. El aviso **visible** llega igual; tocarlo abre la app, lo que captura
+la ubicación **y** le devuelve a la app el permiso de despertarse sola. Quien responde a la
+alerta se auto-repara. Está reflejado en `QUE-PROMETE-LA-APP.md`.
+
+### 3.8.3 Migajas: cómo se contesta la pregunta sin armar más pruebas
+
+La ambigüedad de §3.8.2 —"no la levantó" contra "la levantó y se murió"— no se resuelve
+mirando desde el servidor, porque las dos no dejan rastro. Así que la tarea de fondo ahora
+anota **una migaja local en su primera línea**, antes de consultar nada
+(`src/lib/background-trace.ts`, migración 0019).
+
+| Lo que se ve después | Qué significa |
+|---|---|
+| Ninguna migaja | iOS no levantó la app |
+| `woke` y nada más | Arrancó y murió antes de consultar |
+| `woke` + `alert:none` | Arrancó bien; el servidor dijo que no había alerta |
+| `woke` + `alert:found` + `captured` | Todo funcionó |
+
+**Por qué local y no una escritura de red inmediata**, que sería más directo: esa escritura
+podría fallar **justo por lo que se está investigando** —sin sesión restaurada, sin red, o
+porque la app nunca arrancó—, y entonces la migaja tendría el mismo punto ciego que el
+problema. Guardarla local no depende de nada salvo de que el JS haya corrido, que es
+exactamente la pregunta. Se suben todas juntas en el próximo `syncEverything()`, y **el
+borrado local va después de que el servidor confirmó**: al revés se perdería la evidencia de
+un despertar sin red, que es uno de los casos que queremos poder ver.
+
+**El efecto que más vale:** ya no hace falta armar pruebas. La respuesta la va a dar el **uso
+real**, la próxima vez que tiemble en el teléfono de cualquier usuario.
+
+`stage` es texto libre en la base a propósito, para no necesitar una migración cada vez que
+se agrega un punto de medida. La tabla tiene poda a 30 días, como sus hermanas.
 
 ---
 
@@ -1661,8 +2064,9 @@ seguía sin existir.
   silencioso; si es con aviso, el texto dice **«Simulacro ·»** y «NO es una emergencia
   real», que es literalmente lo que la pantalla promete. Ante la duda —un reporte marcado
   como simulacro sin un simulacro que lo respalde— se calla.
-- **🟡 `alert_deliveries.status = 'sent'` (y ahora también `notification_deliveries`)
-  significa "Expo lo aceptó", no "llegó".** El
+- ~~**`status = 'sent'` significa "Expo lo aceptó", no "llegó".**~~ Resuelto el 2026-08-21
+  (§3.6): se guarda el `ticket_id` de cada mensaje y un barrido cada 15 min le pide a Expo
+  el veredicto real de APNs. **Nota histórica de lo que decía esta deuda:** el
   veredicto real de Apple está en los *receipts*, que hay que pedir aparte unos minutos
   después con el `ticket_id` que devuelve el envío. Hoy ese id **no se guarda**, así que no
   hay forma de saber si una alerta se entregó. Con un usuario el problema se nota enseguida
@@ -1726,6 +2130,17 @@ tier B2B · donaciones.
 
 | Fecha | Qué pasó |
 |---|---|
+| 2026-08-22 | 🔴 **El chat duplicaba cada mensaje propio, solo en la caché local** (§1.15). Reportado como «sale un relojito, y al volver al chat ya no está pero el mensaje se envió doble» — dos fallos con la misma raíz. **Lo primero fue descartar lo peor**, que el duplicado estuviera en el servidor y el contacto también viera dos: no lo estaba, cero duplicados en `public.messages` y el índice único `(conversation_id, sender_id, client_id)` funcionando, así que la idempotencia del reintento nunca estuvo comprometida. La raíz: el envío optimista guarda la fila local con `id = client_id` porque el id del servidor todavía no existe, y `syncMessages()` insertaba después la copia del servidor **como un mensaje nuevo** — dos filas, mismo texto, distinta clave. Eso explica también por qué el reloj desaparecía: el outbox apagaba `pending` en la provisional y la copia del servidor nacía sin reloj, así que ninguna de las dos quedaba marcada. Arreglado trayendo `client_id` y borrando la provisional antes de insertar la definitiva, lo que además **limpia los duplicados ya guardados** en cada sincronización: los teléfonos afectados se arreglan solos al abrir la conversación. **El reloj era un segundo fallo:** `sendMessage()` hacía `void flushOutbox()` por dentro y nadie sabía cuándo terminaba, así que el reloj quedaba puesto hasta que algo ajeno forzara una relectura —normalmente el eco de Realtime—; con el socket caído el mensaje ya estaba entregado y la burbuja seguía diciendo que no. Ahora la subida la dispara la pantalla, que es la única que puede refrescar al terminar. |
+| 2026-08-22 | ⭐ **La ALERTA y la NOTICIA dejan de ser la misma cosa** (§1.13.6, migración 0021). Salió de decidir qué umbral ponerle a los avisos mundiales, y la respuesta fue que el umbral no era el problema: un sismo a 5.887 km entraba por la vía de la **alerta** y arrastraba sus cuatro consecuencias —modo emergencia, push silencioso, contador «X/Y confirmados» y aviso al círculo si no reportabas—. Subir el umbral habría hecho que pasara menos seguido, no que dejara de pasar. Ahora **la alerta no mira si sos premium**: `quake_applies()` perdió la rama `p_is_premium and p_worldwide_enabled` y dispara solo por cercanía o magnitud nacional, **idéntica para gratis y premium** — el premium no compra seguridad, que es además un mejor argumento de venta que el anterior. Lo mundial pasó a ser **noticia**, con dos interruptores (`quake_national` para todos, `quake_worldwide` solo con premium) y **canal `quakes` propio**, que en Android es una categoría silenciable desde el sistema sin tocar las alertas. Ninguna de las dos ramas avisa a quien ya recibió la alerta de ese sismo: a quien le tembló cerca no se le cuenta como noticia lo que ya vivió. Umbrales medidos sobre la propia base: nacional ≥ 4,5 y mundial ≥ 6,0, 3 por semana cada uno. **Un `NULL` que casi pasa:** la primera versión devolvía NULL en vez de `false` para un sismo en mar abierto —`country_code` es NULL y `NULL = 'PE'` es NULL—; en un `WHERE` se comporta como falso y no rompía nada hoy, pero un futuro `not quake_applies(...)` habría perdido el filtro en silencio. Blindado con `coalesce`. Verificado con la función real dentro de una transacción revertida. |
+| 2026-08-22 | 🔴 **Un M6,7 en la Antártida destapó dos fallos de notificaciones** (§1.13.5, migración 0020). Un sismo en el mar de Scotia, a **5.887 km de Lima**, llegó **dos veces** al único usuario premium con avisos mundiales; sus dos contactos, que no recibieron ningún aviso, recibieron en cambio *«no responde… desde el sismo»*, también dos veces. **Lo primero fue descartar que el disparo fuera el bug**: no lo era, la regla mundial de premium es magnitud ≥ 6,0 y el sismo era 6,7. (1) La **deduplicación** exigía `q.source <> new.source`, escrita cuando el único duplicado imaginado era IGP-contra-USGS — pero **el USGS publica el mismo sismo bajo varios ids propios**, una solución automática y la revisada de su catálogo: `attk5wls` (M6,7) y `us6000tmrw` (M6,2), a 2,3 segundos y 26 km, entraron como sismos distintos con un fan-out cada uno. Se quitó la condición. (2) **«Contacto no responde» se mandaba a todo el círculo** sin comprobar que el sismo también les aplicara, así que los avisos mundiales de un premium se filtran a sus contactos no premium como una frase sin antecedente: *«el sismo»* no existe para quien la lee. Y viaja por el canal `alerts`, el mismo del aviso de sismo — el que menos puede acostumbrar a nadie a ignorarlo. Ahora se manda solo a quienes tienen entrega para ese mismo sismo. **Queda abierto lo de producto:** el umbral mundial reutiliza `alert_countrywide_magnitude`, sin ajuste propio, así que querer M6 en Perú obliga a recibir M6 en todo el planeta — medido: **0,6 por día**. |
+| 2026-08-21 | 🔴 **Auditoría de los textos de la app contra `QUE-PROMETE-LA-APP.md`: 7 prometían de más.** El más grave **no era de marketing sino de privacidad**: la pantalla de permisos del onboarding decía que la ubicación se toma *"una sola vez, en el momento en que ocurre un sismo en tu zona"*, y **omitía la lectura inicial que esa misma pantalla dispara** —`ensureInitialLocation()`, unas líneas más arriba en el mismo handler—. O sea que la persona concedía el permiso creyendo que no se tomaba ninguna posición todavía, cuando sí. Eso es lo que declara el Nutrition Label, así que era además un riesgo de revisión. La misma frase estaba repetida en Ajustes. Los otros cinco: *"dónde estaba cuando ocurrió el sismo"* en la primera diapositiva que ve un usuario nuevo; *"se capturará al ocurrir un sismo"*; la tarjeta de notificaciones que enumeraba qué se avisa y **se olvidaba del sismo**, que es la función principal —y decía *"solo"*, o sea que era una afirmación falsa sobre el alcance, además inconsistente con la lista de permisos de Ajustes, que sí lo nombra—; *"tu círculo lo ve al instante"* en dos lugares, cuando un *"estoy bien"* no manda push y el círculo lo ve al refrescar; y *"la app puede hacer lo que promete"* con los tres permisos en verde, que ya no es cierto porque la captura depende además de la actualización en segundo plano y del modo de bajo consumo. **De paso se corrigió el documento nuevo**, que decía *"no funciona sin internet"* de forma demasiado absoluta: hay outbox y caché local, y el texto de la app era el correcto. Queda en §10 de ese archivo el **inventario de dónde vive cada afirmación**, para que la próxima auditoría no exija barrer el código entero. |
+| 2026-08-21 | 📄 **`QUE-PROMETE-LA-APP.md`, y el retiro de una promesa que era humo.** La app decía guardar *"dónde estabas cuando tembló"*, y no es cierto: el aviso llega ~8 minutos después —de los cuales **7 m 45 s son del IGP**—, así que lo que se guarda es dónde estás **minutos después**. Se retiró esa frase y todas sus variantes. **El reencuadre no debilita el producto, lo mejora:** nadie necesita una reconstrucción forense de hace ocho minutos; una madre necesita saber dónde estás **ahora** para ir a buscarte, y si evacuaste a la calle, la ubicación de la calle es la útil. También se separó lo que se promete **sin asterisco** (el aviso llega en los cuatro estados de la app, incluida cerrada a mano) de lo que se promete **con letra chica** (la captura automática, que depende de permisos, actualización en segundo plano, modo de bajo consumo y de que la app se haya abierto una vez desde el último reinicio). El archivo es la **fuente única** de las afirmaciones públicas: landing, ficha de tienda y textos de la app salen de ahí — la misma disciplina que ya rige para las páginas legales, que se desactualizan en silencio y rompen revisiones de tienda. De paso quedó escrito el argumento que sí se sostiene con 8 minutos de retraso: **las líneas se saturan durante horas, y un toque en una app pasa cuando una llamada no pasa.** |
+| 2026-08-21 | 🔴 **Reiniciar el teléfono no simula "app cerrada hace semanas" — error de diseño de la prueba** (§3.8.2). Se propuso reiniciar para ejercitar el arranque en frío; dos intentos, dos negativos, sin una sola petición de la app. **Los receipts vinieron `ok` las dos veces**, o sea que APNs entregó el push silencioso y **iOS eligió no levantar la app**: no fue entrega ni estrangulamiento. La causa es el método — tras un reinicio iOS trata a la app como si el usuario la hubiera cerrado a mano, y no la relanza hasta que se abre una vez. Dicho con la honestidad que corresponde: **la documentación de Apple es ambigua justo acá**, porque su texto sobre el cierre manual dice que reiniciar el dispositivo *restaura* la elegibilidad, lo contrario de lo observado; dos negativos son evidencia, no prueba. **Lo que queda sin medir** es el caso realista: teléfono encendido hace semanas, app desalojada por memoria, que **no** cae en esta regla y no hay forma cómoda de forzar. Se cerró la ambigüedad de raíz con **migajas** (§3.8.3, migración 0019): la tarea anota local en su primera línea, y se suben en el próximo refresco. Local y no red, porque una escritura de red al arrancar en headless podría fallar por lo mismo que se investiga, y la migaja tendría el mismo punto ciego que el problema. **Ya no hace falta armar pruebas: contesta el uso real.** Apareció además una propiedad que sirve al producto — el aviso visible llega igual, y tocarlo captura la ubicación **y** le devuelve a la app el permiso de despertarse sola, así que quien responde a la alerta se auto-repara. |
+| 2026-08-21 | ✅ **La promesa central de la app quedó probada en un dispositivo real** (§3.8.1). Con el build nuevo en TestFlight se repitió la prueba controlada: M5,0 simulado a 5 km, entrega dirigida a una sola cuenta, **un solo push**, teléfono en segundo plano y sin tocar desde hacía hora y media. **La app se despertó sola y escribió la ubicación 1,2 segundos después de que saliera el aviso** — 0,7 s hasta que el teléfono preguntó `get_active_alert` y 0,4 s más hasta el `report_status`. Cuatro señales del `edge_logs` descartan que lo haya hecho la persona abriendo la app: (1) 0,7 s es más rápido de lo que nadie reacciona a un banner; (2) **no hubo jitter** — el camino de la Home espera de 0 a 8 s antes de escribir y acá pasaron 415 ms, y el único llamador con `jitter: false` es la tarea de fondo; (3) **no hubo refresco previo** — el primer `syncMe` completo aparece *después* de que la ubicación ya estaba escrita, y lo que precede a la escritura es una consulta suelta; (4) el teléfono no hizo **ni una petición** en todo el minuto anterior. Los dos seguros funcionaron: una sola fila de entrega, y ni Tracy ni Fabrizio recibieron nada. **Lo que la prueba no cubre**, dicho sin adornos: esos 0,7 s delatan una app **suspendida en memoria**, no terminada — un arranque headless en frío tarda de 1 a 3 s solo en cargar el bundle. O sea que esto confirma el arreglo del mensaje único (§3.2) en el caso común; el arreglo del `index.js`, que cubre la app terminada por el sistema, **sigue sin ejercitarse**. Se prueba reiniciando el teléfono, no abriendo la app, y repitiendo. |
+| 2026-08-21 | 🔴 **Segundo bug del push silencioso, encontrado por una prueba controlada** (§3.8). Corregido el del mensaje único, se simuló un sismo M5,0 a 5 km del usuario, dirigido a una sola cuenta, con la app de TestFlight en segundo plano. **No capturó en 7 minutos**, y eso descartó todo el resto: los dos mensajes salieron, APNs los aceptó, el build declara `remote-notification`, el permiso estaba en "Siempre", la regla aplicaba, y el aviso visible **sí** llegó. El fallo estaba en el cliente: la tarea de fondo se definía en `src/app/_layout.tsx`, una pantalla del router. En un arranque *headless* —el que provoca un push con la app cerrada— iOS no monta pantallas, y expo-router carga las rutas al renderizar: la tarea nunca llegaba a existir. Existía justo cuando no hacía falta y faltaba justo cuando sí, que es por qué en desarrollo siempre pareció andar. Arreglado con un `index.js` de entrada real que la define antes del router. **Necesita build nuevo para verificarse.** No se pudo descartar una segunda causa concurrente: al mismo dispositivo se le habían mandado 3 pushes silenciosos en hora y media, y Apple estrangula a partir de dos o tres por hora. |
+| 2026-08-21 | **Qué pasa cuando la app no está corriendo, contestado con la documentación de Apple** (§3.7). La duda de fondo era si el push silencioso sirve de algo en una app-seguro que nadie abre en semanas. La distinción que lo salva no es "abierta o cerrada" sino **quién la cerró**: iOS relanza las apps que él mismo terminó por memoria —el estado normal de una app olvidada— y no relanza las que el usuario deslizó fuera del multitarea. El aviso **visible llega en los cuatro estados**; lo que se degrada es solo la captura automática, con la apertura manual como red. Se descartó a propósito la única salida técnica que cubriría también el cierre manual —suscribirse a cambios significativos de ubicación, que iOS sí relanza— porque significa recibir ubicación continua, exactamente lo que la app promete no hacer. También se decidió **no** agregar "abre la app para actualizar tu ubicación" al texto de la alerta. |
+| 2026-08-21 | 🔴 **El push silencioso no podía funcionar, y el comentario que lo explicaba decía que sí** (§3.2). El aviso de sismo mandaba título, cuerpo y `contentAvailable` en **un solo mensaje**, con un comentario que argumentaba que era lo correcto —"no hay motivo para gastar dos envíos"—. La documentación de expo-notifications dice lo contrario: para disparar una tarea de fondo el push tiene que contener *"only the `data` key (no `title`, `body`)"*. O sea que el trabajo que sostiene la promesa central del producto —capturar **dónde estabas cuando tembló**— no se hacía nunca, y estaba documentado como resuelto. Ahora van dos mensajes: el visible con prioridad alta y el silencioso solo con `data` y prioridad normal (APNs 5, que es lo que Apple exige para un background update). **De paso se cerró la deuda que impedía saberlo**: se guarda el `ticket_id` de cada mensaje y un barrido cada 15 min le pide a Expo el veredicto real de APNs (§3.6, migración 0018). Verificado con sondas invisibles a los 3 dispositivos —receipt `ok` en el dev y en los dos de TestFlight, o sea que la key de APNs está bien en los dos entornos— y con un sismo de prueba M0,1 dirigido a una sola cuenta, que produjo los dos tickets esperados y ambos `ok`. |
+| 2026-08-21 | **Corrección de un diagnóstico propio.** El día anterior se afirmó, a partir de dos capturas de ubicación tardías tras el M7,2, que "la promesa central no se cumplió". Al revisar quién era quién: una de las dos personas **no tenía token** cuando tembló —lo creó dos horas después—, así que su captura tardía no probaba nada, y la otra corría con `expo start`, donde las tareas de fondo son poco fiables de por sí. La conclusión era más fuerte que la evidencia. El bug del mensaje único es real y está confirmado contra la documentación, pero **cuánto explica de lo observado sigue sin medirse**: hace falta un sismo real con la app instalada desde TestFlight. |
 | 2026-08-20 | **"Mi ubicación" en la Home de alerta, y la ventana de 6 horas por fin escrita** (§1.2.3). La captura automática ocurre una sola vez, al dispararse la alerta, así que responde "dónde estaba cuando ocurrió" — pero la persona evacúa, va al punto de encuentro o sale a buscar a alguien, y su círculo se quedaba **hasta 6 horas mirando una posición vieja sin ninguna señal de que lo era**. Ahora hay una tarjeta con el mapa de la posición propia y un botón para volver a tomarla. **Va después del círculo, y el primer intento la puso antes**: medido en un iPhone de 852 pt, esos ~326 pt de tarjeta empujaban el arranque del círculo a y≈877 —fuera de pantalla— y ver cómo está tu gente es el propósito de la app. Comprimir no alcanzaba (sin mapa, el círculo seguía arrancando en y≈711): el problema era el orden, no el tamaño. **No es tracking**: la dispara la persona, no la app, y la tarjeta solo se monta en la rama de alerta — fuera de una alerta no hay nada que avisar y ese botón sería el seguimiento que prometemos no hacer. Detalle que no era obvio: actualizar la ubicación reescribe el estado como `effectiveStatus ?? 'unconfirmed'` y **no** como `myStatus.status`, porque copiar el estado crudo daría por confirmado en este sismo a quien reportó "estoy bien" en el anterior, y el contador "X/Y confirmados" mentiría. **Segundo hallazgo, de la pregunta que lo originó:** cuánto dura el modo alerta no estaba definido en ninguna parte salvo el código —6 h en `ACTIVE_ALERT_WINDOW_MS` y 6 h en el `interval` de `get_active_alert()`— y encima el comentario de la constante citaba "spec §5.2", una sección que nunca habló del plazo. Se escribió como **spec §5.3** con el porqué, y quedó advertida la duplicación TypeScript/SQL, que no tiene arreglo posible: no hay forma de compartir una constante entre los dos y separarlos rompe en ambas direcciones. La migración 0010 no se tocó, porque reescribir una migración ya aplicada es peor que la duplicación. |
 | 2026-08-20 | **El punto de encuentro en mapa queda descartado, no pospuesto** (§1.2.2). Salió de revisar §1.2.1: al documentar que Places API y Geocoding API son las dos que sí se pagan, quedó a la vista que la única funcionalidad que las iba a necesitar era el selector de punto de encuentro en mapa — y esa funcionalidad no convence por producto, no por costo. **Un lugar de reunión tiene que poder decirse en voz alta y recordarse de memoria, incluidos los niños; una coordenada no cumple ninguna de las dos**, y falla justo en el escenario para el que existe: sin batería, sin señal, o con alguien que no es el dueño del teléfono. Se reescribieron los dos lugares de la spec que lo prometían (§8 "fase futura" y §13 beneficio Premium) en vez de dejarlos como pendientes, y se sacó de "Fuera de alcance del MVP", que significa "todavía no" y acá corresponde "no". **Lo que sobrevive del beneficio Premium** son los múltiples planes de acción —casa, trabajo, colegio—, cada uno en texto. **Lo que no cambia** es el tip "Acuerda un punto de encuentro" (0005, Cruz Roja Peruana): se descartó mapear la práctica, no la práctica. Efecto lateral que vale la pena: sin ninguna pantalla donde alguien *elija* un punto, la app nunca va a tocar Places ni Geocoding, así que el costo de mapas queda en cero por diseño y no por vigilancia. |
 | 2026-08-20 | **Mapas embebidos, revirtiendo la decisión del MVP** (§1.2.1). El detalle del sismo y el del contacto muestran ahora un mini mapa con `react-native-maps` 1.27.2. La decisión anterior —solo deep link, sin mapa— se había tomado para evitar el costo y la API key de Google, y **el costo resultó no existir**: verificado contra la tabla de precios, el mapa nativo **sin Map ID** cae en el SKU `Maps SDK`, con tope "Unlimited" y precio "—". Lo que sí cobra es pedir un Map ID (SKU `Dynamic Maps`, 10.000/mes y luego $7 por millar), y eso lo exigen el *cloud styling*, los *Advanced Markers* y el *data-driven styling* — **por eso el tema oscuro se resuelve con `userInterfaceStyle` y no con `customMapStyle`**, que obligaría a Map ID y pondría a facturar la app. Descartados MapLibre (obliga a mantener un tile server a cambio de nada visible para dos pines de solo lectura) y `expo-maps` (su propia doc de SDK 57 lo declara **alpha** con "frequent breaking changes"). El mapa **no es interactivo a propósito**: vive dentro de un `ScrollView` y un mapa arrastrable le pelea el gesto al scroll, así que va con `cacheEnabled` —se renderiza una vez y se muestra como imagen— y el toque completo abre la app de mapas. En **Android no renderiza** mientras no exista la API key, porque sin ella Google pinta un rectángulo gris con su logo: se detecta leyendo el config plugin de `app.json`, para no tener una constante que se desincronice. **De paso**, `mapsUrl()` dejó de forzar Google: devolvía siempre `google.com/maps`, así que en un iPhone sin Google Maps instalada terminaba en el navegador; ahora usa `maps.apple.com` en iOS y `geo:` en Android, que respeta la app de mapas elegida por defecto. Typecheck, lint y bundle de iOS en verde; **sin verificar en pantalla todavía** (ver Deudas). |

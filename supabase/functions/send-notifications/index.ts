@@ -160,7 +160,7 @@ Deno.serve(async (req: Request) => {
 
     const messages: unknown[] = [];
     // Paralelo a `messages`: permite mapear cada ticket de vuelta a su aviso.
-    const origin: { deliveryId: string; token: string }[] = [];
+    const origin: { deliveryId: string; userId: string; token: string }[] = [];
 
     for (const delivery of sendable) {
       for (const token of byUser.get(delivery.user_id)!) {
@@ -176,7 +176,7 @@ Deno.serve(async (req: Request) => {
           ttl: TTL_SECONDS,
           data: { ...(delivery.data ?? {}), kind: delivery.kind },
         });
-        origin.push({ deliveryId: delivery.delivery_id, token });
+        origin.push({ deliveryId: delivery.delivery_id, userId: delivery.user_id, token });
       }
     }
 
@@ -184,6 +184,10 @@ Deno.serve(async (req: Request) => {
     const okByDelivery = new Map<string, boolean>();
     const errorByDelivery = new Map<string, string>();
     const deadTokens: string[] = [];
+
+    // Los ids que devuelve Expo, para poder pedirle después el veredicto real
+    // de APNs. Sin esto, 'sent' solo significa "Expo lo aceptó" (migración 0018).
+    const ticketRows: Record<string, string>[] = [];
 
     for (let i = 0; i < messages.length; i += EXPO_BATCH) {
       const chunk = messages.slice(i, i + EXPO_BATCH);
@@ -202,9 +206,19 @@ Deno.serve(async (req: Request) => {
       }
 
       tickets.forEach((ticket, index) => {
-        const { deliveryId, token } = chunkOrigin[index];
+        const { deliveryId, userId, token } = chunkOrigin[index];
 
         if (ticket.status === 'ok') {
+          if (ticket.id) {
+            ticketRows.push({
+              ticket_id: ticket.id,
+              kind: 'notification',
+              delivery_id: deliveryId,
+              user_id: userId,
+              token,
+              channel: 'visible',
+            });
+          }
           okByDelivery.set(deliveryId, true);
           return;
         }
@@ -217,6 +231,15 @@ Deno.serve(async (req: Request) => {
         // muerto y va a fallar siempre.
         if (ticket.details?.error === 'DeviceNotRegistered') deadTokens.push(token);
       });
+    }
+
+    if (ticketRows.length > 0) {
+      // Que falle anotar no puede tumbar el envío: los avisos ya salieron y lo
+      // único que se pierde es poder auditarlos después.
+      const { error } = await admin.rpc('record_push_tickets', { p_rows: ticketRows });
+      if (error) {
+        console.error('[send-notifications] no se pudieron anotar los tickets:', error.message);
+      }
     }
 
     if (deadTokens.length > 0) {

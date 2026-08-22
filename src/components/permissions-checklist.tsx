@@ -171,7 +171,11 @@ export function PermissionsChecklist() {
         <Text variant="headline">Permisos</Text>
         <Text variant="footnote" tone="secondary" style={styles.headerNote}>
           {faltan === 0
-            ? 'Todo concedido. La app puede hacer lo que promete.'
+            ? // No dice "la app puede hacer lo que promete": tener los tres
+              // permisos en verde NO garantiza la captura automática, que
+              // además necesita la actualización en segundo plano encendida y
+              // el modo de bajo consumo apagado (QUE-PROMETE-LA-APP §4).
+              'Todo concedido. Ya podemos avisarte y decirle a tu círculo dónde estás.'
             : faltan === 1
               ? 'Falta 1 permiso. Toca para resolverlo.'
               : `Faltan ${faltan} permisos. Toca cada uno para resolverlo.`}

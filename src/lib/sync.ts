@@ -8,6 +8,7 @@ import {
   fetchTips,
   reportStatusRemote,
 } from '@/lib/api';
+import { flushBackgroundTrace } from '@/lib/background-trace';
 import { writeCircle } from '@/lib/db/circle';
 import { getDb } from '@/lib/db';
 import { KV, kvGet, kvSet } from '@/lib/db/kv';
@@ -96,7 +97,14 @@ export async function syncEverything(userId: string): Promise<void> {
   // que está desactualizado respecto de lo que el usuario reportó offline.
   await flushOutbox();
   await syncMe(userId);
-  await Promise.all([syncCircle(), syncTips(), syncActiveQuake()]);
+  await Promise.all([
+    syncCircle(),
+    syncTips(),
+    syncActiveQuake(),
+    // Lo que anotó la tarea de fondo mientras nadie miraba. Casi siempre no hay
+    // nada y ni toca la red; ver `background-trace.ts`.
+    flushBackgroundTrace(userId),
+  ]);
 }
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,9 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 
 - `ESTADO-DEL-PROYECTO.md` — qué existe y por qué se decidió así. Más las **deudas
   conocidas**, que son problemas de lo ya construido, no trabajo nuevo.
+- `QUE-PROMETE-LA-APP.md` — **fuente única de las afirmaciones públicas**: qué se puede
+  prometer, qué no, y con qué palabras. La landing, la ficha de tienda y los textos de la app
+  salen de ahí.
 - `GUIA-DESPLIEGUE.md` — el procedimiento paso a paso de tiendas y credenciales.
 - `GUIA-CORREO-RESEND.md` — configuración de correo y plantillas.
 
@@ -34,10 +37,11 @@ Nada de esto bloquea un TestFlight interno.
 |---|---|---|
 | 1.1 | **Landing `/i/CODIGO`** + captura del código por deep link | `INVITE_BASE_URL` apunta a una ruta que da 404. `KV.pendingInviteCode` existe en el código y **no se usa**: es la mitad que nunca se terminó. Mitigado por el auto-vínculo por teléfono, así que no bloquea lanzar |
 | 1.2 | **Texto del aviso en español para sismos globales** | Hoy sale el `place` crudo del USGS: *"170 km NE of Lorengau"* dentro de una app en español. `src/lib/geo.ts` ya resuelve país y continente; el sender debería usarlo. Solo afecta a las alertas premium |
-| 1.3 | **Receipts de Expo** | `status = 'sent'` hoy significa "Expo lo aceptó", no "llegó". Guardar el `ticket_id` y consultarlo después es lo único que distingue un envío exitoso de una credencial rota (§3.4 del estado) |
+| 1.3 | 🟡 **Leer las migajas cuando ocurra un sismo real** | La prueba grande **pasó** el 2026-08-21: con la app en segundo plano se despertó sola y capturó la ubicación **1,2 s** después del aviso (§3.8.1). El caso de app **terminada** sigue sin medirse, y **no se puede forzar**: reiniciar el teléfono no lo simula, produce un estado más estricto que iOS bloquea (§3.8.2, dos negativos con receipts `ok`). Ya no hace falta armar pruebas — la tarea deja migajas y el próximo sismo real contesta solo (§3.8.3). **Qué mirar:** `select stage, at from background_traces order by at desc`. Sin migajas = iOS no la levantó; `woke` sin nada más = la levantó y murió, y eso sí sería un bug nuestro |
 | 1.4 | **Ver la propia ubicación en la app** | Hoy solo la ve tu círculo. Vos no tenés forma de confirmar que la app está haciendo lo que promete, salvo por la ausencia del aviso de "sin ubicación" |
 | 1.5 | 🟡 **Declaración de permisos en Play Console** | Ya se quitaron `RECORD_AUDIO` y `WRITE_CONTACTS`, que nada usaba (§1.14.1). Quedan tres que vienen de la plantilla de Expo y de `expo-file-system` —`SYSTEM_ALERT_WINDOW` y los dos de almacenamiento acotados a `maxSdkVersion=32`— que hay que saber justificar al publicar. La recomendación es dejarlos; bloquear el primero rompe el menú de desarrollo |
 | 1.6 | Sentry para errores de cliente | Sin esto, un crash en el teléfono de un usuario es invisible |
+| 1.8 | **Textos de sismos globales en español** | El aviso mundial de premium usa el `place` crudo del USGS: *"Scotia Sea"*, *"194 km SW of Labuan, Indonesia"* — inglés dentro de una app en español. `src/lib/geo.ts` ya resuelve país y continente, pero vive en TypeScript y el texto se arma en SQL (`notify_quake_news`). Es el mismo pendiente que 1.2, ahora más visible porque las noticias mundiales son el beneficio principal de Premium |
 | 1.7 | Pruebas de carga (spec §16.2) | El fan-out recorre `user_settings` entero por sismo. Con padrón grande hay que medirlo |
 
 **Deudas abiertas** (problemas de lo ya construido, detalle en el estado del proyecto):

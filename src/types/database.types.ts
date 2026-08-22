@@ -13,6 +13,28 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      background_traces: {
+        Row: {
+          at: string;
+          detail: string | null;
+          id: string;
+          stage: string;
+          uploaded_at: string;
+          user_id: string;
+        };
+        Insert: {
+          at: string;
+          detail?: string | null;
+          id?: string;
+          stage: string;
+          uploaded_at?: string;
+          user_id: string;
+        };
+        // Sin política de update a propósito (migración 0019): una migaja que
+        // se puede editar no sirve como evidencia.
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       connections: {
         Row: {
           created_at: string;
@@ -182,6 +204,8 @@ export type Database = {
           contact_message: boolean;
           contact_needs_help: boolean;
           contact_not_responding: boolean;
+          quake_national: boolean;
+          quake_worldwide: boolean;
           updated_at: string;
           user_id: string;
         };
@@ -191,6 +215,8 @@ export type Database = {
           contact_message?: boolean;
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
+          quake_national?: boolean;
+          quake_worldwide?: boolean;
           user_id: string;
         };
         Update: {
@@ -199,6 +225,8 @@ export type Database = {
           contact_message?: boolean;
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
+          quake_national?: boolean;
+          quake_worldwide?: boolean;
         };
         Relationships: [];
       };
