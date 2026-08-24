@@ -207,6 +207,41 @@ export async function requestConnection(targetUserId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Motivos de denuncia. El orden es el que se muestra en la pantalla. */
+export const REPORT_REASONS = [
+  { key: 'harassment', label: 'Acoso o amenazas' },
+  { key: 'inappropriate', label: 'Contenido ofensivo o inapropiado' },
+  { key: 'spam', label: 'Spam o estafa' },
+  { key: 'impersonation', label: 'Se hace pasar por otra persona' },
+  { key: 'other', label: 'Otro motivo' },
+] as const;
+
+export type ReportReason = (typeof REPORT_REASONS)[number]['key'];
+
+/**
+ * Denuncia contenido de otra persona (migración 0020, guía 1.2 de App Store).
+ *
+ * La copia del texto denunciado la guarda el servidor, no el cliente: mandarla
+ * desde acá permitiría denunciar un mensaje inventado, y la evidencia dejaría de
+ * ser evidencia.
+ */
+export async function submitReport(input: {
+  reportedUserId: string;
+  reason: ReportReason;
+  detail?: string | null;
+  conversationId?: string | null;
+  messageId?: string | null;
+}): Promise<void> {
+  const { error } = await supabase.rpc('submit_report', {
+    reported_user_id: input.reportedUserId,
+    reason: input.reason,
+    detail: input.detail ?? null,
+    conversation_id: input.conversationId ?? null,
+    message_id: input.messageId ?? null,
+  });
+  if (error) throw error;
+}
+
 export async function respondToConnection(connectionId: string, accept: boolean): Promise<void> {
   const { error } = await supabase.rpc('respond_to_connection', {
     connection_id: connectionId,
@@ -218,6 +253,45 @@ export async function respondToConnection(connectionId: string, accept: boolean)
 export async function removeConnection(connectionId: string): Promise<void> {
   const { error } = await supabase.from('connections').delete().eq('id', connectionId);
   if (error) throw error;
+}
+
+/**
+ * Bloquear y quitar del círculo son dos cosas distintas (migración 0021).
+ *
+ * **Quitar** (`removeConnection`) es el caso amable y es la mayoría: ya no
+ * quiero compartir mi ubicación con esta persona. Borra la fila, y las dos
+ * partes pueden volver a agregarse cuando quieran.
+ *
+ * **Bloquear** es el caso hostil: la conexión queda en `blocked`, la otra
+ * persona no puede volver a pedir conexión —cada intento le llegaba como aviso
+ * a quien la quitó— y **el chat que ya existía queda cerrado**, que era el
+ * agujero de verdad: la conversación y sus miembros no se borran al quitar el
+ * vínculo, así que antes se podía seguir escribiendo.
+ */
+export async function blockConnection(otherUserId: string): Promise<void> {
+  const { error } = await supabase.rpc('block_connection', { other_user_id: otherUserId });
+  if (error) throw error;
+}
+
+export async function unblockConnection(otherUserId: string): Promise<void> {
+  const { error } = await supabase.rpc('unblock_connection', { other_user_id: otherUserId });
+  if (error) throw error;
+}
+
+export type BlockedPerson = {
+  userId: string;
+  displayName: string;
+  blockedAt: string | null;
+};
+
+export async function getBlocked(): Promise<BlockedPerson[]> {
+  const { data, error } = await supabase.rpc('get_blocked');
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    userId: row.user_id,
+    displayName: row.display_name,
+    blockedAt: row.blocked_at,
+  }));
 }
 
 /**

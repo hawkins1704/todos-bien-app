@@ -167,6 +167,21 @@ export default function SettingsScreen() {
             </Text>
             <MaterialIcons name="chevron-right" size={20} color={colors.textTertiary} />
           </Pressable>
+
+          {/* Acá y no en SEGURIDAD: es una lista de personas, como las dos filas
+              de arriba. Y tiene que existir en algún lugar visible — un bloqueo
+              que no se puede deshacer es una trampa, y la guía 1.2 de App Store
+              pide poder administrarlo. */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/blocked')}
+            style={({ pressed }) => [styles.linkRow, pressed ? styles.pressed : null]}>
+            <MaterialIcons name="block" size={20} color={colors.textSecondary} />
+            <Text variant="callout" style={styles.flex}>
+              Personas bloqueadas
+            </Text>
+            <MaterialIcons name="chevron-right" size={20} color={colors.textTertiary} />
+          </Pressable>
         </Card>
 
         <Section title="CUÁNDO AVISARME DE UN SISMO">

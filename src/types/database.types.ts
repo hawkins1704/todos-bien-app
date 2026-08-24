@@ -35,8 +35,27 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      content_reports: {
+        Row: {
+          conversation_id: string | null;
+          created_at: string;
+          detail: string | null;
+          id: string;
+          message_body: string | null;
+          message_id: string | null;
+          reason: string;
+          reported_user_id: string | null;
+          reporter_id: string | null;
+          reviewed_at: string | null;
+          status: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       connections: {
         Row: {
+          blocked_by: string | null;
           created_at: string;
           id: string;
           requested_by: string;
@@ -486,6 +505,32 @@ export type Database = {
       request_connection: {
         Args: { target_user_id: string };
         Returns: Database['public']['Tables']['connections']['Row'];
+      };
+      block_connection: {
+        Args: { other_user_id: string };
+        Returns: undefined;
+      };
+      unblock_connection: {
+        Args: { other_user_id: string };
+        Returns: undefined;
+      };
+      get_blocked: {
+        Args: Record<string, never>;
+        Returns: {
+          blocked_at: string | null;
+          display_name: string;
+          user_id: string;
+        }[];
+      };
+      submit_report: {
+        Args: {
+          conversation_id?: string | null;
+          detail?: string | null;
+          message_id?: string | null;
+          reason: string;
+          reported_user_id: string;
+        };
+        Returns: undefined;
       };
       respond_to_connection: {
         Args: { accept: boolean; connection_id: string };

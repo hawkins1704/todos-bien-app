@@ -14,7 +14,7 @@ import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
-import { removeConnection } from '@/lib/api';
+import { blockConnection, removeConnection } from '@/lib/api';
 import { openDirectConversation } from '@/lib/chat';
 import { readCircleMember } from '@/lib/db/circle';
 import { formatAccuracy, formatCoords, timeAgo } from '@/lib/format';
@@ -80,6 +80,34 @@ export default function ContactDetailScreen() {
             void removeConnection(member.connectionId)
               .then(refresh)
               .then(() => router.back());
+          },
+        },
+      ],
+    );
+  };
+
+  /**
+   * Bloquear es lo que hay que ofrecer cuando quitar no alcanza. El texto dice
+   * las tres consecuencias porque las tres son distintas de "quitar", y la del
+   * chat es la que nadie se imagina: quitar el vínculo **no** cerraba la
+   * conversación que ya existía.
+   */
+  const confirmBlock = () => {
+    Alert.alert(
+      `Bloquear a ${member.displayName}`,
+      'No va a poder escribirte ni volver a enviarte una solicitud, y dejan de verse el estado y la ubicación. Puedes desbloquearla cuando quieras desde Ajustes.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Bloquear',
+          style: 'destructive',
+          onPress: () => {
+            void blockConnection(member.userId)
+              .then(refresh)
+              .then(() => router.back())
+              .catch(() =>
+                Alert.alert('No se pudo bloquear', 'Revisa tu conexión e intenta de nuevo.'),
+              );
           },
         },
       ],
@@ -215,12 +243,38 @@ export default function ContactDetailScreen() {
 
         <Button title="Abrir chat" icon="chat" onPress={() => void openChat()} loading={opening} />
 
+        {/* Denunciar y quitar, juntos y en ese orden: quien llega hasta acá
+            buscando cortar el contacto tiene las dos salidas a la vista, que es
+            lo que pide la guía 1.2 de App Store. */}
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: '/report',
+              params: { userId: member.userId, name: member.displayName },
+            })
+          }
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.remove, pressed ? styles.pressed : null]}>
+          <Text variant="footnote" tone="secondary" center weight="600">
+            Denunciar a esta persona
+          </Text>
+        </Pressable>
+
         <Pressable
           onPress={confirmRemove}
           accessibilityRole="button"
           style={({ pressed }) => [styles.remove, pressed ? styles.pressed : null]}>
           <Text variant="footnote" tone="danger" center weight="600">
             Quitar de mi círculo
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={confirmBlock}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.remove, pressed ? styles.pressed : null]}>
+          <Text variant="footnote" tone="danger" center weight="600">
+            Bloquear a esta persona
           </Text>
         </Pressable>
       </ScrollView>

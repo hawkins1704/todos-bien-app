@@ -93,6 +93,24 @@ Password: [ver el gestor de contraseñas]
 The account already has an accepted circle of 4 contacts with mixed statuses, an action plan
 and a chat thread, so every screen has content.
 
+REPORTING AND BLOCKING (guideline 1.2)
+Users can report objectionable content and block other users:
+  - Report a message: long-press any message from the other person in a chat -> "Denunciar".
+  - Report a person: Circle -> tap the contact -> "Denunciar a esta persona".
+  - Block: Circle -> tap the contact -> "Bloquear a esta persona", or right after sending a
+    report. A blocked user cannot message you (not even in an existing conversation), cannot
+    send you connection requests, and cannot see your status or location. Blocking can be
+    undone from Settings -> "Personas bloqueadas"; the blocked user cannot undo it.
+  - "Quitar de mi círculo" is a separate, softer action: it ends the connection but either
+    side may send a new request later.
+Reports are reviewed within 24 hours. Our terms of service state a zero-tolerance policy for
+abusive content: https://todosbien.app/terminos (section 5.1). Contact for reports and
+support: todosbienapp@gmail.com
+
+Note that chats are strictly one-to-one between people who BOTH explicitly accepted the
+connection. There is no public content, no discovery of strangers and no way to message
+someone who has not accepted you.
+
 ACCOUNT DELETION (guideline 5.1.1(v))
 In-app path: Settings tab -> tap the profile card at the top -> SEGURIDAD -> "Borrar mi
 cuenta". It asks for the account password and deletes the account and all associated data.
@@ -133,7 +151,7 @@ la app hoy.
 
 | # | Riesgo | Por qué aplica acá | Estado |
 |---|---|---|---|
-| 1 | **Guideline 1.2 — contenido generado por usuarios sin moderación** | Hay chat entre personas. Apple pide: filtro de contenido ofensivo, forma de denunciar, forma de bloquear y compromiso de actuar en 24 h | 🔴 **Abierto.** Existe eliminar la conexión, que cubre «bloquear»; falta **denunciar** |
+| 1 | **Guideline 1.2 — contenido generado por usuarios sin moderación** | Hay chat entre personas. Apple pide: forma de denunciar, forma de bloquear, canal de contacto publicado y compromiso de actuar en 24 h | ✅ **Cerrado el 2026-08-24.** Denunciar desde el chat y desde el contacto (migración 0020), bloquear con «Quitar de mi círculo», contacto en `/soporte`, y las 24 h escritas en los términos §5.1 y sostenidas por el chequeo diario del runbook |
 | 2 | **Guideline 3.1.2 — paywall sin Términos ni Privacidad** | El paywall vive en RevenueCat, y ahí es un campo que se olvida | 🔴 Abierto (`QUE-FALTA.md` 2.6) |
 | 3 | **Guideline 5.1.1(v) — borrar la cuenta** | La app crea cuentas | ✅ Hecho, y la ruta está en §2 |
 | 4 | **Guideline 2.1 — no pudimos probar la función principal** | Requiere un sismo real | ✅ Cubierto por la nota del simulacro |

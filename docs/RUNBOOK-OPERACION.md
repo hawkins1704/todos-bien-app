@@ -38,6 +38,10 @@ group by channel, status order by channel, status;
 -- 4 · ¿Hay entregas atascadas? Deberían ser cero fuera de una ventana de alerta.
 select status, count(*) from public.alert_deliveries group by status;
 select status, count(*) from public.notification_deliveries group by status;
+
+-- 5 · ¿Hay denuncias sin revisar? Prometimos 24 horas, así que esta es diaria.
+select id, reason, created_at, now() - created_at as antiguedad
+from public.content_reports where status = 'pending' order by created_at;
 ```
 
 **Cómo se lee el punto 3, que es el que engaña:** `status = 'sent'` en la cola significa
@@ -154,7 +158,47 @@ compras», que dispara un `TRANSFER` (ESTADO §1.1.3).
 
 ---
 
-## 6 · Lo que este runbook no puede cubrir todavía
+## 6 · Llegó una denuncia
+
+Los términos prometen revisarla en **menos de 24 horas**, y ese compromiso es parte de lo que
+se le declara a Apple (guía 1.2). La consulta 5 del chequeo diario es lo que lo sostiene.
+
+```sql
+select r.id, r.reason, r.detail, r.message_body, r.created_at,
+       den.display_name as denunciante,
+       acu.display_name as denunciado
+from public.content_reports r
+left join public.profiles den on den.id = r.reporter_id
+left join public.profiles acu on acu.id = r.reported_user_id
+where r.status = 'pending' order by r.created_at;
+```
+
+`message_body` es **una copia** guardada al momento de denunciar, así que sigue ahí aunque el
+mensaje o la cuenta ya no existan. Es la evidencia; el `message_id` es solo la referencia.
+
+Al resolverla:
+
+```sql
+update public.content_reports
+   set status = '<reviewed|actioned|dismissed>', reviewed_at = now()
+ where id = '<REPORT_ID>';
+```
+
+| Estado | Cuándo |
+|---|---|
+| `dismissed` | No incumple nada |
+| `reviewed` | Incumple algo leve; queda anotado y se avisa |
+| `actioned` | Se suspendió o eliminó la cuenta |
+
+> ⚠️ **Esto se revisa a mano y esa es su debilidad.** No hay alerta: una denuncia cae en una
+> tabla y espera a que alguien mire. Con volumen bajo alcanza con la consulta diaria, pero es
+> exactamente la forma de fallo que este proyecto ya encontró tres veces —la pieza existe y
+> nadie la lee—, así que **el día que llegue la primera denuncia real conviene automatizar el
+> aviso**, aunque sea un correo.
+
+---
+
+## 7 · Lo que este runbook no puede cubrir todavía
 
 - **Crashes del cliente.** No hay Sentry. Hoy, si la app crashea en el teléfono de alguien,
   es literalmente invisible: no hay dónde mirarlo. Es el hueco más grande de esta lista.

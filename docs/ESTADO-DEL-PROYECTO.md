@@ -1465,6 +1465,102 @@ nadie**. El campo es opcional en el onboarding y ahora es la única llave. Vale 
 mirarlo cuando haya usuarios reales: si mucha gente lo salta, el círculo vacío no va a tener
 ninguna explicación visible.
 
+### 1.17 🔴 «Quitar de mi círculo» no era un bloqueo, y el chat quedaba abierto
+
+**Migración 0021, 2026-08-24.** Salió de una pregunta sobre el flujo de moderación —qué pasa
+después de una denuncia— y lo que apareció fue peor que lo preguntado.
+
+`removeConnection` hace un `delete` de la fila de `connections`. Dos consecuencias:
+
+1. La persona removida **podía volver a mandar solicitud enseguida**, y cada intento dispara
+   la notificación de «solicitud recibida» (§1.13). No podía entrar sin ser aceptada, pero sí
+   podía seguir apareciendo en el teléfono de quien la sacó.
+2. **La grave:** la política `messages_insert_member` (0004) solo comprueba **membresía de la
+   conversación**. Ni la conversación ni sus miembros se borran al quitar el vínculo, así que
+   **quien fue removido podía seguir escribiendo en el chat que ya existía**. Para acoso —el
+   caso exacto para el que se acababa de construir denunciar (§1.16)— eso convierte a
+   «bloquear» en una etiqueta sin efecto.
+
+**Y el estado `'blocked'` estaba ahí desde el día uno**, en el check de `connections` de la
+migración 0002 y en el tipo de TypeScript, sin que nada lo escribiera nunca. Cuarta aparición
+del mismo patrón —la pieza existe, se ve completa, le falta el lado que la alimenta— después
+de §1.13, §1.6.3.1 y §1.15.
+
+**Quitar y bloquear quedan como dos acciones distintas**, y las dos hacen falta: quitar es el
+caso amable y es la mayoría (ya no quiero compartir mi ubicación), bloquear es el hostil. Las
+dos viven en el perfil del contacto, y bloquear además se ofrece al terminar una denuncia —
+que es donde de verdad se necesita.
+
+**Tres decisiones que no son obvias:**
+
+- **Hizo falta una columna `blocked_by`.** `user_a`/`user_b` están en orden canónico por una
+  restricción de 0002, así que la fila sola no dice quién bloqueó a quién — y eso es
+  justamente lo que decide quién puede deshacerlo. Queda fuera del grant de UPDATE: si se
+  pudiera escribir directo, cualquiera podría marcar que lo bloqueó el otro y quedarse con la
+  llave para desbloquearse.
+- **El bloqueo del chat es simétrico.** Quien bloqueó tampoco puede escribir. Un bloqueo de una
+  sola dirección deja al que bloqueó mandando mensajes a alguien que no le puede contestar,
+  que es acoso con otro nombre.
+- **Leer el historial sigue permitido.** Solo se cierra la escritura: esconder lo que ya se
+  dijo no protege a nadie y borra la evidencia de lo que se denunció.
+
+**Verificado contra la base real, 10/10 aserciones**, con la secuencia completa: se escribe
+antes de bloquear, se bloquea, deja de poder escribir en la conversación existente, tampoco
+puede el que bloqueó, no puede pedir conexión, no puede desbloquearse solo, sale del círculo,
+aparece en la lista de bloqueados con su nombre, se desbloquea, y el chat vuelve a abrirse.
+
+**Y una pantalla nueva, `Ajustes → Personas bloqueadas`.** Un bloqueo que no se puede deshacer
+es una trampa —bloquear por error en un mal momento es exactamente lo que va a pasar— y además
+es lo que un revisor de Apple busca. `get_blocked()` es `security definer` por un motivo
+concreto: la política de `profiles` solo deja ver a los contactos **aceptados**, y un
+bloqueado por definición no lo es, así que sin eso la lista mostraría nombres vacíos y nadie
+podría desbloquear a quien no puede ver.
+
+### 1.16 Denunciar contenido, y por qué el chat privado igual lo necesita
+
+**Migración 0020, 2026-08-24.** La guía **1.2 de App Store Review** pide cuatro cosas en
+cualquier app donde una persona vea texto escrito por otra: poder **denunciar**, poder
+**bloquear**, un **canal de contacto publicado** y **actuar en 24 horas**. La app tenía tres:
+bloquear es «Quitar de mi círculo», el contacto está en `/soporte`, y el compromiso se
+escribió en los términos §5.1. Faltaba denunciar.
+
+**El matiz que no cambia la conclusión:** acá el chat es 1 a 1 entre dos personas que
+**ambas aceptaron** la conexión, no hay contenido público y no hay forma de escribirle a un
+desconocido. Es un caso mucho más benigno que el de una red social — pero la regla no
+distingue, y el costo de tenerlo es medio día contra un ciclo de revisión perdido.
+
+**Dónde vive, y por qué ahí.** Mantener apretado un mensaje **ajeno** en el chat, y
+«Denunciar a esta persona» en el detalle del contacto. El gesto largo y no un botón visible
+en cada burbuja: esto se usa una vez en la vida de una conversación, si acaso, y un ícono de
+denuncia permanente en un chat entre familiares es ruido para un caso rarísimo. iOS ya enseñó
+ese gesto — es lo que hace todo el mundo en Mensajes y en WhatsApp.
+
+**Tres decisiones que no son obvias:**
+
+- **La denuncia guarda una copia del mensaje.** Si el mensaje se borra o la persona
+  denunciada elimina su cuenta, una denuncia que solo apunte con una llave foránea se queda
+  sin objeto justo cuando hay que revisarla. La copia es la evidencia; el `message_id` es la
+  referencia.
+- **Las llaves van con `on delete set null`, al revés que todo el resto del esquema.** Cada
+  tabla de este proyecto cuelga de `profiles` con `cascade`, porque borrar la cuenta tiene
+  que borrar los datos de esa persona (§1.1.3). Una denuncia no es un dato *del* denunciado
+  sino un registro de moderación: si se borrara con la cuenta, **bastaría con borrarse para
+  limpiar el historial**. Mismo criterio que `revenuecat_events`.
+- **Denunciar y quitar del círculo se ofrecen juntos, en ese orden.** Quitar es lo único con
+  efecto inmediato; denunciar deja el registro. Quien denuncia normalmente quiere las dos, y
+  mandarlo a buscar la segunda a otra pantalla es pedirle un trámite en el peor momento.
+
+**Verificado contra la base real, 6/6 aserciones.** La que importa es la tercera: alguien que
+no es miembro de la conversación **no puede** denunciar un mensaje de ella. Sin esa
+comprobación, la copia del texto que guarda el servidor sería una forma de leer conversaciones
+ajenas con solo tener un id — la funcionalidad de moderación se habría convertido en una fuga.
+
+**Y la mitad que no es código.** Prometer «revisamos en 24 horas» y dejar las denuncias en una
+tabla que nadie abre sería la cuarta aparición del patrón que este proyecto ya encontró tres
+veces (§1.13, §1.6.3.1, §1.15): la pieza existe, se ve completa, y le falta el lado que la
+lee. Por eso la consulta de denuncias pendientes entró en el chequeo diario del runbook. Con
+volumen bajo alcanza; el día de la primera denuncia real hay que automatizar el aviso.
+
 ---
 
 ## 2. Construido
@@ -2178,6 +2274,8 @@ tier B2B · donaciones.
 
 | Fecha | Qué pasó |
 |---|---|
+| 2026-08-24 | 🔴 **«Quitar de mi círculo» no era un bloqueo** (§1.17, migración 0021). Salió de preguntar qué pasa después de una denuncia. Dos agujeros: quien era removido podía **volver a mandar solicitud** —y cada intento le llegaba como aviso a quien lo sacó—, y sobre todo **podía seguir escribiendo en el chat que ya existía**, porque la política de `messages` comprueba membresía de la conversación y esa no se borra al quitar el vínculo. Para acoso, que es el caso para el que se acababa de construir denunciar, «bloquear» era una etiqueta sin efecto. **El estado `'blocked'` estaba en el esquema desde 0002 y nada lo escribía**: cuarta aparición del patrón. Ahora quitar y bloquear son dos acciones distintas —la amable y la hostil—, el bloqueo cierra el chat **en las dos direcciones** (un bloqueo de una sola deja al que bloqueó escribiéndole a alguien que no le puede contestar), leer el historial sigue permitido porque esconderlo borraría la evidencia de lo denunciado, y hay pantalla de **Personas bloqueadas** para deshacerlo. 10/10 aserciones contra la base real, incluida la secuencia completa de bloquear, comprobar el chat cerrado, desbloquear y verlo reabrirse. |
+| 2026-08-24 | **Denunciar contenido** (§1.16, migración 0020): el último ítem de código que separaba a la app de la revisión. Tres decisiones que no son obvias: la denuncia **guarda una copia del mensaje**, porque una llave foránea a un mensaje que se borra deja la denuncia sin objeto justo cuando hay que revisarla; las llaves van con **`on delete set null` y no `cascade`**, al revés que todo el resto del esquema, porque si borrar la cuenta borrara las denuncias bastaría con borrarse para limpiar el historial; y el gesto es **mantener apretado** y no un botón en cada burbuja, porque un ícono de denuncia permanente en un chat entre familiares es ruido para un caso rarísimo. **6/6 aserciones contra la base real**, incluida la que importa: alguien que no está en la conversación no puede denunciar un mensaje de ella —si no, la copia del texto sería una forma de leer conversaciones ajenas—. Se cerró además la mitad que no es código: cláusula de tolerancia cero en los términos §5.1, y una consulta diaria en el runbook, porque prometer 24 horas y dejar las denuncias en una tabla que nadie abre sería la cuarta repetición del patrón que este proyecto ya encontró tres veces. |
 | 2026-08-24 | 🔴 **Los textos de permiso del `Info.plist` habían quedado fuera de la auditoría, y son los que más pesan.** `app.json` seguía diciendo *«dónde estabas cuando ocurre un sismo»* y *«toma tu ubicación una sola vez, en el momento en que ocurre un sismo»*: las dos frases exactas que la auditoría del 21/08 retiró de las pantallas —la primera por vender humo (`QUE-PROMETE` §6), la segunda por omitir la lectura inicial que la propia pantalla dispara—. Sobrevivieron porque **el inventario de §10 de ese documento no incluía `app.json`**, y ahí es donde más importan: es el texto del diálogo del sistema, lo que lee el revisor y lo que declara el Nutrition Label. Corregidos, y `app.json` sumado al inventario **en primer lugar**, con la razón que lo hace urgente: viaja dentro del binario, así que corregirlo tarde obliga a un build nuevo. |
 | 2026-08-24 | **Fuera los códigos de invitación** (§1.15), y al sacarlos apareció que el «auto-vínculo por teléfono» que se citaba como mitigación **nunca funcionó**: el trigger estaba bien, pero los dos llamadores del cliente creaban la invitación con `invitee_phone_hash` en `null`, así que no tenía nunca qué resolver. Tercera aparición del mismo patrón —la pieza existe, se ve completa y le falta el lado que la alimenta— después de los interruptores que no mandaban nada (§1.13) y del permiso que no guardaba coordenadas (§1.6.3.1). La tabla y las RPC se dejaron en la base para cuando vuelvan con los planes familiares. **Consecuencia asumida:** sin teléfono, una persona no aparece para nadie. |
 | 2026-08-24 | **Seis documentos nuevos, y el trabajo que faltaba era escribir, no programar.** `ALCANCE-Y-IDIOMAS.md` (se publica en LatAm, EE. UU. y Asia, en español e inglés — pero el primer envío va **solo a Perú**, porque la regla «sismo fuerte en tu país» no se evalúa fuera del Perú: el USGS trae `country_code` en NULL, y el onboarding normaliza todo teléfono como peruano, lo que rompe en silencio la única vía de conexión que queda), `FICHA-APP-STORE.md` (texto contado, sin la keyword «alerta sísmica», que es la más buscada y la única prohibida), `PRIVACIDAD-APP-STORE.md`, `REVISION-APPLE.md`, `VERIFICACION-EN-DISPOSITIVO.md` —que le da un lugar dónde tacharse a las cuatro deudas de «sin verificar en pantalla», que eran una sola tarea escrita cuatro veces— y `RUNBOOK-OPERACION.md`. **Encontrado de paso:** el sitio ya está desplegado en Hostinger, donde `vercel.json` y `_redirects` no se aplican; y la política de privacidad todavía decía «una sola posición tomada en el momento del evento», la promesa retirada, ahora corregida junto con el titular del banco de datos que la Ley 29733 exige. |

@@ -1,7 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -33,6 +34,7 @@ import { useTheme } from '@/theme/use-theme';
 
 export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { userId } = useAuth();
@@ -94,6 +96,40 @@ export default function ChatScreen() {
     };
   }, [conversationId, load]);
 
+  /**
+   * Mantener apretado un mensaje ajeno ofrece denunciarlo (guía 1.2 de App
+   * Store Review). Solo los ajenos: denunciar el propio no significa nada.
+   *
+   * El gesto largo y no un botón visible porque esto se usa una vez en la vida
+   * de una conversación, si acaso, y un ícono de denuncia en cada burbuja de un
+   * chat entre familiares sería ruido permanente para un caso rarísimo. iOS ya
+   * enseña ese gesto: mantener apretado un mensaje es lo que hace todo el mundo
+   * en Mensajes y en WhatsApp.
+   */
+  const offerReport = (message: ChatMessage) => {
+    Alert.alert(
+      'Denunciar mensaje',
+      'Nos llega el mensaje y quién lo envió. Lo revisamos en menos de 24 horas.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Denunciar',
+          style: 'destructive',
+          onPress: () =>
+            router.push({
+              pathname: '/report',
+              params: {
+                userId: message.senderId,
+                conversationId: conversationId ?? '',
+                messageId: message.id,
+                preview: message.body,
+              },
+            }),
+        },
+      ],
+    );
+  };
+
   const send = async () => {
     const body = draft.trim();
     if (!body || !conversationId || !userId) return;
@@ -137,7 +173,11 @@ export default function ChatScreen() {
 
             return (
               <View style={[styles.bubbleRow, mine ? styles.mineRow : styles.theirsRow]}>
-                <View
+                <Pressable
+                  onLongPress={mine ? undefined : () => offerReport(item)}
+                  delayLongPress={400}
+                  accessibilityRole={mine ? undefined : 'button'}
+                  accessibilityHint={mine ? undefined : 'Mantén apretado para denunciar'}
                   style={[
                     styles.bubble,
                     {
@@ -170,7 +210,7 @@ export default function ChatScreen() {
                       />
                     ) : null}
                   </View>
-                </View>
+                </Pressable>
               </View>
             );
           }}

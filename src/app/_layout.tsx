@@ -138,6 +138,14 @@ function RootNavigator() {
         name="add-contacts"
         options={{ presentation: 'modal', headerShown: true, title: 'Agregar contactos' }}
       />
+      <Stack.Screen
+        name="report"
+        options={{ presentation: 'modal', headerShown: true, title: 'Denunciar' }}
+      />
+      <Stack.Screen
+        name="blocked"
+        options={{ presentation: 'modal', headerShown: true, title: 'Personas bloqueadas' }}
+      />
       <Stack.Screen name="drill" options={{ presentation: 'fullScreenModal' }} />
     </Stack>
   );

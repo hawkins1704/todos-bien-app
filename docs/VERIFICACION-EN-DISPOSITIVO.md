@@ -129,6 +129,29 @@ sola cuenta** (así se hizo el 2026-08-21, ESTADO §3.8.1).
 
 ---
 
+## 8.b · Denunciar y bloquear (nuevo el 2026-08-24)
+
+Es lo que mira App Review por la guía 1.2, así que conviene recorrerlo entero.
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 8b.1 | En el chat, mantener apretado un mensaje **de la otra persona** | Aparece el diálogo de denuncia |
+| 8b.2 | Mantener apretado un mensaje **propio** | **No** pasa nada: denunciarse a uno mismo no significa nada |
+| 8b.3 | Denunciar: elegir motivo y enviar | Confirma, y ofrece quitar del círculo en el mismo diálogo |
+| 8b.4 | Elegir «Solo denunciar» | Vuelve al chat y la conexión sigue |
+| 8b.5 | Denunciar el **mismo** mensaje otra vez | No falla ni se duplica en la base |
+| 8b.6 | Contacto → «Denunciar a esta persona» | Igual, pero sin mensaje citado |
+| 8b.7 | En la base | `select reason, message_body from content_reports order by created_at desc` — el texto denunciado está copiado |
+| 8b.8 | Sin red | Muestra el error y no pierde lo escrito |
+| 8b.9 | Elegir «Bloquear» al terminar la denuncia | Desaparece del círculo |
+| 8b.10 | **Desde el otro teléfono**, escribir en ese chat | **Falla.** Es el agujero que cerró 0021: quitar el vínculo no cerraba la conversación que ya existía |
+| 8b.11 | Desde el otro teléfono, volver a mandar solicitud | No se puede |
+| 8b.12 | Ajustes → Personas bloqueadas | Aparece, con cuándo se bloqueó |
+| 8b.13 | Desbloquear | Vuelve a «sin relación»: no se reconectan solos, hay que mandar solicitud de nuevo |
+| 8b.14 | Contacto → «Quitar de mi círculo» (el camino amable) | Sigue funcionando como antes, y **sí** deja volver a agregarse |
+
+---
+
 ## 9 · Borrar la cuenta
 
 | # | Paso | Qué tiene que pasar |
