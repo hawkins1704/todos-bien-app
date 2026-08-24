@@ -15,6 +15,7 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 - `VERIFICACION-EN-DISPOSITIVO.md` — el recorrido en un iPhone real que cierra las deudas de
   «sin verificar en pantalla».
 - `RUNBOOK-OPERACION.md` — qué mirar cuando ya hay usuarios, con las consultas hechas.
+- `ICONO-Y-MARCA.md` — qué exportar de Figma, con qué medidas, y dónde va cada archivo.
 - `GUIA-DESPLIEGUE.md` — el procedimiento paso a paso de tiendas y credenciales.
 - `GUIA-CORREO-RESEND.md` — configuración de correo y plantillas.
 
@@ -32,7 +33,11 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 | **Premium / RevenueCat en iOS** | ✅ compra, restauración y transferencia probadas |
 | Sitio, dominio y páginas legales | ✅ desplegado en Hostinger, las cuatro URL responden 200 |
 | Textos de la ficha, privacidad y notas de revisión | ✅ escritos (`FICHA-APP-STORE.md`, `PRIVACIDAD-APP-STORE.md`, `REVISION-APPLE.md`) |
-| Ficha cargada en App Store Connect | 🟡 falta pegarla, más capturas y cuenta demo |
+| Ficha cargada en App Store Connect | 🟡 info y capturas cargadas; falta App Privacy y las notas de revisión |
+| Cuenta de demostración | ✅ creada, sembrada y con el login probado |
+| **Ícono y splash** | ✅ reemplazados el 2026-08-24 en app y sitio; falta solo el monocromo de Android (`ICONO-Y-MARCA.md`) |
+| Build de producción | ✅ el flujo funciona: se compila **local** (Xcode) y `eas submit` sube el `.ipa` a TestFlight. Por eso no aparece en `eas build:list` |
+| Proyecto nativo `ios/` sincronizado | 🔴 **desactualizado**: el `Info.plist` de disco todavía tiene los textos de permiso viejos |
 | Verificación en un iPhone real | 🟡 el recorrido está escrito, falta correrlo |
 | **Android** | ❌ sin empezar salvo Firebase |
 | Mercados fuera de Perú | ❌ decidido que sí, no construido (`ALCANCE-Y-IDIOMAS.md`) |
@@ -87,18 +92,20 @@ caduca: si el build sale antes, sale con los textos viejos.
 
 | # | Qué | Dónde |
 |---|---|---|
+| 2.-1 | ✅ **Ícono y splash propios** (2026-08-24) | Globo con onda sísmica. El de iOS quedó sin canal alfa, que es lo que rechaza la validación de Apple. Detalle en `ICONO-Y-MARCA.md` |
 | 2.0 | ✅ **Textos de permiso del `Info.plist` corregidos** (2026-08-24) | Decían «dónde estabas cuando ocurre un sismo» y omitían la lectura inicial: las dos frases que la auditoría del 21/08 retiró de la app y que en `app.json` habían quedado. **Van dentro del binario**, así que el build de 2.1 tiene que ser posterior |
-| 2.1 | **Build de producción y subida** | `eas build --profile production -p ios` + `eas submit`. Antes, **commitear**: `index.js` y las migraciones 0018/0019 estaban sin versionar y EAS empaqueta desde git |
+| 2.1 | **Build de producción y subida** | Se compila **local** con Xcode y `eas submit` sube el `.ipa`. 🔴 **Antes hay que correr `npx expo prebuild -p ios --clean`**: `ios/` es de disco y no se regenera solo, así que hoy tiene el `Info.plist` viejo y el ícono de la plantilla. Ver `ICONO-Y-MARCA.md` §6 |
+| 2.1.b | 🟡 **Número de build** | `app.json` no declara `ios.buildNumber`, así que cada `prebuild` deja `CFBundleVersion = 1`. `autoIncrement` de `eas.json` **no aplica a builds locales**, y App Store Connect rechaza un número repetido para la misma versión. Conviene fijarlo en `app.json` y subirlo a mano en cada envío |
 | 2.2 | **Probar el push con la app terminada** | Solo se puede con el build de 2.1: el dev client necesita Metro. El recorrido está en `VERIFICACION-EN-DISPOSITIVO.md` §7 |
 | 2.3 | ✅ **URLs de la ficha** — soporte, privacidad, términos, eliminar cuenta | Verificadas en producción el 2026-08-24: las cuatro responden 200 |
 | 2.4 | **Nutrition Labels** | Respuestas listas, dato por dato, en `PRIVACIDAD-APP-STORE.md`. Falta pegarlas |
 | 2.5 | **Justificación de ubicación en segundo plano, en inglés** | Escrita en `PRIVACIDAD-APP-STORE.md` §4. Falta pegarla |
 | 2.6 | 🔴 **Términos y Privacidad en el footer del paywall** | RevenueCat → Paywalls. Apple lo exige en apps de suscripción; es rechazo casi automático |
-| 2.7 | **Cuenta de demostración para App Review** | Qué crear y cómo sembrarla, en `REVISION-APPLE.md` §1. Una cuenta vacía es tan rechazable como una que no abre |
+| 2.7 | ✅ **Cuenta de demostración para App Review** (2026-08-24) | `todosbienapp@gmail.com`, con círculo de 4 contactos en estados mezclados, plan de acción, chat y los 3 simulacros libres. **Login probado contra la API real.** Detalle en `REVISION-APPLE.md` §1 |
 | 2.8 | **Capturas de pantalla** | Las seis, con qué tiene que verse en cada una, en `FICHA-APP-STORE.md` §5 |
 | 2.9 | **Borrar el usuario de QA** `qa.simulador@example.com` | Quedó de las pruebas iniciales |
-| 2.10 | **Prender *Leaked password protection*** | Supabase → Authentication → Providers → Email. Lo marca el advisor desde que la app usa contraseñas |
-| 2.11 | **Verificar que en *Reset Password* llegue un código y no un link** | El envío ya funciona (`/recover` → 200 el 20/08 08:11), pero eso solo prueba que el correo salió. Si la plantilla quedó con el `{{ .ConfirmationURL }}` de fábrica, la app pide 8 dígitos y a la persona le llega una URL: la recuperación queda rota **sin dar ningún error**. Se comprueba pidiendo un cambio de contraseña y mirando el correo. Ver `GUIA-CORREO-RESEND.md` |
+| 2.10 | ⏸️ **Leaked password protection** — **no se puede en el plan free** | Es una función de pago de Supabase, así que el advisor lo va a seguir marcando y no hay nada que hacer hasta que el proyecto pase a Pro. **No bloquea la revisión**: Apple no lo pide. Queda para después del MVP |
+| 2.11 | ✅ **En *Reset Password* llega un código, no un link** — confirmado por el dueño el 2026-08-24. Texto original del pendiente, por si vuelve a romperse: | El envío ya funciona (`/recover` → 200 el 20/08 08:11), pero eso solo prueba que el correo salió. Si la plantilla quedó con el `{{ .ConfirmationURL }}` de fábrica, la app pide 8 dígitos y a la persona le llega una URL: la recuperación queda rota **sin dar ningún error**. Se comprueba pidiendo un cambio de contraseña y mirando el correo. Ver `GUIA-CORREO-RESEND.md` |
 | 2.12 | Revisión legal de términos y limitación de responsabilidad | spec §18 |
 | 2.13 | **Disponibilidad territorial: solo Perú en el primer envío** | Ampliarla después es un cambio de ficha, no un envío nuevo. El porqué y qué hace falta para los demás mercados, en `ALCANCE-Y-IDIOMAS.md` |
 | 2.14 | **Correr el recorrido de verificación** | `VERIFICACION-EN-DISPOSITIVO.md`, entero, sobre el build de 2.1 |

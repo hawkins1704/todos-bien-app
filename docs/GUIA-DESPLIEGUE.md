@@ -175,14 +175,17 @@ Hace falta para TestFlight, para `eas submit` y para los productos de RevenueCat
 }
 ```
 
-### 2.1 Contrato de apps de pago — hacelo ya
+### 2.1 Contrato de apps de pago — ✅ hecho
 
-En **Empresa** (*Business*), firmá el **Contrato de aplicaciones de pago** y completá
-datos **bancarios** e **impositivos**.
+> **Firmado y activo** (confirmado el 2026-08-24). No hay que volver acá.
 
-Va acá y no en la fase de RevenueCat por una razón práctica: **hasta que el contrato esté
-activo no se pueden crear productos de compra dentro de la app**, y la aprobación puede
-tardar días. Si lo dejás para el final, te bloquea justo cuando querés cerrar.
+En **Empresa** (*Business*), el **Contrato de aplicaciones de pago** con los datos
+**bancarios** e **impositivos** completos.
+
+Queda escrito por qué iba acá y no en la fase de RevenueCat: **hasta que el contrato está
+activo no se puede crear ni un solo producto de compra dentro de la app**, y la aprobación
+puede tardar días. RevenueCat no lo reemplaza —quien cobra es Apple—, así que dejarlo para
+el final bloquea justo cuando se quiere cerrar.
 
 ### 2.2 Declaraciones que va a pedir la revisión
 

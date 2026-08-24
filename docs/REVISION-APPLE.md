@@ -18,28 +18,49 @@ el motivo de fondo del cambio de código OTP a contraseña (ESTADO §1.1.1): con
 código, el correo llegaba a una casilla que Apple no tiene y la revisión era un rechazo
 garantizado.
 
-### Qué crear
+### ✅ Creada y sembrada el 2026-08-24
 
 | Campo | Valor |
 |---|---|
-| Correo | `appreview@todosbien.app` |
-| Contraseña | Una fija, de 12+ caracteres, anotada en el gestor de contraseñas |
+| Correo | `todosbienapp@gmail.com` |
+| Contraseña | La que fijó el dueño. **No se escribe acá**: este archivo vive en un repositorio y es una cuenta viva |
 
-### Cómo dejarla lista — no basta con crearla
+**Verificado contra la API real**, no contra la base: `POST /auth/v1/token?grant_type=password`
+devuelve sesión, y `get_circle` con ese token devuelve los cuatro contactos. Probar el login
+importa más que revisar las filas — una cuenta que existe pero no deja entrar produce
+exactamente el rechazo que se quiere evitar.
 
-Una cuenta recién creada deja al revisor mirando una pantalla vacía, que es tan rechazable
-como una que no abre. Antes de enviar:
+Qué tiene adentro:
 
-1. **Completar el onboarding entero** con esa cuenta: nombre, teléfono y los tres permisos.
-2. **Sembrarle un círculo de 4 contactos** con nombres inventados, conexiones ya aceptadas y
-   estados mezclados: dos «estoy bien», uno «necesito ayuda» y uno sin confirmar. Es lo que
-   hace que la pantalla principal se entienda de un vistazo.
-3. **Dejar un plan de acción escrito**, para que la sección no aparezca en blanco.
-4. **Dejar al menos un chat con algunos mensajes.**
-5. **Dejarle un simulacro sin usar** de los tres gratuitos: es la única forma de que el
-   revisor vea el flujo de alerta cuando quiera.
-6. **No** ponerla en Premium. El revisor tiene que poder ver el paywall y probar la compra en
-   sandbox, que es parte de lo que revisa.
+| | |
+|---|---|
+| Perfil | «Renzo», onboarding completo, teléfono guardado y hasheado igual que lo haría la app |
+| Círculo | 4 contactos con la conexión ya aceptada: **María Salazar** y **Jorge Salazar** en «estoy bien», **Ana Ríos** en «necesito ayuda» con mensaje, y **Carlos Medina** sin confirmar y sin ubicación |
+| Plan de acción | Escrito, con punto de encuentro y contacto fuera de la ciudad |
+| Chat | Una conversación con María, de cuatro mensajes |
+| Simulacros | 0 de 3 usados: el revisor tiene los tres disponibles |
+| Premium | **No.** Tiene que poder ver el paywall y probar la compra en sandbox |
+
+> **Por qué Carlos está sin confirmar y sin ubicación, a propósito:** es la mitad del
+> producto. Un círculo donde todos dicen «estoy bien» no muestra para qué sirve la app; lo
+> que hay que poder ver es la diferencia entre quien respondió y quien no.
+
+Los cuatro contactos son cuentas reales con correos `todosbienapp+nombre@gmail.com`: llegan a
+la misma casilla del dueño y no rebota nada. Se sembraron con UUID fijos
+(`00000000-0000-4000-a000-00000000000X`), así que el script se puede volver a correr sin
+duplicar nada.
+
+**Dos cosas que hicieron falta y no son obvias**, por si hay que rehacerlo:
+
+- Una cuenta insertada a mano en `auth.users` **no puede entrar** hasta ponerle en `''` las
+  ocho columnas de token (`confirmation_token`, `recovery_token`, `email_change*`,
+  `phone_change*`, `reauthentication_token`). Si quedan en NULL, el login devuelve
+  `500 Database error querying schema`, que no dice nada de lo que pasa.
+- `auth.identities.email` es una **columna generada**: no se puede insertar, sale del
+  `identity_data`.
+
+> ⚠️ **Después de la aprobación conviene rotar la contraseña**, porque queda escrita en App
+> Store Connect y en el historial de la revisión.
 
 > Las cuentas de prueba viejas se borran antes de enviar: `qa.simulador@example.com` sigue en
 > la base (`QUE-FALTA.md` 2.9). Una cuenta de QA con datos raros que aparezca en el círculo
