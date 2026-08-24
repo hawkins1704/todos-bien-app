@@ -488,17 +488,24 @@ Guía paso a paso: **`docs/GUIA-CORREO-RESEND.md`**.
 > *Reset Password* viene de fábrica con `{{ .ConfirmationURL }}`, así que si se olvida, la
 > app pide un código de 8 dígitos y a la persona le llega un link.
 
-### 1.6.2 Dominio propio: resuelto para el correo, pendiente para las invitaciones
+### 1.6.2 Dominio propio: resuelto, y el sitio ya está desplegado
 
 El dominio `todosbien.app` está verificado en Resend y el remitente de Supabase es
 `hola@todosbien.app`. Eso cierra el bloqueo del correo (ver §1.1.2, que documenta el bug
 que causó tenerlo a medias).
 
-Queda pendiente el otro uso del dominio, que **no está relacionado con el correo**:
+El **sitio también está en producción** (Hostinger, verificado el 2026-08-24): `/privacidad`,
+`/terminos`, `/soporte` y `/eliminar-cuenta` responden 200. Eso levanta el bloqueo que
+impedía mandar la app a revisión, porque las tiendas exigen una URL de política de privacidad
+que cargue de verdad.
 
-| Dónde | Qué falta |
-|---|---|
-| `src/lib/config.ts` → `INVITE_BASE_URL` | Apunta a `https://todosbien.app/i`, que **todavía no existe**. Es el link de invitación de la spec §3 y necesita una landing page con botones a las tiendas |
+> ⚠️ **Ni `vercel.json` ni `_redirects` se aplican en Hostinger.** Los dos siguen en el repo
+> del sitio para no atarlo a un host, pero hoy no hacen nada: una regla de reescritura nueva
+> hay que ponerla en el panel o en un `.htaccess`. Se descubrió porque `/i/CODIGO` devolvía
+> 404 en producción mientras las dos configuraciones decían que no debía.
+
+Lo que quedaba pendiente acá era el link de invitación, y **dejó de existir**: los códigos
+salieron del MVP el 2026-08-24 (§1.15).
 
 ### 1.6.3 La ubicación se captura sola, no solo al tocar un botón
 
@@ -1422,6 +1429,42 @@ mensaje ya estaba entregado y la burbuja seguía diciendo que no.** Ahora la sub
 la pantalla, que es la única que puede refrescar al terminar: aparece con reloj, y se apaga
 en cuanto el servidor acepta. Si de verdad no hay red, el reloj se queda — que es la verdad.
 
+### 1.15 Los códigos de invitación salen del MVP
+
+**Decisión (2026-08-24):** la única forma de conectarse es el **match de agenda** de la spec
+§3 —hash del teléfono, más una solicitud que la otra persona acepta—. No hay códigos, no hay
+link con código y no hay pantalla de invitación.
+
+**Qué se sacó, y de los dos lados:** la pantalla `src/app/invite.tsx` y su ruta, las funciones
+`createInvitation` / `redeemInvitation` del cliente, `INVITE_BASE_URL` y `inviteMessage`, la
+clave `KV.pendingInviteCode`, la página `/i/` del sitio y las reglas de reescritura de
+`_redirects` y `vercel.json`. Lo que queda en su lugar es **compartir la app**: la hoja de
+compartir del sistema con `https://todosbien.app` y ninguna llamada al servidor, así que
+ahora es una acción que no puede fallar.
+
+**Lo que se descubrió al sacarlo, que es lo que hay que recordar.** El «auto-vínculo por
+teléfono» que se citaba en `QUE-FALTA.md` como red de seguridad —*«no bloquea lanzar porque
+está mitigado»*— **nunca funcionó**. El trigger existe y está bien escrito
+(`private.link_pending_invitations`, migración 0002): resuelve las invitaciones cuyo
+`invitee_phone_hash` coincide con el de quien acaba de registrar su número. El problema es
+que **nada creaba una invitación con teléfono**: los dos llamadores del cliente pasaban
+`create_invitation(null, null)`. O sea que el trigger nunca tuvo una sola fila que resolver.
+
+Es el mismo patrón que ya apareció dos veces en este proyecto —los cuatro interruptores de
+Ajustes que no mandaban nada (§1.13), y el permiso concedido que no guardaba coordenadas
+(§1.6.3.1)—: **la pieza existe, se ve completa, y le falta el lado que la alimenta.** Los
+tres se veían bien en el código y ninguno funcionaba.
+
+**Lo que NO se tocó:** la tabla `invitations`, sus RPC y el trigger siguen en la base. Nadie
+los llama. Se dejaron a propósito: borrarlos pide una migración para quitar algo que no
+molesta, y el día que vuelvan los códigos —planes familiares, spec §13, es el caso donde
+sirven de verdad— el lado del servidor ya está y probado.
+
+**Consecuencia que hay que asumir:** sin número de teléfono, una persona **no aparece para
+nadie**. El campo es opcional en el onboarding y ahora es la única llave. Vale la pena
+mirarlo cuando haya usuarios reales: si mucha gente lo salta, el círculo vacío no va a tener
+ninguna explicación visible.
+
 ---
 
 ## 2. Construido
@@ -2044,10 +2087,15 @@ seguía sin existir.
   contraseña estando adentro.**~~ Las dos hechas el 2026-08-20 (§1.1.3), y el borrado
   probado de punta a punta sobre una cuenta real.
 - **🔴 Falta la cuenta de demostración para App Review.** Es el motivo por el que se pasó a
-  contraseña (§1.1.1) y todavía no está hecha: hay que crear una cuenta con el onboarding
-  ya completo y contactos de ejemplo, y cargar sus credenciales en App Store Connect →
-  *App Review Information*. Una cuenta vacía deja al revisor mirando una pantalla sin nada
-  y es motivo de rechazo tanto como una que no abre.
+  contraseña (§1.1.1) y todavía no está hecha. **Qué crear y cómo sembrarla está escrito en
+  `docs/REVISION-APPLE.md` §1**, junto con las notas para el revisor: lo que faltaba no era
+  saber que hacía falta, era el detalle de qué tiene que tener adentro para que la revisión
+  pueda evaluar la app. Una cuenta vacía deja al revisor mirando una pantalla sin nada y es
+  motivo de rechazo tanto como una que no abre.
+- **🔴 El chat no tiene «denunciar», y Apple lo pide.** La guía 1.2 exige, en apps con
+  contenido entre usuarios, poder denunciar y bloquear. Bloquear existe —eliminar la
+  conexión—; denunciar no. Es el rechazo más probable del primer envío
+  (`docs/REVISION-APPLE.md` §4).
 - **Frecuencia del cron sin decidir.** Ver el recuadro de §1.11: 2 min → 30 s gana ~45 s
   sobre ~6 min. Va después del push.
 - **Fortaleza del hash de teléfono.** Se hashea con SHA-256 más una sal fija que vive en
@@ -2130,6 +2178,9 @@ tier B2B · donaciones.
 
 | Fecha | Qué pasó |
 |---|---|
+| 2026-08-24 | 🔴 **Los textos de permiso del `Info.plist` habían quedado fuera de la auditoría, y son los que más pesan.** `app.json` seguía diciendo *«dónde estabas cuando ocurre un sismo»* y *«toma tu ubicación una sola vez, en el momento en que ocurre un sismo»*: las dos frases exactas que la auditoría del 21/08 retiró de las pantallas —la primera por vender humo (`QUE-PROMETE` §6), la segunda por omitir la lectura inicial que la propia pantalla dispara—. Sobrevivieron porque **el inventario de §10 de ese documento no incluía `app.json`**, y ahí es donde más importan: es el texto del diálogo del sistema, lo que lee el revisor y lo que declara el Nutrition Label. Corregidos, y `app.json` sumado al inventario **en primer lugar**, con la razón que lo hace urgente: viaja dentro del binario, así que corregirlo tarde obliga a un build nuevo. |
+| 2026-08-24 | **Fuera los códigos de invitación** (§1.15), y al sacarlos apareció que el «auto-vínculo por teléfono» que se citaba como mitigación **nunca funcionó**: el trigger estaba bien, pero los dos llamadores del cliente creaban la invitación con `invitee_phone_hash` en `null`, así que no tenía nunca qué resolver. Tercera aparición del mismo patrón —la pieza existe, se ve completa y le falta el lado que la alimenta— después de los interruptores que no mandaban nada (§1.13) y del permiso que no guardaba coordenadas (§1.6.3.1). La tabla y las RPC se dejaron en la base para cuando vuelvan con los planes familiares. **Consecuencia asumida:** sin teléfono, una persona no aparece para nadie. |
+| 2026-08-24 | **Seis documentos nuevos, y el trabajo que faltaba era escribir, no programar.** `ALCANCE-Y-IDIOMAS.md` (se publica en LatAm, EE. UU. y Asia, en español e inglés — pero el primer envío va **solo a Perú**, porque la regla «sismo fuerte en tu país» no se evalúa fuera del Perú: el USGS trae `country_code` en NULL, y el onboarding normaliza todo teléfono como peruano, lo que rompe en silencio la única vía de conexión que queda), `FICHA-APP-STORE.md` (texto contado, sin la keyword «alerta sísmica», que es la más buscada y la única prohibida), `PRIVACIDAD-APP-STORE.md`, `REVISION-APPLE.md`, `VERIFICACION-EN-DISPOSITIVO.md` —que le da un lugar dónde tacharse a las cuatro deudas de «sin verificar en pantalla», que eran una sola tarea escrita cuatro veces— y `RUNBOOK-OPERACION.md`. **Encontrado de paso:** el sitio ya está desplegado en Hostinger, donde `vercel.json` y `_redirects` no se aplican; y la política de privacidad todavía decía «una sola posición tomada en el momento del evento», la promesa retirada, ahora corregida junto con el titular del banco de datos que la Ley 29733 exige. |
 | 2026-08-22 | 🔴 **El chat duplicaba cada mensaje propio, solo en la caché local** (§1.15). Reportado como «sale un relojito, y al volver al chat ya no está pero el mensaje se envió doble» — dos fallos con la misma raíz. **Lo primero fue descartar lo peor**, que el duplicado estuviera en el servidor y el contacto también viera dos: no lo estaba, cero duplicados en `public.messages` y el índice único `(conversation_id, sender_id, client_id)` funcionando, así que la idempotencia del reintento nunca estuvo comprometida. La raíz: el envío optimista guarda la fila local con `id = client_id` porque el id del servidor todavía no existe, y `syncMessages()` insertaba después la copia del servidor **como un mensaje nuevo** — dos filas, mismo texto, distinta clave. Eso explica también por qué el reloj desaparecía: el outbox apagaba `pending` en la provisional y la copia del servidor nacía sin reloj, así que ninguna de las dos quedaba marcada. Arreglado trayendo `client_id` y borrando la provisional antes de insertar la definitiva, lo que además **limpia los duplicados ya guardados** en cada sincronización: los teléfonos afectados se arreglan solos al abrir la conversación. **El reloj era un segundo fallo:** `sendMessage()` hacía `void flushOutbox()` por dentro y nadie sabía cuándo terminaba, así que el reloj quedaba puesto hasta que algo ajeno forzara una relectura —normalmente el eco de Realtime—; con el socket caído el mensaje ya estaba entregado y la burbuja seguía diciendo que no. Ahora la subida la dispara la pantalla, que es la única que puede refrescar al terminar. |
 | 2026-08-22 | ⭐ **La ALERTA y la NOTICIA dejan de ser la misma cosa** (§1.13.6, migración 0021). Salió de decidir qué umbral ponerle a los avisos mundiales, y la respuesta fue que el umbral no era el problema: un sismo a 5.887 km entraba por la vía de la **alerta** y arrastraba sus cuatro consecuencias —modo emergencia, push silencioso, contador «X/Y confirmados» y aviso al círculo si no reportabas—. Subir el umbral habría hecho que pasara menos seguido, no que dejara de pasar. Ahora **la alerta no mira si sos premium**: `quake_applies()` perdió la rama `p_is_premium and p_worldwide_enabled` y dispara solo por cercanía o magnitud nacional, **idéntica para gratis y premium** — el premium no compra seguridad, que es además un mejor argumento de venta que el anterior. Lo mundial pasó a ser **noticia**, con dos interruptores (`quake_national` para todos, `quake_worldwide` solo con premium) y **canal `quakes` propio**, que en Android es una categoría silenciable desde el sistema sin tocar las alertas. Ninguna de las dos ramas avisa a quien ya recibió la alerta de ese sismo: a quien le tembló cerca no se le cuenta como noticia lo que ya vivió. Umbrales medidos sobre la propia base: nacional ≥ 4,5 y mundial ≥ 6,0, 3 por semana cada uno. **Un `NULL` que casi pasa:** la primera versión devolvía NULL en vez de `false` para un sismo en mar abierto —`country_code` es NULL y `NULL = 'PE'` es NULL—; en un `WHERE` se comporta como falso y no rompía nada hoy, pero un futuro `not quake_applies(...)` habría perdido el filtro en silencio. Blindado con `coalesce`. Verificado con la función real dentro de una transacción revertida. |
 | 2026-08-22 | 🔴 **Un M6,7 en la Antártida destapó dos fallos de notificaciones** (§1.13.5, migración 0020). Un sismo en el mar de Scotia, a **5.887 km de Lima**, llegó **dos veces** al único usuario premium con avisos mundiales; sus dos contactos, que no recibieron ningún aviso, recibieron en cambio *«no responde… desde el sismo»*, también dos veces. **Lo primero fue descartar que el disparo fuera el bug**: no lo era, la regla mundial de premium es magnitud ≥ 6,0 y el sismo era 6,7. (1) La **deduplicación** exigía `q.source <> new.source`, escrita cuando el único duplicado imaginado era IGP-contra-USGS — pero **el USGS publica el mismo sismo bajo varios ids propios**, una solución automática y la revisada de su catálogo: `attk5wls` (M6,7) y `us6000tmrw` (M6,2), a 2,3 segundos y 26 km, entraron como sismos distintos con un fan-out cada uno. Se quitó la condición. (2) **«Contacto no responde» se mandaba a todo el círculo** sin comprobar que el sismo también les aplicara, así que los avisos mundiales de un premium se filtran a sus contactos no premium como una frase sin antecedente: *«el sismo»* no existe para quien la lee. Y viaja por el canal `alerts`, el mismo del aviso de sismo — el que menos puede acostumbrar a nadie a ignorarlo. Ahora se manda solo a quienes tienen entrega para ese mismo sismo. **Queda abierto lo de producto:** el umbral mundial reutiliza `alert_countrywide_magnitude`, sin ajuste propio, así que querer M6 en Perú obliga a recibir M6 en todo el planeta — medido: **0,6 por día**. |

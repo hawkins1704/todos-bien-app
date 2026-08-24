@@ -9,7 +9,6 @@ export const KV = {
   lastCircleSync: 'last_circle_sync',
   lastQuakeCheck: 'last_quake_check',
   activeDrillId: 'active_drill_id',
-  pendingInviteCode: 'pending_invite_code',
   /** Último token de push que se escribió en el servidor (ver `syncPushToken`). */
   pushToken: 'push_token',
   /**

@@ -10,7 +10,7 @@ Los otros documentos son distintos: `ESTADO-DEL-PROYECTO.md` explica *cómo* fun
 qué* se decidió así; `QUE-FALTA.md` es el índice de trabajo pendiente. **Acá solo va lo que
 se puede afirmar en público, y con qué palabras.**
 
-Última revisión: **2026-08-22**.
+Última revisión: **2026-08-24**.
 
 ---
 
@@ -234,6 +234,7 @@ código otra vez. **Si se toca uno, se revisa contra este documento.**
 
 | Dónde | Qué afirma |
 |---|---|
+| **`app.json`** → plugins `expo-location` y `expo-contacts` | **El texto del diálogo del sistema.** Es el primero de la lista por dos razones: es lo que Apple muestra en el momento del consentimiento y lo que declara el Nutrition Label, y **viaja dentro del binario**, así que corregirlo tarde obliga a un build nuevo. Se sumó acá el 2026-08-24, después de que la auditoría del 21/08 lo pasara por alto y quedara con las dos frases retiradas |
 | `src/app/(auth)/welcome.tsx` | Las 3 diapositivas de valor y el descargo de emergencias |
 | `src/app/(onboarding)/permissions.tsx` | Qué hace la app con la ubicación y con las notificaciones — **el texto más sensible de todos**, porque es donde se pide el consentimiento |
 | `src/app/(tabs)/settings.tsx` | La nota de privacidad de ubicación, el descargo legal, y el aviso de «sin posición guardada» |
@@ -246,7 +247,10 @@ código otra vez. **Si se toca uno, se revisa contra este documento.**
 
 - **El paywall**, que vive en RevenueCat y no en el código.
 - **La landing y las páginas legales**, en `../todos-bien-website`.
-- **La ficha de App Store**, todavía sin escribir.
+- **La ficha de App Store**: el texto ya está escrito y contado en `FICHA-APP-STORE.md`, con
+  cada afirmación trazada a este documento. Falta pegarlo en App Store Connect.
+- **Las capturas de pantalla.** El texto que va encima de una captura es una afirmación
+  pública como cualquier otra, y se audita igual.
 
 > **Auditado el 2026-08-21** contra este documento: se encontraron 7 textos que prometían de
 > más y se corrigieron. El más grave no era de marketing sino de **privacidad**: la pantalla

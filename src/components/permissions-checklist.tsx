@@ -93,7 +93,7 @@ function describir(permissions: PermissionsState): Fila[] {
       consecuencia:
         contacts.grade === 'granted'
           ? null
-          : 'No podemos decirte quiénes de tu agenda ya usan la app. Igual puedes invitar por enlace.',
+          : 'No podemos decirte quiénes de tu agenda ya usan la app. Igual pueden encontrarte a ti y enviarte la solicitud.',
     },
   ];
 }

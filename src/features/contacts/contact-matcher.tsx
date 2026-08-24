@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
-import { createInvitation, matchContacts, requestConnection } from '@/lib/api';
-import { inviteMessage } from '@/lib/config';
+import { matchContacts, requestConnection } from '@/lib/api';
+import { shareAppMessage } from '@/lib/config';
 import {
   buildHashEntries,
   getContactsPermission,
@@ -86,15 +86,18 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
     }
   };
 
-  const invite = async () => {
-    try {
-      const { code } = await createInvitation(null, null);
-      await Share.share({
-        message: inviteMessage(code, myProfile?.displayName || 'Alguien'),
-      });
-    } catch {
-      setError('No pudimos generar la invitación.');
-    }
+  /**
+   * Compartir la app, sin código de invitación.
+   *
+   * No hay nada que pedirle al servidor: el vínculo lo resuelve el match de
+   * agenda cuando la otra persona se registra con su número, así que compartir
+   * es solo el empujón para que la instale. Antes esto generaba un código y
+   * podía fallar por red; ahora no puede fallar.
+   */
+  const shareApp = async () => {
+    await Share.share({
+      message: shareAppMessage(myProfile?.displayName || 'Alguien'),
+    });
   };
 
   const pending = matches.filter((m) => m.connectionStatus === null && !sent.has(m.userId));
@@ -134,8 +137,9 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
         <Card>
           <Text variant="headline">Sin acceso a la agenda</Text>
           <Text variant="subhead" tone="secondary" style={styles.gapTopSm}>
-            No pasa nada: puedes invitar a tu gente compartiendo un link, sin darnos acceso a tus
-            contactos.
+            Sin este permiso no podemos decirte quiénes de tu agenda ya usan la app. Todavía
+            puedes conectarte: comparte la app, y quien la instale te va a encontrar por tu
+            número y podrá enviarte la solicitud.
           </Text>
           <Pressable
             onPress={() => void Linking.openSettings()}
@@ -239,13 +243,13 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
       <Card>
         <Text variant="headline">Invitar a alguien que no la tiene</Text>
         <Text variant="subhead" tone="secondary" style={styles.gapTopSm}>
-          Comparte un link por WhatsApp, mensaje o correo. Cuando esa persona se registre con el
-          número que tienes guardado, quedan conectados solos.
+          Comparte la app por WhatsApp, mensaje o correo. Cuando la instale y se registre con su
+          número, aparece acá al revisar tu agenda y le envías la solicitud.
         </Text>
         <Button
-          title="Compartir invitación"
+          title="Compartir Todos Bien"
           icon="ios-share"
-          onPress={() => void invite()}
+          onPress={() => void shareApp()}
           variant="secondary"
           style={styles.gapTopLg}
         />

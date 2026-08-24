@@ -138,10 +138,6 @@ function RootNavigator() {
         name="add-contacts"
         options={{ presentation: 'modal', headerShown: true, title: 'Agregar contactos' }}
       />
-      <Stack.Screen
-        name="invite"
-        options={{ presentation: 'modal', headerShown: true, title: 'Invitar' }}
-      />
       <Stack.Screen name="drill" options={{ presentation: 'fullScreenModal' }} />
     </Stack>
   );

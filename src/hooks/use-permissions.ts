@@ -20,8 +20,8 @@ export type PermissionKey = 'location' | 'notifications' | 'contacts';
 /**
  * Tres grados y no dos, porque la ubicación no es binaria: «solo con la app
  * abierta» no es lo mismo que «nunca» —sirve para reportar a mano— pero tampoco
- * alcanza para lo que la app promete, que es capturar dónde estabas cuando
- * tembló aunque el teléfono esté en el bolsillo.
+ * alcanza para lo que la app promete, que es capturar dónde estás en los
+ * minutos siguientes al sismo aunque el teléfono siga en el bolsillo.
  */
 export type PermissionGrade = 'granted' | 'partial' | 'denied';
 

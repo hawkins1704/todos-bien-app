@@ -4,7 +4,10 @@ import { Platform } from 'react-native';
 /**
  * Captura de ubicación (spec §8, decisión en docs/ESTADO-DEL-PROYECTO.md §1.2).
  *
- * Regla de oro del proyecto: **una sola posición, solo cuando ocurre un sismo**.
+ * Regla de oro del proyecto: **capturas contadas, nunca continuas**. Son tres, y
+ * no hay una cuarta: una al conceder el permiso (para que la regla del radio
+ * tenga contra qué evaluarse), una automática por cada sismo que aplica, y las
+ * manuales que la persona pide con el botón mientras la alerta está activa.
  * Este módulo NUNCA debe llamar a Location.startLocationUpdatesAsync() ni
  * registrar geofences: eso convertiría la app en tracking permanente y es
  * exactamente lo contrario de lo que le prometemos al usuario y a las tiendas.

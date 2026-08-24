@@ -31,7 +31,8 @@ const DIAL_CODES: Record<string, string> = {
  * peruanos (~10^8) sigue siendo forzable por fuerza bruta.
  *
  * Cambiarla invalida TODOS los hashes ya guardados y rompe el match de
- * contactos y las invitaciones pendientes: solo se toca con una migración.
+ * contactos, que desde el MVP sin códigos de invitación es la **única** forma
+ * de conectarse: solo se toca con una migración.
  */
 const PHONE_HASH_SALT = 'todosbien.v1';
 

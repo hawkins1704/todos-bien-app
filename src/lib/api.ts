@@ -194,7 +194,12 @@ export async function reportStatusRemote(payload: {
 }
 
 // ---------------------------------------------------------------------------
-// Conexiones e invitaciones
+// Conexiones
+//
+// El MVP no tiene códigos de invitación: la única forma de conectarse es el
+// match de agenda (`matchContacts`) seguido de `requestConnection`, que la otra
+// persona tiene que aceptar. Las RPC `create_invitation` / `redeem_invitation`
+// siguen existiendo en la base (migración 0002) pero ya no las llama nadie.
 // ---------------------------------------------------------------------------
 
 export async function requestConnection(targetUserId: string): Promise<void> {
@@ -212,23 +217,6 @@ export async function respondToConnection(connectionId: string, accept: boolean)
 
 export async function removeConnection(connectionId: string): Promise<void> {
   const { error } = await supabase.from('connections').delete().eq('id', connectionId);
-  if (error) throw error;
-}
-
-export async function createInvitation(
-  phoneHash: string | null,
-  label: string | null,
-): Promise<{ code: string; id: string }> {
-  const { data, error } = await supabase.rpc('create_invitation', {
-    phone_hash: phoneHash,
-    label,
-  });
-  if (error) throw error;
-  return { code: data.code, id: data.id };
-}
-
-export async function redeemInvitation(code: string): Promise<void> {
-  const { error } = await supabase.rpc('redeem_invitation', { invite_code: code });
   if (error) throw error;
 }
 

@@ -15,10 +15,15 @@ import { traceBackground } from '@/lib/background-trace';
  * ## Por qué importa
  *
  * Sin esto, la ubicación que la app guarda es dónde está la persona **cuando
- * abre la app**, no dónde estaba durante el sismo. Con el teléfono en el
- * bolsillo a las 3 de la mañana, eso puede ser diez horas y varios kilómetros
- * después. Y "dónde estabas cuando tembló" es la promesa central del producto,
- * así que una respuesta tardía no es una versión peor: es una respuesta falsa.
+ * abre la app**. Con el teléfono en el bolsillo a las 3 de la mañana, eso puede
+ * ser diez horas y varios kilómetros después.
+ *
+ * La promesa que sostiene este archivo es "**minutos después del sismo, tu gente
+ * ve dónde estás**" (`docs/QUE-PROMETE-LA-APP.md` §6) — no "dónde estabas
+ * cuando tembló", que se retiró por no ser cierta: el aviso llega ~8 minutos
+ * tarde, de los cuales 7:45 son del IGP. La distinción no es de marketing: acá
+ * es la diferencia entre una respuesta útil —dónde está ahora, para ir a
+ * buscarla— y una respuesta falsa.
  *
  * ## Por qué no se lee el payload
  *

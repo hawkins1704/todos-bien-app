@@ -60,8 +60,9 @@ export default function OnboardingProfileScreen() {
           setSaving(false);
           return;
         }
-        // El hash es lo que permite que te encuentren tus contactos y que se
-        // resuelvan las invitaciones que te mandaron antes de instalar la app.
+        // El hash es lo único que permite que te encuentren: quien te tenga
+        // agendado te ve al revisar su agenda. Sin número no apareces para
+        // nadie, y el MVP no tiene códigos de invitación como segunda vía.
         await updateMySettings(userId, {
           phoneE164: normalized.e164,
           phoneHash: normalized.hash,

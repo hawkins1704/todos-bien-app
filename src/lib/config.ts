@@ -2,23 +2,31 @@
  * Constantes de configuración del producto.
  */
 
+/** Sitio público. Es lo que se comparte al invitar a alguien. */
+export const APP_WEBSITE_URL = 'https://todosbien.app';
+
 /**
- * Base del link de invitación (spec §3).
+ * Mensaje para compartir la app. **No lleva código de invitación.**
  *
- * PENDIENTE: todavía no existe la landing page. Debe ser una página propia con
- * botones de descarga a App Store y Play Store, que lea el código de la URL.
- * No se usa Firebase Dynamic Links (Google lo cerró en agosto de 2025).
+ * El MVP salió sin códigos: se conecta gente por el match de agenda de la spec
+ * §3 —hash del teléfono + solicitud que la otra persona acepta— y compartir es
+ * solo el empujón para que la instale. Un código agrega una pantalla, una
+ * landing que lo lea, captura del deep link y una segunda vía de conexión que
+ * hay que mantener y explicar, a cambio de ahorrar un paso que el match ya
+ * resuelve.
+ *
+ * Lo que había antes de esto vivía a medias y conviene saberlo si alguna vez se
+ * repone: el código se generaba y se compartía, pero **nada del cliente creaba
+ * una invitación con `invitee_phone_hash`** —los dos llamadores pasaban `null`—,
+ * así que el auto-vínculo por teléfono del trigger `link_pending_invitations`
+ * (migración 0002) no se disparaba nunca. Se citaba como red de seguridad y no
+ * lo era.
  */
-export const INVITE_BASE_URL = 'https://todosbien.app/i';
-
-export function inviteUrl(code: string): string {
-  return `${INVITE_BASE_URL}/${code}`;
-}
-
-export function inviteMessage(code: string, inviterName: string): string {
+export function shareAppMessage(inviterName: string): string {
   return (
-    `${inviterName} te invitó a Todos Bien, una app para avisarle a tu familia que estás bien ` +
-    `después de un sismo.\n\n${inviteUrl(code)}\n\nTu código: ${code}`
+    `${inviterName} te invitó a Todos Bien, la app para avisarle a tu familia que estás bien ` +
+    `después de un sismo.\n\n${APP_WEBSITE_URL}\n\n` +
+    `Instálala y regístrate con tu número: así se encuentran en la app.`
   );
 }
 

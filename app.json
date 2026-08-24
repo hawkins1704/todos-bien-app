@@ -52,8 +52,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Todos Bien usa tu ubicación para registrar dónde estabas cuando ocurre un sismo, y mostrársela solo a los contactos que aceptaste.",
-          "locationAlwaysAndWhenInUsePermission": "Todos Bien toma tu ubicación una sola vez, en el momento en que ocurre un sismo en tu zona, aunque la app esté cerrada. No te rastrea el resto del tiempo.",
+          "locationWhenInUsePermission": "Todos Bien toma tu ubicación una vez ahora, al dar el permiso, y después solo cuando hay un sismo en tu zona. Se la mostramos únicamente a los contactos que aceptaste, y no registramos tu recorrido.",
+          "locationAlwaysAndWhenInUsePermission": "Todos Bien toma tu ubicación una vez ahora, al dar el permiso, y después solo cuando hay un sismo en tu zona, aunque la app esté cerrada. Así los contactos que aceptaste ven dónde estás en los minutos siguientes al sismo. No registramos tu recorrido ni guardamos un historial.",
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": false

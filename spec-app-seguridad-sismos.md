@@ -41,21 +41,30 @@ pantalla principal, mismo flujo en ambos casos):
 4. El usuario elige a quién mandar solicitud de conexión entre los matches encontrados.
 
 **Invitar a alguien que no tiene la app todavía:**
-- Se genera una conexión "pendiente" en la base de datos, vinculada al número/correo
-  de esa persona, que se activa automáticamente en cuanto se registre con ese mismo
-  número.
-- Se puede compartir un link de invitación por el selector nativo de compartir de
-  Expo (Share API) — la persona elige mandarlo por WhatsApp, SMS, correo, etc., usando
-  su propia app instalada.
-- El link lleva a una **landing page propia** (fuera de la app) con botones de
-  descarga a App Store/Play Store y un código de invitación corto visible en la URL.
-- Al abrir la app por primera vez, se pregunta "¿tienes un código de invitación?",
-  intentando auto-detectar el código leyendo el portapapeles para evitar que la
-  persona lo escriba a mano.
-- No usar Firebase Dynamic Links (el servicio fue cerrado por Google en agosto de
-  2025 y ya no funciona). No se justifica todavía un SDK de deep linking de pago
-  (Branch, AppsFlyer) para el volumen inicial — evaluar como fase futura si se
-  necesita atribución de campañas más sofisticada.
+- Se comparte la app con el selector nativo de compartir de Expo (Share API) — la
+  persona elige mandarlo por WhatsApp, SMS, correo, etc., usando su propia app
+  instalada. El mensaje lleva al sitio, `https://todosbien.app`.
+- Cuando esa persona instale la app y se registre **con su número**, aparece en el
+  match de contactos de quien la invitó, que le manda la solicitud de conexión como a
+  cualquier otro.
+
+> **Sin códigos de invitación. Decidido el 2026-08-24 para el MVP** (ESTADO §1.15).
+> Existían y se quitaron: una pantalla con el código, una landing `/i/CODIGO` que lo
+> mostraba, y la lectura del portapapeles al abrir la app. Se sacaron porque agregaban
+> una **segunda vía de conexión** —con su pantalla, su landing, su captura de deep link
+> y su explicación al usuario— para ahorrar un paso que el match de agenda ya resuelve.
+>
+> La "conexión pendiente que se activa sola al registrarse" que decía esta sección
+> **nunca llegó a funcionar**: el trigger existía, pero el cliente creaba las
+> invitaciones sin el hash del teléfono, así que no tenía qué activar.
+>
+> La tabla `invitations` y sus RPC siguen en la base, sin llamadores. El caso donde los
+> códigos sí ganan es el de los **planes familiares** (§13), donde hay que asignar un
+> cupo a alguien que todavía no está conectado; si se construye eso, se reponen ahí.
+>
+> Si alguna vez vuelven: **no usar Firebase Dynamic Links** (Google cerró el servicio en
+> agosto de 2025). Un SDK de deep linking de pago (Branch, AppsFlyer) tampoco se
+> justifica para el volumen inicial.
 
 ## 4. Estados de usuario
 
@@ -290,9 +299,12 @@ un cupo de un plan a la vez.
   hijo configurando el teléfono de sus padres en persona), se asigna el cupo
   directamente desde la app del dueño, sin código ni pasos adicionales para el padre/
   madre.
-- Si el miembro no está conectado todavía, se usa el mismo mecanismo de invitación
-  por link/código de la sección 3 — al aceptar la invitación, entra con el cupo
-  premium ya asignado.
+- Si el miembro no está conectado todavía, hay que conectarlo primero por el match de
+  contactos (§3) y después asignarle el cupo. **Este es el caso que justificaría
+  reponer los códigos de invitación**, que salieron del MVP: un código permitiría
+  entregar el cupo y la conexión en un solo paso, sin que el dueño del plan tenga que
+  esperar a que la otra persona aparezca en su agenda. Se decide cuando se construyan
+  los planes familiares, no antes.
 
 **Precios propuestos** (manteniendo la misma proporción mensual→lifetime que el plan
 individual: el lifetime equivale a ~6 meses de mensual):

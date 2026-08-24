@@ -84,8 +84,8 @@ export default function AccountScreen() {
           setSaving(false);
           return;
         }
-        // Solo se escribe si de verdad cambió: recalcular el hash sin necesidad
-        // invalidaría invitaciones pendientes por nada.
+        // Solo se escribe si de verdad cambió: reescribir el hash por nada haría
+        // pasar al usuario por el índice único de `phone_hash` sin motivo.
         if (normalizado.e164 !== mySettings?.phoneE164) {
           await updateMySettings(userId, {
             phoneE164: normalizado.e164,
