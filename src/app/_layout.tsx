@@ -132,8 +132,11 @@ function RootNavigator() {
       />
       <Stack.Screen
         name="action-plan"
-        options={{ presentation: 'modal', headerShown: true, title: 'Plan de acción' }}
+        options={{ presentation: 'modal', headerShown: true, title: 'Mis planes de acción' }}
       />
+      {/* El editor va apilado DENTRO del modal de la lista, no como modal
+          propio: así «volver» regresa a la lista y no cierra todo de golpe. */}
+      <Stack.Screen name="action-plan/[id]" options={{ headerShown: true, title: '' }} />
       <Stack.Screen
         name="add-contacts"
         options={{ presentation: 'modal', headerShown: true, title: 'Agregar contactos' }}

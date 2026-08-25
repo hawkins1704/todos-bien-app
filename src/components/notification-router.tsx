@@ -54,12 +54,20 @@ export function NotificationRouter() {
           if (data.conversationId) router.push(`/chat/${data.conversationId}`);
           return;
 
-        // Los tres llevan a la misma persona, que es lo que se quiere ver:
+        // Todos llevan a la misma persona, que es lo que se quiere ver:
         // dónde está, cómo está y el botón para escribirle.
         case 'contact_needs_help':
         case 'contact_not_responding':
         case 'connection_accepted':
+        case 'contact_is_safe':
           if (data.userId) router.push(`/contact/${data.userId}`);
+          return;
+
+        // Guardián. Con un solo contacto en la zona se abre su ficha; con
+        // varios, `userId` viene nulo y el destino es el círculo, que es la
+        // pantalla que muestra quién respondió y quién no.
+        case 'contact_in_quake_zone':
+          router.push(data.userId ? `/contact/${data.userId}` : '/circle');
           return;
 
         case 'connection_request':

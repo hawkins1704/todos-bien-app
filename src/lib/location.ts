@@ -91,6 +91,31 @@ export async function captureLocationOnce(timeoutMs = 12_000): Promise<LocationF
   return lastKnown ? toFix(lastKnown) : null;
 }
 
+/**
+ * En qué país está un punto, en ISO de dos letras.
+ *
+ * **No enciende el GPS**: recibe coordenadas que ya se capturaron. Lo que sí
+ * hace es una consulta al geocodificador del sistema, que en iOS es un servicio
+ * de Apple y **necesita red**. Por eso devuelve `null` en vez de adivinar: quien
+ * llama decide si reintentar más tarde.
+ *
+ * Se usa una sola vez por instalación (ver `ensureCountryCode`). Meterlo en el
+ * camino de la alerta sería agregar una llamada de red en el momento exacto en
+ * que la red está saturada y quedan ~30 s de ejecución en segundo plano.
+ */
+export async function resolveCountryCode(
+  point: { latitude: number; longitude: number },
+  timeoutMs = 8_000,
+): Promise<string | null> {
+  const places = await withTimeout(Location.reverseGeocodeAsync(point), timeoutMs);
+  const iso = places?.[0]?.isoCountryCode;
+
+  // `char_length(country_code) = 2` es un CHECK en la base (0001): un valor con
+  // otra forma reventaría el UPDATE en vez de degradarse.
+  if (!iso || iso.length !== 2) return null;
+  return iso.toUpperCase();
+}
+
 function toFix(position: Location.LocationObject): LocationFix {
   return {
     latitude: position.coords.latitude,

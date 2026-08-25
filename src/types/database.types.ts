@@ -164,32 +164,29 @@ export type Database = {
         Update: { error?: string | null; events_found?: number; ok?: boolean };
         Relationships: [];
       };
-      invitations: {
+      action_plans: {
         Row: {
-          accepted_at: string | null;
-          accepted_by: string | null;
-          code: string;
+          body: string;
           created_at: string;
-          expires_at: string;
           id: string;
-          invitee_label: string | null;
-          invitee_phone_hash: string | null;
-          inviter_id: string;
-          status: string;
+          name: string;
+          sort_order: number;
+          updated_at: string;
+          user_id: string;
         };
         Insert: {
-          accepted_at?: string | null;
-          accepted_by?: string | null;
-          code: string;
+          body: string;
           created_at?: string;
-          expires_at?: string;
           id?: string;
-          invitee_label?: string | null;
-          invitee_phone_hash?: string | null;
-          inviter_id: string;
-          status?: string;
+          name: string;
+          sort_order?: number;
+          user_id: string;
         };
-        Update: { status?: string };
+        Update: {
+          body?: string;
+          name?: string;
+          sort_order?: number;
+        };
         Relationships: [];
       };
       messages: {
@@ -223,6 +220,7 @@ export type Database = {
           contact_message: boolean;
           contact_needs_help: boolean;
           contact_not_responding: boolean;
+          guardian_alerts: boolean;
           quake_national: boolean;
           quake_worldwide: boolean;
           updated_at: string;
@@ -234,6 +232,7 @@ export type Database = {
           contact_message?: boolean;
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
+          guardian_alerts?: boolean;
           quake_national?: boolean;
           quake_worldwide?: boolean;
           user_id: string;
@@ -244,6 +243,7 @@ export type Database = {
           contact_message?: boolean;
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
+          guardian_alerts?: boolean;
           quake_national?: boolean;
           quake_worldwide?: boolean;
         };
@@ -435,10 +435,6 @@ export type Database = {
         Args: { group_title: string; member_ids: string[] };
         Returns: Database['public']['Tables']['conversations']['Row'];
       };
-      create_invitation: {
-        Args: { label?: string | null; phone_hash?: string | null };
-        Returns: Database['public']['Tables']['invitations']['Row'];
-      };
       delete_my_account: {
         Args: { password_attempt?: string | null };
         Returns: undefined;
@@ -460,6 +456,7 @@ export type Database = {
         Returns: {
           action_plan: string | null;
           action_plan_updated_at: string | null;
+          action_plans: Json;
           avatar_url: string | null;
           connection_created_at: string;
           connection_id: string;
@@ -483,10 +480,6 @@ export type Database = {
       get_or_create_direct_conversation: {
         Args: { other_user_id: string };
         Returns: Database['public']['Tables']['conversations']['Row'];
-      };
-      redeem_invitation: {
-        Args: { invite_code: string };
-        Returns: Database['public']['Tables']['connections']['Row'];
       };
       report_status: {
         Args: {

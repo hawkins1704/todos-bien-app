@@ -7,17 +7,39 @@ import * as Crypto from 'expo-crypto';
  * teléfono en texto plano, ni siquiera hacia nuestro propio backend.
  */
 
+/**
+ * País → código de marcado.
+ *
+ * La lista NO es decorativa: `normalizeToE164` devuelve `null` para cualquier
+ * número local escrito sin `+` cuyo país no esté acá, y un número que no
+ * normaliza es un contacto que **nunca** se va a encontrar. Desde que el
+ * `country_code` se detecta de verdad (2026-08-25), el país que sale del
+ * geocodificador puede ser cualquiera, así que la lista tiene que cubrir al
+ * menos los destinos donde la app se va a distribuir (docs/MONETIZACION.md §6.2).
+ *
+ * Los peruanos en el exterior son el caso que obliga a esto: su agenda mezcla
+ * números locales sin prefijo con números peruanos. Estos últimos casi siempre
+ * están guardados **con `+51`**, porque para ellos son internacionales, y esos
+ * normalizan bien sin importar el país por defecto.
+ */
 const DIAL_CODES: Record<string, string> = {
   PE: '51',
   AR: '54',
   BO: '591',
   BR: '55',
+  CA: '1',
   CL: '56',
   CO: '57',
+  CR: '506',
   EC: '593',
   ES: '34',
+  IT: '39',
+  JP: '81',
   MX: '52',
+  PA: '507',
+  PY: '595',
   US: '1',
+  UY: '598',
   VE: '58',
 };
 
@@ -121,8 +143,9 @@ const DIAL_CODES_BY_LENGTH = [...new Set(Object.values(DIAL_CODES))].sort(
  *
  * El resto se agrupa de a 3, que es la convención latina y calza exacto con los
  * 9 dígitos de un móvil peruano. En países con otra convención (EE.UU. agrupa
- * 3-3-4) puede quedar un grupo final corto; se acepta porque hoy la app opera
- * solo en Perú (`country_code` default 'PE').
+ * 3-3-4) puede quedar un grupo final corto. Se acepta: es el número **propio**
+ * de la persona, que ya sabe leerlo, y agrupar mal es mucho menos grave que
+ * cortar el código de país en el lugar equivocado.
  */
 export function formatE164ForDisplay(e164: string | null): string {
   if (!e164) return '';

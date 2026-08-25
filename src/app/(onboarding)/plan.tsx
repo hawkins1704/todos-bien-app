@@ -9,7 +9,7 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/auth';
 import { ActionPlanEditor } from '@/features/action-plan/action-plan-editor';
-import { updateMyProfile } from '@/lib/api';
+import { createActionPlan } from '@/lib/api';
 import { syncMe } from '@/lib/sync';
 import { Spacing } from '@/theme/tokens';
 
@@ -27,7 +27,16 @@ export default function OnboardingPlanScreen() {
     setSaving(true);
     setError(null);
     try {
-      await updateMyProfile(userId, { actionPlan: plan.trim() || null });
+      // Se escribe en `action_plans` (0024), NO en `profiles.action_plan`: esa
+      // columna quedó como espejo de solo lectura, y escribirla directo dejaría
+      // el plan del alta invisible en la lista y en el círculo.
+      //
+      // Acá no se pide nombre a propósito. Es el paso 4 del alta y pedir dos
+      // campos para algo que la mayoría va a tener uno solo agrega fricción
+      // donde más se abandona. El nombre se edita después, si suma un segundo.
+      if (plan.trim()) {
+        await createActionPlan(userId, { name: 'Mi plan', body: plan, sortOrder: 0 });
+      }
       await syncMe(userId);
       router.push('/ready');
     } catch {

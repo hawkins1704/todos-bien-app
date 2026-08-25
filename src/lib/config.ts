@@ -15,12 +15,17 @@ export const APP_WEBSITE_URL = 'https://todosbien.app';
  * hay que mantener y explicar, a cambio de ahorrar un paso que el match ya
  * resuelve.
  *
- * Lo que había antes de esto vivía a medias y conviene saberlo si alguna vez se
- * repone: el código se generaba y se compartía, pero **nada del cliente creaba
- * una invitación con `invitee_phone_hash`** —los dos llamadores pasaban `null`—,
- * así que el auto-vínculo por teléfono del trigger `link_pending_invitations`
- * (migración 0002) no se disparaba nunca. Se citaba como red de seguridad y no
- * lo era.
+ * Lo que había antes vivía a medias, y conviene saberlo si alguna vez se repone:
+ * el código se generaba y se compartía, pero **nada del cliente creaba una
+ * invitación con `invitee_phone_hash`** —los dos llamadores pasaban `null`—, así
+ * que el auto-vínculo por teléfono no se disparaba nunca. Se citaba como red de
+ * seguridad y no lo era.
+ *
+ * Todo eso se borró del servidor en la migración 0023, y no solo por prolijidad:
+ * el disparador creaba la conexión con `status = 'accepted'`, o sea que quien se
+ * registrara con un teléfono invitado quedaba conectado —viendo y siendo visto—
+ * sin haber aceptado nada. Si se repone, esa parte se rehace pidiendo
+ * confirmación.
  */
 export function shareAppMessage(inviterName: string): string {
   return (

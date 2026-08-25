@@ -1,7 +1,7 @@
 import { updateMySettings } from '@/lib/api';
 import { ALERT_WRITE_JITTER_MS } from '@/lib/config';
-import { KV, kvGet } from '@/lib/db/kv';
-import { captureLocationOnce, getPermissionLevel } from '@/lib/location';
+import { KV, kvGet, kvSet } from '@/lib/db/kv';
+import { captureLocationOnce, getPermissionLevel, resolveCountryCode } from '@/lib/location';
 import { reportMyStatus, syncMe } from '@/lib/sync';
 import type { MySettings, MyStatus, QuakeEvent } from '@/types/domain';
 
@@ -61,6 +61,57 @@ export async function ensureInitialLocation(): Promise<boolean> {
 }
 
 /**
+ * En qué país está la persona, resuelto una vez por instalación.
+ *
+ * **El bug que arregla.** `user_settings.country_code` nace con `default 'PE'`
+ * (0001) y hasta el 2026-08-25 **no lo escribía ninguna pantalla**: todos los
+ * usuarios del mundo eran `'PE'` para siempre. Mientras la app operó solo en
+ * Perú no molestó, pero rompe en dos lugares apenas hay alguien afuera:
+ *
+ * 1. **Alerta falsa.** `private.quake_applies` dispara la emergencia cuando
+ *    `q_country_code = p_country_code` y la magnitud supera el umbral nacional.
+ *    Un peruano en Madrid entraba en modo emergencia —con captura de ubicación
+ *    incluida— por un M6,5 en Lima, estando a 10.000 km. Eso es exactamente lo
+ *    que Guardián tiene que hacer bien, y así lo hacía mal.
+ * 2. **Teléfonos.** `normalizeToE164` usa el país como prefijo por defecto para
+ *    los números escritos sin `+`. Con el país equivocado, los contactos locales
+ *    de quien vive afuera no encuentran match nunca.
+ *
+ * **Por qué acá y no en el onboarding.** El país sale de la posición, y la
+ * posición puede llegar mucho después: quien niega el permiso y lo concede desde
+ * los Ajustes del sistema no pasa por ninguna pantalla nuestra. Este es el mismo
+ * lugar donde ya se repara ese caso.
+ *
+ * Corre **una sola vez por instalación** y no reintenta una vez que respondió.
+ * Si falla —el geocodificador necesita red— no se guarda nada y se vuelve a
+ * intentar en el próximo refresco, que es lo que hace que un primer arranque sin
+ * señal no deje el país mal para siempre.
+ */
+export async function ensureCountryCode(userId: string): Promise<boolean> {
+  if (await kvGet<string>(KV.countryDetected)) return false;
+
+  const status = await kvGet<MyStatus>(KV.myStatus);
+  if (status?.latitude == null || status?.longitude == null) return false;
+
+  const iso = await resolveCountryCode({
+    latitude: status.latitude,
+    longitude: status.longitude,
+  });
+  if (!iso) return false;
+
+  await kvSet(KV.countryDetected, iso);
+
+  // El default ya era el correcto para la enorme mayoría: no se gasta un viaje
+  // al servidor por confirmarlo, pero sí se anota que este teléfono ya preguntó.
+  const settings = await kvGet<MySettings>(KV.mySettings);
+  if (settings?.countryCode === iso) return false;
+
+  await updateMySettings(userId, { countryCode: iso });
+  await syncMe(userId);
+  return true;
+}
+
+/**
  * Red de seguridad para el permiso concedido DESPUÉS del onboarding.
  *
  * Sin esto había un callejón sin salida real, no teórico: `ensureInitialLocation()`
@@ -94,6 +145,10 @@ export async function syncLocationPermission(userId: string): Promise<boolean> {
   }
 
   if (await ensureInitialLocation()) changed = true;
+
+  // Va después, no antes: necesita que ya haya una posición guardada, y
+  // `ensureInitialLocation` es justamente quien la deja la primera vez.
+  if (await ensureCountryCode(userId)) changed = true;
 
   return changed;
 }

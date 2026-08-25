@@ -1,3 +1,4 @@
+import { parseActionPlans } from '@/lib/api';
 import type { CircleMember, ConnectionStatus, StatusKey } from '@/types/domain';
 
 import { getDb } from './index';
@@ -12,6 +13,8 @@ type CircleRow = {
   display_name: string;
   action_plan: string | null;
   action_plan_updated_at: string | null;
+  /** JSON de `ActionPlan[]`. NULL en filas escritas antes de la v2 del esquema. */
+  action_plans: string | null;
   connection_status: string;
   requested_by: string | null;
   connection_created_at: string | null;
@@ -34,6 +37,7 @@ function toMember(row: CircleRow): CircleMember {
     displayName: row.display_name,
     actionPlan: row.action_plan,
     actionPlanUpdatedAt: row.action_plan_updated_at,
+    actionPlans: parseActionPlans(row.action_plans),
     connectionStatus: row.connection_status as ConnectionStatus,
     requestedBy: row.requested_by,
     connectionCreatedAt: row.connection_created_at,
@@ -76,16 +80,17 @@ export async function writeCircle(members: CircleMember[]): Promise<void> {
       await db.runAsync(
         `INSERT INTO circle (
            user_id, connection_id, display_name, action_plan,
-           action_plan_updated_at, connection_status, requested_by,
+           action_plan_updated_at, action_plans, connection_status, requested_by,
            connection_created_at, status, status_message, latitude, longitude,
            location_accuracy_m, location_at, quake_event_id, is_drill,
            reported_at, status_updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         m.userId,
         m.connectionId,
         m.displayName,
         m.actionPlan,
         m.actionPlanUpdatedAt,
+        JSON.stringify(m.actionPlans ?? []),
         m.connectionStatus,
         m.requestedBy,
         m.connectionCreatedAt,

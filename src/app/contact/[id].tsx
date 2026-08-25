@@ -221,11 +221,43 @@ export default function ContactDetailScreen() {
           )}
         </Card>
 
+        {/* Los planes se listan TODOS, con su nombre, y no se elige uno
+            «activo»: elegir obligaría a la otra persona a hacer algo en el
+            momento del sismo. Con el nombre a la vista, quien lee sabe cuál
+            aplica —«En el trabajo» un martes a las 3— sin que nadie toque nada.
+
+            `actionPlans` viene de la caché local, así que esto se lee sin señal.
+            El `member.actionPlan` de respaldo cubre a un contacto cuya fila se
+            cacheó antes de la v2 del esquema local. */}
         <Card>
           <Text variant="footnote" tone="secondary" weight="600">
-            SU PLAN DE ACCIÓN
+            {member.actionPlans.length > 1 ? 'SUS PLANES DE ACCIÓN' : 'SU PLAN DE ACCIÓN'}
           </Text>
-          {member.actionPlan?.trim() ? (
+
+          {member.actionPlans.length > 0 ? (
+            member.actionPlans.map((plan, index) => (
+              <View
+                key={plan.id}
+                style={[
+                  styles.gapTop,
+                  index > 0
+                    ? { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.md }
+                    : null,
+                ]}>
+                {member.actionPlans.length > 1 ? (
+                  <Text variant="callout" weight="600">
+                    {plan.name}
+                  </Text>
+                ) : null}
+                <Text variant="body" style={styles.gapTop}>
+                  {plan.body}
+                </Text>
+                <Text variant="caption" tone="tertiary" style={styles.gapTop}>
+                  Actualizado {timeAgo(plan.updatedAt)}
+                </Text>
+              </View>
+            ))
+          ) : member.actionPlan?.trim() ? (
             <>
               <Text variant="body" style={styles.gapTop}>
                 {member.actionPlan}

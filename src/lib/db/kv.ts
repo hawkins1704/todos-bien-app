@@ -12,6 +12,13 @@ export const KV = {
   /** Último token de push que se escribió en el servidor (ver `syncPushToken`). */
   pushToken: 'push_token',
   /**
+   * País ya resuelto por el geocodificador (ver `ensureCountryCode`). Guarda el
+   * ISO detectado, y su presencia es lo que impide reintentar en cada refresco.
+   * Va en el KV local y no en `user_settings` porque lo que marca es «este
+   * teléfono ya preguntó», no un dato del usuario.
+   */
+  countryDetected: 'country_detected',
+  /**
    * Migajas de la tarea de fondo, a la espera de subirse (ver
    * `src/lib/background-trace.ts`). Van acá y no directo al servidor porque la
    * tarea corre en un arranque headless, donde la red puede no estar

@@ -8,7 +8,10 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 - `QUE-PROMETE-LA-APP.md` — **fuente única de las afirmaciones públicas**: qué se puede
   prometer, qué no, y con qué palabras. La landing, la ficha de tienda y los textos de la app
   salen de ahí.
+- `MONETIZACION.md` — **qué se cobra y por qué**: el corte gratis/Premium, los precios, los
+  mercados y lo que se decidió NO hacer (anuncios, Premium compartido).
 - `ALCANCE-Y-IDIOMAS.md` — en qué países se publica, en qué idiomas, y qué falta para cada uno.
+  ⚠️ Revisado por `MONETIZACION.md` §6: **v1 sale solo en español**.
 - `FICHA-APP-STORE.md` — el texto de la ficha, contado y listo para pegar.
 - `PRIVACIDAD-APP-STORE.md` — la hoja de respuestas de los Nutrition Labels, dato por dato.
 - `REVISION-APPLE.md` — cuenta de demostración, notas para el revisor y los rechazos probables.
@@ -19,7 +22,14 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 - `GUIA-DESPLIEGUE.md` — el procedimiento paso a paso de tiendas y credenciales.
 - `GUIA-CORREO-RESEND.md` — configuración de correo y plantillas.
 
-Última revisión: **2026-08-24**.
+Última revisión: **2026-08-25**.
+
+> **Lo que cambió el 2026-08-25 y hay que tener presente al leer lo de abajo:** se construyó
+> **Guardián** (0022), se sacaron las invitaciones del servidor (0023), llegaron los **planes
+> de acción múltiples** (0024), el `country_code` por fin se detecta de verdad, y la landing
+> se reescribió con precios nuevos. **El código está en verde y sin verificar en pantalla:**
+> lo único que separa al proyecto de un envío es el recorrido de
+> `VERIFICACION-EN-DISPOSITIVO.md` y el trabajo de consola.
 
 ---
 
@@ -33,7 +43,10 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 | **Premium / RevenueCat en iOS** | ✅ compra, restauración y transferencia probadas |
 | Sitio, dominio y páginas legales | ✅ desplegado en Hostinger, las cuatro URL responden 200 |
 | Textos de la ficha, privacidad y notas de revisión | ✅ escritos (`FICHA-APP-STORE.md`, `PRIVACIDAD-APP-STORE.md`, `REVISION-APPLE.md`) |
-| Ficha cargada en App Store Connect | 🟡 info y capturas cargadas; falta App Privacy y las notas de revisión |
+| **Guardián, planes múltiples, denunciar y bloquear** | ✅ migraciones 0020-0024, con aserciones contra la base real. Falta verlo en el teléfono |
+| **Productos y precios en las tiendas** | 🔴 la landing ya anuncia **S/ 89 de por vida · S/ 9,90 mes · S/ 59 año** y en App Store Connect siguen los viejos. Se está publicando un precio que no se vende |
+| Ficha cargada en App Store Connect | 🟡 info y capturas cargadas; falta App Privacy, las notas de revisión y el texto nuevo de Premium (`FICHA-APP-STORE.md`) |
+| Landing | 🟡 reescrita el 2026-08-25 con comparativa, sección de Premium y precios nuevos. **Falta subirla a Hostinger**, junto con `terminos/index.html` |
 | Cuenta de demostración | ✅ creada, sembrada y con el login probado |
 | **Ícono y splash** | ✅ reemplazados el 2026-08-24 en app y sitio; falta solo el monocromo de Android (`ICONO-Y-MARCA.md`) |
 | Build de producción | ✅ el flujo funciona: se compila **local** (Xcode) y `eas submit` sube el `.ipa` a TestFlight. Por eso no aparece en `eas build:list` |
@@ -58,7 +71,8 @@ Nada de esto bloquea un TestFlight interno.
 | 1.6 | Sentry para errores de cliente | Sin esto, un crash en el teléfono de un usuario es invisible |
 | 1.8 | **Textos de sismos globales en español** | El aviso mundial de premium usa el `place` crudo del USGS: *"Scotia Sea"*, *"194 km SW of Labuan, Indonesia"* — inglés dentro de una app en español. `src/lib/geo.ts` ya resuelve país y continente, pero vive en TypeScript y el texto se arma en SQL (`notify_quake_news`). Es el mismo pendiente que 1.2, ahora más visible porque las noticias mundiales son el beneficio principal de Premium |
 | 1.7 | Pruebas de carga (spec §16.2) | El fan-out recorre `user_settings` entero por sismo. Con padrón grande hay que medirlo |
-| 1.9 | **Español e inglés, y país en el onboarding** | Decidido publicar en LatAm, EE. UU. y Asia. Hoy la app es solo español y normaliza **todo teléfono como peruano** (`'PE'` fijo en el onboarding), lo que rompe en silencio la única vía de conexión que queda. Detalle y orden en `ALCANCE-Y-IDIOMAS.md` |
+| 1.9 | ✅ **País detectado de verdad** (2026-08-25) | `user_settings.country_code` nacía con `default 'PE'` y **ninguna pantalla lo escribía nunca**: todos los usuarios del mundo eran `PE` para siempre. Rompía en dos lugares — un peruano en Madrid entraba en **modo emergencia** por un sismo en Lima, y sus contactos locales no encontraban match porque el teléfono se normalizaba con prefijo peruano. Ahora se resuelve del punto ya capturado, una vez por instalación. `DIAL_CODES` pasó de 11 a 18 países. **El inglés NO va en v1** (`MONETIZACION.md` §6: el que paga es peruano) |
+| 1.10 | 🔴 **Guardián es Premium y su aviso tiene que verse en el teléfono** | El servidor está probado (12/12), pero nadie vio todavía llegar la notificación. Es lo único que sostiene el precio: `VERIFICACION-EN-DISPOSITIVO.md` §7.b |
 
 **Deudas abiertas** (problemas de lo ya construido, detalle en el estado del proyecto):
 la Home que mostró "todo en calma" con alerta activa —sin reproducir—, el `TabBarExtraInset`
@@ -101,13 +115,16 @@ caduca: si el build sale antes, sale con los textos viejos.
 | 2.4 | **Nutrition Labels** | Respuestas listas, dato por dato, en `PRIVACIDAD-APP-STORE.md`. Falta pegarlas |
 | 2.5 | **Justificación de ubicación en segundo plano, en inglés** | Escrita en `PRIVACIDAD-APP-STORE.md` §4. Falta pegarla |
 | 2.6 | 🔴 **Términos y Privacidad en el footer del paywall** | RevenueCat → Paywalls. Apple lo exige en apps de suscripción; es rechazo casi automático |
+| 2.6.b | 🔴 **Precios nuevos en App Store Connect y RevenueCat** | **S/ 89 de por vida** (el producto principal), **S/ 9,90 al mes**, **S/ 59 al año**. La landing ya los publica: mientras no coincidan, el sitio anuncia un precio que la tienda no cobra. Detalle y porqué en `MONETIZACION.md` §4 |
+| 2.6.c | 🔴 **Copia del paywall** | Hoy vende «el mundo». El argumento pasó a ser **Guardián**, que es lo que la landing y la ficha ya cuentan. Texto de referencia en `MONETIZACION.md` §5 |
+| 2.6.d | 🟡 **Small Business Program de Apple** | Baja la comisión del 30 % al 15 % con menos de un millón de dólares al año. Es un formulario y duplica el margen |
 | 2.7 | ✅ **Cuenta de demostración para App Review** (2026-08-24) | `todosbienapp@gmail.com`, con círculo de 4 contactos en estados mezclados, plan de acción, chat y los 3 simulacros libres. **Login probado contra la API real.** Detalle en `REVISION-APPLE.md` §1 |
 | 2.8 | **Capturas de pantalla** | Las seis, con qué tiene que verse en cada una, en `FICHA-APP-STORE.md` §5 |
 | 2.9 | **Borrar el usuario de QA** `qa.simulador@example.com` | Quedó de las pruebas iniciales |
 | 2.10 | ⏸️ **Leaked password protection** — **no se puede en el plan free** | Es una función de pago de Supabase, así que el advisor lo va a seguir marcando y no hay nada que hacer hasta que el proyecto pase a Pro. **No bloquea la revisión**: Apple no lo pide. Queda para después del MVP |
 | 2.11 | ✅ **En *Reset Password* llega un código, no un link** — confirmado por el dueño el 2026-08-24. Texto original del pendiente, por si vuelve a romperse: | El envío ya funciona (`/recover` → 200 el 20/08 08:11), pero eso solo prueba que el correo salió. Si la plantilla quedó con el `{{ .ConfirmationURL }}` de fábrica, la app pide 8 dígitos y a la persona le llega una URL: la recuperación queda rota **sin dar ningún error**. Se comprueba pidiendo un cambio de contraseña y mirando el correo. Ver `GUIA-CORREO-RESEND.md` |
 | 2.12 | Revisión legal de términos y limitación de responsabilidad | spec §18 |
-| 2.13 | **Disponibilidad territorial: solo Perú en el primer envío** | Ampliarla después es un cambio de ficha, no un envío nuevo. El porqué y qué hace falta para los demás mercados, en `ALCANCE-Y-IDIOMAS.md` |
+| 2.13 | **Disponibilidad territorial: Perú + América + Japón** | Revisado el 2026-08-25: Guardián se le vende a la diáspora, así que restringirlo a Perú deja fuera al que paga. **España e Italia quedan afuera por ahora** — distribuir en la UE exige declarar *trader status* y Apple publica nombre, dirección y teléfono del desarrollador. Detalle en `MONETIZACION.md` §6.2 |
 | 2.14 | **Correr el recorrido de verificación** | `VERIFICACION-EN-DISPOSITIVO.md`, entero, sobre el build de 2.1 |
 
 > **Sign in with Apple no hace falta.** Apple lo exige solo si la app ofrece login con
@@ -167,18 +184,48 @@ sean de Google.
 
 ---
 
-## Orden sugerido
+## Orden sugerido — actualizado el 2026-08-25
 
-1. **Commitear**, y recién ahí el **build de producción de iOS** → destraba 2.2 y TestFlight.
-2. **Lo de consola de iOS** (2.4 a 2.13) mientras el build corre. El texto ya está escrito:
-   es pegar, no redactar.
-3. **Correr `VERIFICACION-EN-DISPOSITIVO.md`** sobre ese build.
-4. **Decidir 1.1** (denunciar en el chat) — es lo único de código que puede costar el ciclo
-   de revisión.
-5. **Enviar a revisión**, con disponibilidad solo en Perú.
-6. Después, en dos frentes que no conviene mezclar: **Android** (3.1 a 3.3) y **los demás
-   mercados** (`ALCANCE-Y-IDIOMAS.md`).
+**Ya no falta código para enviar.** Lo que queda son cuatro bloques, y solo el primero es
+mío; los otros tres son de consola y de teléfono.
 
-Los demás ítems de código no bloquean nada de esto y se pueden intercalar. El único que
-conviene mirar antes de tener usuarios de verdad es el **1.3**: sin receipts, un problema de
-entrega se ve exactamente igual que todo funcionando bien.
+### Bloque 0 · Commitear y compilar
+
+1. **Commitear** lo de las migraciones 0022-0024 y la landing.
+2. `npx expo prebuild -p ios --clean` — 🔴 obligatorio: `ios/` es de disco y hoy tiene el
+   `Info.plist` viejo y el ícono de la plantilla.
+3. Subir `ios.buildNumber` en `app.json` (2.1.b), compilar en Xcode y `eas submit`.
+
+### Bloque 1 · Subir el sitio
+
+4. **Hostinger**: la landing nueva (`index.html` + `css/styles.css`) y
+   **`terminos/index.html`**, que cambió con el bloqueo y todavía no subió.
+
+### Bloque 2 · Consola — es pegar, no redactar
+
+5. **RevenueCat**: productos con los **precios nuevos** (2.6.b), copia del paywall centrada
+   en Guardián (2.6.c), y **Términos y Privacidad en el pie** (2.6) — este último es rechazo
+   casi automático si falta.
+6. **App Store Connect**: Nutrition Labels (2.4), justificación de ubicación en segundo
+   plano (2.5), notas del revisor (`REVISION-APPLE.md` §2), el texto nuevo de Premium en la
+   ficha, disponibilidad territorial (2.13) y **Small Business Program** (2.6.d).
+7. **Borrar** `qa.simulador@example.com` (2.9).
+
+### Bloque 3 · El teléfono, que es la única puerta que queda
+
+8. **`VERIFICACION-EN-DISPOSITIVO.md` entero**, sobre el build del paso 3. El orden está en
+   el propio documento: §0 para montar el banco, §9.b primero (lo que tiene que ser
+   idéntico entre gratis y Premium), y después §7.b, §9.c y §8.b.
+
+### Y recién ahí
+
+9. **Enviar a revisión.**
+10. Después, dos frentes que no conviene mezclar: **Android** (3.1 a 3.3) y el **inglés**, si
+    alguna vez se decide vender fuera de la comunidad peruana.
+
+> **Lo único que puede costar un ciclo de revisión hoy** es el pie del paywall sin Términos
+> ni Privacidad (2.6). Todo lo demás ya está resuelto o escrito.
+
+Los ítems de código que quedan (1.2, 1.4, 1.6, 1.7, 1.8) no bloquean nada. El que conviene
+mirar antes de tener usuarios de verdad es el **1.3**: sin receipts, un problema de entrega
+se ve exactamente igual que todo funcionando bien.

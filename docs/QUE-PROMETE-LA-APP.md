@@ -155,9 +155,31 @@ que pagar para que le avisen que tembló donde está. Vender eso sería vender e
 |---|---|---|
 | **Alerta** — tembló cerca tuyo, o fuerte en tu país | ✅ | ✅ **igual** |
 | Captura automática de ubicación, círculo, chat, simulacros | ✅ | ✅ **igual** |
+| **«María no responde»** a los 20 minutos | ✅ | ✅ **igual** |
+| **Guardián** — «tembló cerca de María», al minuto 0, y su cierre «ya reportó» | ❌ | ✅ |
 | **Noticias** de sismos en tu país | ✅ | ✅ |
 | **Noticias** de sismos en el resto del mundo | ❌ | ✅ |
-| Feed global, planes de acción múltiples | ❌ | ✅ |
+| Feed global de sismos | ❌ | ✅ |
+| **Planes de acción** | 1 | **hasta 5**, cada uno con su nombre |
+| Simulacros | 3 | ilimitados |
+
+**Sobre los planes, lo que se puede afirmar y lo que no:** si se vence el Premium, **los cinco
+planes siguen ahí y el círculo los sigue viendo**. Lo único que no se puede es agregar otro.
+Borrar o esconder información de seguridad de alguien porque se le venció una suscripción
+sería exactamente lo que este producto promete no hacer, y decirlo en la venta es un
+argumento, no una concesión.
+
+**El corte que hay que saber defender** es el de las dos primeras filas de personas. Gratis
+te dice **cuando algo salió mal** —tu contacto no respondió—; Premium te deja **acompañar el
+evento** desde el primer minuto. La señal de alarma nunca se cobra; lo que se cobra es
+enterarse antes y ver el cierre.
+
+**Y una limitación que se dice en voz alta, no en letra chica:** Guardián solo alcanza a los
+contactos que tienen ubicación guardada. De quien nunca dio el permiso no se sabe si el
+sismo le tocó cerca —solo que está en el país—, y decir «tembló cerca de María» sin ese dato
+sería exactamente la clase de afirmación que este documento existe para impedir.
+
+El detalle de por qué está cortado así vive en `MONETIZACION.md`.
 
 **La distinción que ordena todo esto** —y que hasta el 2026-08-22 no existía en el código—
 es entre **alerta** y **noticia**:
@@ -171,8 +193,9 @@ es entre **alerta** y **noticia**:
 Lo destapó un M6,7 en el mar de Scotia, a 5.887 km de Lima, que puso la app de un usuario
 Premium en modo emergencia (ESTADO §1.13.5). Estaban mezcladas en una sola tubería.
 
-**Para la landing:** *«Premium no te da alertas más rápidas ni más alertas. Te da el mundo:
-enterarte de los sismos grandes en cualquier parte del planeta. Lo que te protege es gratis.»*
+**Para la landing:** *«Premium no te da alertas más rápidas ni más alertas. Te deja saber qué
+pasa con los tuyos: enterarte apenas tiembla donde está tu gente, aunque vos estés lejos. Lo
+que te protege es gratis.»*
 
 ---
 
@@ -247,6 +270,20 @@ código otra vez. **Si se toca uno, se revisa contra este documento.**
 
 - **El paywall**, que vive en RevenueCat y no en el código.
 - **La landing y las páginas legales**, en `../todos-bien-website`.
+- **La tabla comparativa de la landing** (`#comparativa`, agregada el 2026-08-25). Es el
+  texto más delicado del sitio después de la advertencia del hero, porque afirma cosas sobre
+  **productos ajenos**. Dos reglas para tocarla:
+
+  1. **Cada fila tiene que ser cierta de las tres columnas**, no solo de la nuestra.
+  2. **Tiene que quedar al menos una fila que Todos Bien no gane.** Hoy es la de la red
+     saturada, donde la mensajería también lleva ✅. Una tabla donde una columna gana todo
+     se lee como publicidad y hace dudar del resto; una sola concesión honesta sostiene las
+     seis afirmaciones de arriba.
+
+  > Hubo una fila más —«llegar a alguien que no tiene la app»— que se quitó el 2026-08-25
+  > por ambigua: que una app no alcance a quien no la tiene es una tautología, y como
+  > concesión no se leía honesta sino de relleno. Si alguna vez se repone la idea, tiene que
+  > ser con una limitación que el lector no dé por descontada.
 - **La ficha de App Store**: el texto ya está escrito y contado en `FICHA-APP-STORE.md`, con
   cada afirmación trazada a este documento. Falta pegarlo en App Store Connect.
 - **Las capturas de pantalla.** El texto que va encima de una captura es una afirmación

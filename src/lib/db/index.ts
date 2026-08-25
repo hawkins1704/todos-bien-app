@@ -10,7 +10,7 @@ import * as SQLite from 'expo-sqlite';
  */
 
 const DATABASE_NAME = 'todosbien.db';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -114,6 +114,18 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
         updated_at TEXT NOT NULL
       );
     `);
+  }
+
+  // v2 · Planes de acción con nombre (migración 0024). Se guardan como JSON en
+  // una sola columna en vez de una tabla local: no se consultan ni se filtran,
+  // se pintan enteros junto al contacto, y así el espejo de `get_circle` sigue
+  // siendo un INSERT por fila.
+  //
+  // Va como columna nueva y no como recreación de la tabla porque el círculo
+  // cacheado es lo que se lee SIN RED después de un sismo. Borrarlo para
+  // migrar dejaría la pantalla vacía justo hasta la primera sincronización.
+  if (current < 2) {
+    await db.execAsync(`ALTER TABLE circle ADD COLUMN action_plans TEXT;`);
   }
 
   if (current !== DATABASE_VERSION) {

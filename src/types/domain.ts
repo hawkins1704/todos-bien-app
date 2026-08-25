@@ -4,13 +4,35 @@ export type { StatusKey };
 
 export type ConnectionStatus = 'pending' | 'accepted' | 'declined' | 'blocked';
 
+/**
+ * Un plan de acción con nombre (migración 0024).
+ *
+ * El nombre no es decoración: es lo que hace legible la lista. Tu contacto abre
+ * tu ficha un martes a las 3 de la tarde, lee «Si estoy en el trabajo» y sabe
+ * cuál de tus planes le sirve. Sin nombre, varios planes son un párrafo largo.
+ */
+export type ActionPlan = {
+  id: string;
+  name: string;
+  body: string;
+  updatedAt: string | null;
+};
+
+export const FREE_ACTION_PLAN_LIMIT = 1;
+export const PREMIUM_ACTION_PLAN_LIMIT = 5;
+
 /** Fila de get_circle() ya normalizada a camelCase. */
 export type CircleMember = {
   userId: string;
   connectionId: string;
   displayName: string;
+  /**
+   * @deprecated Copia del primer plan, mantenida por un disparador para las
+   * builds viejas. Lo que se pinta es `actionPlans`.
+   */
   actionPlan: string | null;
   actionPlanUpdatedAt: string | null;
+  actionPlans: ActionPlan[];
   connectionStatus: ConnectionStatus;
   requestedBy: string | null;
   connectionCreatedAt: string | null;

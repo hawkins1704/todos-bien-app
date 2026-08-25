@@ -163,7 +163,7 @@ export default function SettingsScreen() {
             style={({ pressed }) => [styles.linkRow, pressed ? styles.pressed : null]}>
             <MaterialIcons name="event-note" size={20} color={colors.textSecondary} />
             <Text variant="callout" style={styles.flex}>
-              Mi plan de acción
+              Mis planes de acción
             </Text>
             <MaterialIcons name="chevron-right" size={20} color={colors.textTertiary} />
           </Pressable>
@@ -249,9 +249,43 @@ export default function SettingsScreen() {
             ))}
           </Card>
 
+          {/* Decía «no mandamos notificación cuando alguien marca que está
+              bien». Dejó de ser cierto con Guardián (0022), que avisa
+              justamente eso — a quien recibió el aviso de apertura. */}
           <Text variant="caption" tone="tertiary" style={styles.note}>
-            No mandamos notificación cuando alguien marca que está bien. Solo por lo que
+            Fuera de Guardián no avisamos cuando alguien marca que está bien. Solo por lo que
             necesitas saber.
+          </Text>
+        </Section>
+
+        <Section title="GUARDIÁN">
+          <Card padded={false}>
+            <View style={styles.switchRow}>
+              <View style={styles.flex}>
+                <Text
+                  variant="callout"
+                  tone={mySettings?.isPremium ? 'primary' : 'tertiary'}>
+                  Tembló cerca de mi gente
+                </Text>
+                <Text variant="caption" tone="tertiary">
+                  {mySettings?.isPremium
+                    ? 'Te avisamos apenas tiembla cerca de un contacto tuyo, estés donde estés, y otra vez cuando reporta que está bien.'
+                    : 'Disponible con Premium.'}
+                </Text>
+              </View>
+              <Switch
+                value={mySettings?.isPremium ? (prefs?.guardianAlerts ?? true) : false}
+                onValueChange={(value) => void togglePref('guardianAlerts', value)}
+                disabled={prefs === null || !mySettings?.isPremium}
+              />
+            </View>
+          </Card>
+
+          {/* El límite se dice acá y no solo en el paywall: es la diferencia
+              entre una función que no cubre a alguien y una que parece rota. */}
+          <Text variant="caption" tone="tertiary" style={styles.note}>
+            Solo alcanza a los contactos que tienen su ubicación activada. De quien no la dio no
+            sabemos si el sismo le tocó cerca, y preferimos no decirlo antes que inventarlo.
           </Text>
         </Section>
 

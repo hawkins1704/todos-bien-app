@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { TablesUpdate } from '@/types/database.types';
 import type {
+  ActionPlan,
   CircleMember,
   ConnectionStatus,
   ContactMatch,
@@ -28,6 +29,7 @@ export async function fetchCircle(): Promise<CircleMember[]> {
     displayName: row.display_name,
     actionPlan: row.action_plan,
     actionPlanUpdatedAt: row.action_plan_updated_at,
+    actionPlans: parseActionPlans(row.action_plans),
     connectionStatus: row.connection_status as ConnectionStatus,
     requestedBy: row.requested_by,
     connectionCreatedAt: row.connection_created_at,
@@ -42,6 +44,102 @@ export async function fetchCircle(): Promise<CircleMember[]> {
     reportedAt: row.reported_at,
     statusUpdatedAt: row.status_updated_at,
   }));
+}
+
+/**
+ * `get_circle` devuelve los planes como jsonb, y la caché local los guarda como
+ * texto. En los dos casos lo que llega es «lo que haya»: se valida en vez de
+ * castear, porque una fila con forma inesperada tiene que degradar a lista
+ * vacía y no reventar la pantalla del círculo justo después de un sismo.
+ */
+export function parseActionPlans(raw: unknown): ActionPlan[] {
+  const lista = typeof raw === 'string' ? safeJson(raw) : raw;
+  if (!Array.isArray(lista)) return [];
+
+  return lista.flatMap((item) => {
+    if (typeof item !== 'object' || item === null) return [];
+    const { id, name, body, updatedAt } = item as Record<string, unknown>;
+    if (typeof id !== 'string' || typeof name !== 'string' || typeof body !== 'string') return [];
+    return [{ id, name, body, updatedAt: typeof updatedAt === 'string' ? updatedAt : null }];
+  });
+}
+
+function safeJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Planes de acción (migración 0024)
+//
+// El tope —1 gratis, 5 con Premium— lo hace cumplir un disparador en la base.
+// Acá solo se traduce el error: el cliente pinta el candado, pero el que dice
+// que no es el servidor.
+// ---------------------------------------------------------------------------
+
+/** El disparador rechaza el plan de más con este mensaje. */
+export const PLAN_LIMIT_REACHED = 'limite_planes';
+
+export class ActionPlanLimitError extends Error {
+  constructor() {
+    super(PLAN_LIMIT_REACHED);
+    this.name = 'ActionPlanLimitError';
+  }
+}
+
+export async function fetchMyActionPlans(userId: string): Promise<ActionPlan[]> {
+  const { data, error } = await supabase
+    .from('action_plans')
+    .select('id, name, body, updated_at')
+    .eq('user_id', userId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    body: row.body,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function createActionPlan(
+  userId: string,
+  input: { name: string; body: string; sortOrder: number },
+): Promise<void> {
+  const { error } = await supabase.from('action_plans').insert({
+    user_id: userId,
+    name: input.name.trim(),
+    body: input.body.trim(),
+    sort_order: input.sortOrder,
+  });
+
+  if (error) {
+    if (error.message?.includes(PLAN_LIMIT_REACHED)) throw new ActionPlanLimitError();
+    throw error;
+  }
+}
+
+export async function updateActionPlan(
+  planId: string,
+  patch: { name?: string; body?: string },
+): Promise<void> {
+  const payload: TablesUpdate<'action_plans'> = {};
+  if (patch.name !== undefined) payload.name = patch.name.trim();
+  if (patch.body !== undefined) payload.body = patch.body.trim();
+
+  const { error } = await supabase.from('action_plans').update(payload).eq('id', planId);
+  if (error) throw error;
+}
+
+export async function deleteActionPlan(planId: string): Promise<void> {
+  const { error } = await supabase.from('action_plans').delete().eq('id', planId);
+  if (error) throw error;
 }
 
 export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
@@ -196,10 +294,14 @@ export async function reportStatusRemote(payload: {
 // ---------------------------------------------------------------------------
 // Conexiones
 //
-// El MVP no tiene códigos de invitación: la única forma de conectarse es el
-// match de agenda (`matchContacts`) seguido de `requestConnection`, que la otra
-// persona tiene que aceptar. Las RPC `create_invitation` / `redeem_invitation`
-// siguen existiendo en la base (migración 0002) pero ya no las llama nadie.
+// La ÚNICA forma de conectarse es el match de agenda (`matchContacts`) seguido
+// de `requestConnection`, que la otra persona tiene que aceptar a mano. No hay
+// segunda vía, y eso es una garantía que se puede afirmar en público.
+//
+// Los códigos de invitación se sacaron del cliente el 2026-08-24 y del servidor
+// el 2026-08-25 (migración 0023). Se borraron enteros, tabla y disparador
+// incluidos, porque quedaban creando conexiones **ya aceptadas** sin que la
+// persona nueva aceptara nada.
 // ---------------------------------------------------------------------------
 
 export async function requestConnection(targetUserId: string): Promise<void> {
@@ -515,6 +617,13 @@ export type NotificationPrefs = {
   contactNotResponding: boolean;
   quakeNational: boolean;
   quakeWorldwide: boolean;
+  /**
+   * Guardián (migración 0022): «tembló cerca de un contacto» **y** su cierre
+   * «ya reportó». Un solo interruptor para los dos a propósito — apagar el
+   * cierre sin apagar la mala noticia dejaría al usuario con la mitad ansiosa
+   * del par.
+   */
+  guardianAlerts: boolean;
 };
 
 export async function fetchNotificationPrefs(userId: string): Promise<NotificationPrefs | null> {
@@ -535,6 +644,7 @@ export async function fetchNotificationPrefs(userId: string): Promise<Notificati
     contactNotResponding: data.contact_not_responding,
     quakeNational: data.quake_national,
     quakeWorldwide: data.quake_worldwide,
+    guardianAlerts: data.guardian_alerts,
   };
 }
 
@@ -552,6 +662,7 @@ export async function updateNotificationPrefs(
   }
   if (patch.quakeNational !== undefined) payload.quake_national = patch.quakeNational;
   if (patch.quakeWorldwide !== undefined) payload.quake_worldwide = patch.quakeWorldwide;
+  if (patch.guardianAlerts !== undefined) payload.guardian_alerts = patch.guardianAlerts;
 
   // Upsert y no update: un `update` sobre una fila que no existe afecta cero
   // filas y **no devuelve error**, así que el interruptor se veía cambiado en
