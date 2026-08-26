@@ -19,6 +19,8 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
   «sin verificar en pantalla».
 - `RUNBOOK-OPERACION.md` — qué mirar cuando ya hay usuarios, con las consultas hechas.
 - `ICONO-Y-MARCA.md` — qué exportar de Figma, con qué medidas, y dónde va cada archivo.
+- `GUIA-SUSCRIPCIONES.md` — **el contenido para copiar y pegar** en App Store Connect y
+  RevenueCat: localización de los tres planes, países, y el paywall entero.
 - `GUIA-DESPLIEGUE.md` — el procedimiento paso a paso de tiendas y credenciales.
 - `GUIA-CORREO-RESEND.md` — configuración de correo y plantillas.
 

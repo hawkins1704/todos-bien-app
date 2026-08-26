@@ -103,14 +103,35 @@ minuto 0. Nadie puede acusar al producto de esconder lo importante detrás del p
 
 ## 4 · Precio
 
+Fijados el **2026-08-25** con los tramos que ofrece App Store Connect:
+
 | | Antes | Ahora | Por qué |
 |---|---|---|---|
 | Mensual | S/ 5 | **S/ 9,90** | Es el señuelo que hace obvio el vitalicio |
-| Anual | — | **S/ 59** | «Dos meses gratis» |
-| **De por vida** | S/ 29 | **S/ 89** | **El héroe.** S/29 son ~8 dólares por cuidar a tu familia para siempre: estaba regalado |
+| Anual | — | **S/ 59,90** | La mitad que pagar mes a mes (12 × 9,90 = 118,80). **No es una promoción**: es aritmética, y no hay meses de regalo en ningún plan |
+| **De por vida** | S/ 29 | **S/ 79,90** | **El héroe.** S/29 eran ~8 dólares por cuidar a tu familia para siempre: estaba regalado |
 
 En una app que se abre tres veces al mes, **el vitalicio es el producto**. Un mensual barato
 se lo come: cualquiera hace la cuenta de que en seis meses le convenía el otro.
+
+### 4.1 · Por qué 79,90 y no 99,90
+
+Los dos tramos estaban disponibles y se eligió el bajo, por una razón que conviene tener
+escrita porque dentro de un año va a parecer plata dejada sobre la mesa:
+
+**A 79,90 el anual deja de tener sentido, y eso es exactamente lo que se busca.** Son 1,33
+años de la suscripción anual: quien está considerando pagar S/59,90 todos los años elige el
+pago único casi siempre. A 99,90 la distancia es de 1,67 años y el anual se vuelve una
+alternativa real — y el anual es **peor negocio** acá, porque en una app de uso bajo la
+renovación no se puede dar por hecha.
+
+El otro motivo es que se lanza **sin una sola reseña**. Los primeros cien compradores apuestan
+a una app desconocida, y S/79,90 baja esa apuesta más de lo que parece la diferencia de S/20.
+Subir el precio después es fácil —quien compró el vitalicio lo conserva—; bajarlo tras el
+lanzamiento se lee como que el producto no funcionó.
+
+**El anual se deja igual**, aunque convenga menos: es el señuelo que hace que el vitalicio se
+vea obvio, y recoge a quien no le compra «para siempre» a una app que recién conoce.
 
 **Small Business Program de Apple:** con menos de un millón de dólares al año, la comisión
 baja del 30 % al 15 %. Es un formulario y duplica el margen sin tocar código.
