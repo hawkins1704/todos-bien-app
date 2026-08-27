@@ -1,4 +1,4 @@
-import { parseActionPlans } from '@/lib/api';
+import { parseActionPlans, parseQuakeIds } from '@/lib/api';
 import type { CircleMember, ConnectionStatus, StatusKey } from '@/types/domain';
 
 import { getDb } from './index';
@@ -28,6 +28,8 @@ type CircleRow = {
   is_drill: number;
   reported_at: string | null;
   status_updated_at: string | null;
+  /** JSON de `string[]`. NULL en filas escritas antes de la v3 del esquema. */
+  alerted_quake_ids: string | null;
 };
 
 function toMember(row: CircleRow): CircleMember {
@@ -51,6 +53,7 @@ function toMember(row: CircleRow): CircleMember {
     isDrill: row.is_drill === 1,
     reportedAt: row.reported_at,
     statusUpdatedAt: row.status_updated_at,
+    alertedQuakeIds: parseQuakeIds(row.alerted_quake_ids),
   };
 }
 
@@ -83,8 +86,8 @@ export async function writeCircle(members: CircleMember[]): Promise<void> {
            action_plan_updated_at, action_plans, connection_status, requested_by,
            connection_created_at, status, status_message, latitude, longitude,
            location_accuracy_m, location_at, quake_event_id, is_drill,
-           reported_at, status_updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           reported_at, status_updated_at, alerted_quake_ids
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         m.userId,
         m.connectionId,
         m.displayName,
@@ -104,6 +107,7 @@ export async function writeCircle(members: CircleMember[]): Promise<void> {
         m.isDrill ? 1 : 0,
         m.reportedAt,
         m.statusUpdatedAt,
+        JSON.stringify(m.alertedQuakeIds ?? []),
       );
     }
   });

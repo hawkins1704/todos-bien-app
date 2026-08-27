@@ -457,6 +457,7 @@ export type Database = {
           action_plan: string | null;
           action_plan_updated_at: string | null;
           action_plans: Json;
+          alerted_quake_ids: Json;
           avatar_url: string | null;
           connection_created_at: string;
           connection_id: string;
@@ -474,6 +475,13 @@ export type Database = {
           status: string | null;
           status_message: string | null;
           status_updated_at: string | null;
+          user_id: string;
+        }[];
+      };
+      get_circle_alert_scope: {
+        Args: Record<never, never>;
+        Returns: {
+          quake_event_id: string;
           user_id: string;
         }[];
       };

@@ -13,7 +13,7 @@ import { Text } from '@/components/ui/text';
 import { Radius, Spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type Size = 'md' | 'lg';
 
 export type ButtonProps = Omit<PressableProps, 'style'> & {
@@ -44,6 +44,11 @@ export function Button({
   const surface: Record<Variant, ViewStyle> = {
     primary: { backgroundColor: colors.accent },
     secondary: { backgroundColor: colors.surfaceSunken, borderWidth: 1, borderColor: colors.border },
+    // `outline` no es `secondary` con otro nombre: `secondary` tiene relleno
+    // (`surfaceSunken`) y borde neutro, y dentro de un Card se lee como un botón
+    // sólido más. Este es transparente con borde de acento, para acciones
+    // secundarias que viven DENTRO de una tarjeta y no deben competir con ella.
+    outline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.accent },
     ghost: { backgroundColor: 'transparent' },
     danger: { backgroundColor: colors.danger },
   };
@@ -51,6 +56,7 @@ export function Button({
   const contentColor = {
     primary: colors.accentText,
     secondary: colors.text,
+    outline: colors.accent,
     ghost: colors.accent,
     danger: '#FFFFFF',
   }[variant];

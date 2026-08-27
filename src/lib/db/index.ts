@@ -10,7 +10,7 @@ import * as SQLite from 'expo-sqlite';
  */
 
 const DATABASE_NAME = 'todosbien.db';
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -126,6 +126,18 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   // migrar dejaría la pantalla vacía justo hasta la primera sincronización.
   if (current < 2) {
     await db.execAsync(`ALTER TABLE circle ADD COLUMN action_plans TEXT;`);
+  }
+
+  // v3 · Qué sismos alcanzaron a cada contacto (migración 0025). Columna nueva
+  // por el mismo motivo que la v2: el círculo cacheado es lo que se lee SIN RED
+  // justo después de un sismo, y recrear la tabla lo dejaría vacío hasta la
+  // primera sincronización.
+  //
+  // Las filas viejas quedan en NULL, que `parseQuakeIds` degrada a lista vacía:
+  // hasta el primer `syncCircle` nadie sale marcado como callado. Es el lado
+  // correcto para equivocarse.
+  if (current < 3) {
+    await db.execAsync(`ALTER TABLE circle ADD COLUMN alerted_quake_ids TEXT;`);
   }
 
   if (current !== DATABASE_VERSION) {

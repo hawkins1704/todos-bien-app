@@ -24,7 +24,7 @@ import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { captureLocationForActiveAlert } from '@/lib/alert-response';
 import { isOlderThan, timeAgo } from '@/lib/format';
 import { captureLocationOnce } from '@/lib/location';
-import { confirmedForQuake, isAlertActive } from '@/lib/quakes';
+import { confirmedForQuake, isAlertActive, membersInQuakeZone } from '@/lib/quakes';
 import { reportMyStatus } from '@/lib/sync';
 import { Radius, Spacing, TabBarExtraInset, type StatusKey } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
@@ -58,6 +58,10 @@ export default function HomeScreen() {
 
   const alertActive = isAlertActive(activeQuake);
   const confirmed = confirmedForQuake(accepted, activeQuake?.id ?? null);
+  // El denominador del contador son los que SÍ recibieron esta alerta, no el
+  // círculo entero. Contar a quien nunca fue alertado inventaba un «faltan N»
+  // con gente que no tenía nada que reportar (migración 0025).
+  const enZona = membersInQuakeZone(accepted, alertActive ? (activeQuake?.id ?? null) : null);
 
   // Con una alerta activa se guarda dónde está la persona sin esperar a que
   // toque nada: si abre la app tras un sismo y no reporta, igual queremos que su
@@ -178,14 +182,18 @@ export default function HomeScreen() {
             <Card>
               <View style={styles.circleHeader}>
                 <Text variant="headline">Tu círculo</Text>
-                {accepted.length > 0 ? (
+                {enZona.length > 0 ? (
                   <Text variant="footnote" tone="secondary" weight="600">
-                    {confirmed}/{accepted.length} confirmados
+                    {confirmed}/{enZona.length} confirmados
+                  </Text>
+                ) : accepted.length > 0 ? (
+                  <Text variant="footnote" tone="secondary" weight="600">
+                    Nadie de tu círculo en la zona
                   </Text>
                 ) : null}
               </View>
               <View style={styles.circleBody}>
-                <CircleGrid members={accepted} activeQuakeId={activeQuake.id} showStatus />
+                <CircleGrid members={accepted} activeQuakeId={activeQuake.id} showStatus collapsed />
               </View>
             </Card>
 
@@ -266,7 +274,7 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
               <View style={styles.circleBody}>
-                <CircleGrid members={accepted} activeQuakeId={null} showStatus={false} />
+                <CircleGrid members={accepted} activeQuakeId={null} showStatus={false} collapsed />
               </View>
             </Card>
 

@@ -43,7 +43,20 @@ export async function fetchCircle(): Promise<CircleMember[]> {
     isDrill: row.is_drill ?? false,
     reportedAt: row.reported_at,
     statusUpdatedAt: row.status_updated_at,
+    alertedQuakeIds: parseQuakeIds(row.alerted_quake_ids),
   }));
+}
+
+/**
+ * Misma disciplina que `parseActionPlans`: se valida en vez de castear. Una
+ * lista con forma inesperada degrada a vacía, y vacía es el lado seguro — un
+ * contacto sin alertas conocidas se pinta apagado, no como si estuviera
+ * callado.
+ */
+export function parseQuakeIds(raw: unknown): string[] {
+  const lista = typeof raw === 'string' ? safeJson(raw) : raw;
+  if (!Array.isArray(lista)) return [];
+  return lista.filter((id): id is string => typeof id === 'string');
 }
 
 /**

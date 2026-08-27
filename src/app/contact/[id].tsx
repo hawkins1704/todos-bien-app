@@ -1,8 +1,16 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -14,29 +22,46 @@ import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
+import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { blockConnection, removeConnection } from '@/lib/api';
 import { openDirectConversation } from '@/lib/chat';
 import { readCircleMember } from '@/lib/db/circle';
-import { formatAccuracy, formatCoords, timeAgo } from '@/lib/format';
+import { formatAccuracy, formatCoords, isOlderThan, timeAgo } from '@/lib/format';
 import { mapsUrl } from '@/lib/location';
-import { effectiveStatus, isAlertActive } from '@/lib/quakes';
-import { Spacing, type StatusKey } from '@/theme/tokens';
+import { effectiveStatus, isAlertActive, liveQuakeStatus } from '@/lib/quakes';
+import { Spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
-import type { CircleMember } from '@/types/domain';
+import { ACTIVE_ALERT_WINDOW_MS, type CircleMember } from '@/types/domain';
 
 export default function ContactDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { activeQuake, refresh } = useAppData();
+  const { activeQuake, refresh, lastCircleSync } = useAppData();
+  const { refreshing, onRefresh } = usePullToRefresh(refresh);
 
   const [member, setMember] = useState<CircleMember | null>(null);
   const [opening, setOpening] = useState(false);
 
+  // `lastCircleSync` en las dependencias es lo que arregla la ficha congelada:
+  // antes esto leía la caché UNA vez al montar y no se volvía a enterar de
+  // nada. Aunque la app sincronizara de fondo —al volver del segundo plano, al
+  // tirar de la lista, al recibir un push— esta pantalla seguía pintando el
+  // estado y la ubicación con los que se abrió. Con la marca de la última
+  // sincronización como dependencia, cada sync relee la fila local.
   useEffect(() => {
     if (id) void readCircleMember(id).then(setMember);
-  }, [id]);
+  }, [id, lastCircleSync]);
+
+  // Y al abrir la ficha se pide al servidor, en vez de confiar en lo cacheado:
+  // se entra acá justo cuando se quiere saber cómo está alguien AHORA, que es
+  // el único momento en que el dato viejo estorba de verdad.
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   if (!member) {
     return (
@@ -52,8 +77,30 @@ export default function ContactDetailScreen() {
   }
 
   const alertActive = isAlertActive(activeQuake);
-  const status = effectiveStatus(member, alertActive ? (activeQuake?.id ?? null) : null) as StatusKey;
-  const hasLocation = member.latitude != null && member.longitude != null;
+  const status = effectiveStatus(member, alertActive ? (activeQuake?.id ?? null) : null);
+  // `null` con alerta activa = el sismo no le llegó a esta persona. Es la ficha
+  // que se abre desde el aviso de Guardián, así que la distinción importa: no
+  // es lo mismo «todavía no reporta» que «no le tocó» (migración 0025).
+  const fueraDeLaZona = alertActive && status === null;
+
+  // Pasadas las 6 horas, el estado y la ubicación dejan de ser información y
+  // pasan a ser historia. «En casa y todos bien» de hace tres días no dice nada
+  // de cómo está esa persona hoy, y una coordenada de hace tres días es lo
+  // contrario de lo que promete la app: acá no se guarda dónde anda la gente,
+  // se guarda dónde estaba cuando hubo un sismo. Mostrarla fuera de ese momento
+  // convierte la ficha en un historial de paradero.
+  //
+  // Durante una alerta propia el estado se muestra siempre, aunque no haya
+  // reportado: ahí «sin confirmar» ES la información. Fuera de ella,
+  // `liveQuakeStatus` lo muestra solo mientras siga vivo un sismo que alcanzó a
+  // esta persona — la misma ventana de 6 h, resuelta con el dato del servidor
+  // en vez de con la antigüedad del reporte.
+  const ubicacionVigente =
+    member.locationAt != null && !isOlderThan(member.locationAt, ACTIVE_ALERT_WINDOW_MS);
+
+  const statusVisible = alertActive ? status : liveQuakeStatus(member);
+  const hasLocation =
+    member.latitude != null && member.longitude != null && ubicacionVigente;
 
   const openChat = async () => {
     setOpening(true);
@@ -119,29 +166,41 @@ export default function ContactDetailScreen() {
       <Stack.Screen options={{ title: member.displayName }} />
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}>
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View style={styles.hero}>
           <Avatar
             displayName={member.displayName}
             size={92}
-            status={alertActive ? status : null}
+            status={statusVisible}
+            dimmed={fueraDeLaZona}
           />
           <Text variant="title2" center>
             {member.displayName}
           </Text>
 
-          {alertActive ? <StatusChip status={status} /> : null}
+          {statusVisible !== null ? <StatusChip status={statusVisible} /> : null}
+
+          {fueraDeLaZona ? (
+            <Text variant="footnote" tone="tertiary" center>
+              El sismo no llegó hasta donde está
+            </Text>
+          ) : null}
 
           {member.isDrill ? <DrillBanner compact /> : null}
 
-          {member.reportedAt ? (
+          {statusVisible !== null && member.reportedAt ? (
             <Text variant="footnote" tone="tertiary">
               Reportó {timeAgo(member.reportedAt)}
+            </Text>
+          ) : !alertActive ? (
+            <Text variant="footnote" tone="tertiary" center>
+              Sin novedades. Su estado aparece acá cuando hay un sismo.
             </Text>
           ) : null}
         </View>
 
-        {member.statusMessage ? (
+        {statusVisible !== null && member.statusMessage ? (
           <Card>
             <Text variant="footnote" tone="secondary" weight="600">
               SU MENSAJE
@@ -214,6 +273,14 @@ export default function ContactDetailScreen() {
                 </Pressable>
               </View>
             </>
+          ) : member.locationAt ? (
+            // Se dice que existe y cuándo fue, pero no se pinta. Esconderlo sin
+            // explicación parecería un error de la app; mostrarlo sería el
+            // rastreo que la app promete no hacer.
+            <Text variant="subhead" tone="tertiary" style={styles.gapTop}>
+              Su última ubicación es de {timeAgo(member.locationAt)}. Solo se guarda durante un
+              sismo, así que ya no se muestra.
+            </Text>
           ) : (
             <Text variant="subhead" tone="tertiary" style={styles.gapTop}>
               Todavía no hay ubicación registrada de esta persona.

@@ -14,8 +14,8 @@ import { useAppData } from '@/context/app-data';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { respondToConnection } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
-import { effectiveStatus, isAlertActive } from '@/lib/quakes';
-import { Spacing, TabBarExtraInset, type StatusKey } from '@/theme/tokens';
+import { effectiveStatus, isAlertActive, liveQuakeStatus } from '@/lib/quakes';
+import { Spacing, TabBarExtraInset } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import type { CircleMember } from '@/types/domain';
 
@@ -198,7 +198,13 @@ function MemberRow({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
-  const status = effectiveStatus(member, activeQuakeId) as StatusKey;
+  // Sin alerta propia el anillo igual aparece si a esta persona la alcanzó un
+  // sismo que sigue vivo (ver `liveQuakeStatus`).
+  const status = showStatus ? effectiveStatus(member, activeQuakeId) : liveQuakeStatus(member);
+  // Con alerta activa, `null` significa que a esta persona el sismo no le
+  // llegó. Acá sí se dice con palabras: esta pantalla se lee, no se ojea, y
+  // un avatar apagado sin explicación es una pregunta sin responder.
+  const fueraDeLaZona = showStatus && status === null;
 
   return (
     <Pressable
@@ -212,8 +218,9 @@ function MemberRow({
       <Avatar
         displayName={member.displayName}
         size={44}
-        status={showStatus ? status : null}
-        showStatusBadge={showStatus}
+        status={status}
+        showStatusBadge={status !== null}
+        dimmed={fueraDeLaZona}
       />
 
       <View style={styles.rowCopy}>
@@ -221,7 +228,7 @@ function MemberRow({
           {member.displayName}
         </Text>
 
-        {showStatus ? (
+        {status !== null ? (
           <View style={styles.statusLine}>
             <StatusChip status={status} short size="sm" />
             {member.isDrill ? (
@@ -230,6 +237,10 @@ function MemberRow({
               </Text>
             ) : null}
           </View>
+        ) : fueraDeLaZona ? (
+          <Text variant="caption" tone="tertiary" numberOfLines={1}>
+            El sismo no llegó hasta donde está
+          </Text>
         ) : (
           <Text variant="caption" tone="tertiary" numberOfLines={1}>
             {member.locationAt

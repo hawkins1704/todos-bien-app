@@ -46,6 +46,15 @@ export type CircleMember = {
   isDrill: boolean;
   reportedAt: string | null;
   statusUpdatedAt: string | null;
+  /**
+   * Sismos de las últimas 6 horas cuya alerta le llegó a esta persona.
+   *
+   * Es lo que distingue «no ha reportado» de «nunca se le preguntó». Sin esto
+   * la Home marcaba «sin confirmar» a cualquiera que no hubiera reportado para
+   * el sismo activo, incluso a quien estaba a cientos de kilómetros y jamás
+   * recibió la alerta (migración 0025).
+   */
+  alertedQuakeIds: string[];
 };
 
 export type MyProfile = {
