@@ -164,12 +164,23 @@ que ya se descartó por insostenible (`MONETIZACION.md` §2.1).
 ### La línea que no se saca
 
 ```
-La alerta de un sismo que te toca a ti, y el aviso de que alguien de tu círculo no respondió, son gratis y siempre lo van a ser.
+Cuando el sismo te toca a ti, todo es gratis y siempre lo va a ser: tu alerta, tu círculo y el aviso de que alguien no respondió. Premium es para los sismos que NO te tocan a ti.
 ```
 
 Va **en el paywall**, no solo en la landing. Dos razones: es cierto y es el argumento de
 venta más fuerte que tiene el producto; y es lo que le deja claro a un revisor de Apple que
 **la seguridad no está detrás del muro de pago**.
+
+> ⚠️ **Corregida el 2026-08-27, y el cambio no es cosmético.** Decía: *«La alerta de un sismo
+> que te toca a ti, y el aviso de que alguien de tu círculo no respondió, son gratis y siempre
+> lo van a ser»*. La segunda mitad era **falsa** para el caso que más importa:
+> `notify_silent_contacts` manda «X no responde» solo a quien tiene entrega de alerta de ese
+> mismo sismo (migración 0020), así que quien está en Madrid nunca lo recibe.
+>
+> La versión nueva dice lo mismo sin mentir, y encima **explica qué se compra** en la misma
+> frase: gratis cubre entero el sismo que te toca; Premium es para el que no. Prometer en el
+> paywall un aviso gratuito que no llega sería, además de deshonesto, justo el tipo de
+> afirmación que Apple revisa.
 
 ### Botón
 

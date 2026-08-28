@@ -156,65 +156,80 @@ export default function ChatScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 96 : 0}>
-        <FlatList
-          data={messages}
-          keyExtractor={(item) => item.id}
-          inverted
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text variant="callout" tone="tertiary" center>
-                Todavía no hay mensajes.
-              </Text>
-            </View>
-          }
-          renderItem={({ item }) => {
-            const mine = item.senderId === userId;
+        {/* El vacío se pinta FUERA de la lista, no con `ListEmptyComponent`.
 
-            return (
-              <View style={[styles.bubbleRow, mine ? styles.mineRow : styles.theirsRow]}>
-                <Pressable
-                  onLongPress={mine ? undefined : () => offerReport(item)}
-                  delayLongPress={400}
-                  accessibilityRole={mine ? undefined : 'button'}
-                  accessibilityHint={mine ? undefined : 'Mantén apretado para denunciar'}
-                  style={[
-                    styles.bubble,
-                    {
-                      backgroundColor: mine ? colors.accent : colors.surfaceSunken,
-                      borderBottomRightRadius: mine ? Radius.sm : Radius.lg,
-                      borderBottomLeftRadius: mine ? Radius.lg : Radius.sm,
-                    },
-                  ]}>
-                  {item.isDrill ? (
-                    <View style={styles.drillTag}>
-                      <DrillBanner compact />
-                    </View>
-                  ) : null}
+            `inverted` se implementa distinto en cada plataforma: en iOS da
+            vuelta el contenedor con `scaleY: -1` —y por eso este bloque llevaba
+            un `scaleY: -1` propio, para volver a enderezarse—, mientras que en
+            Android la inversión es nativa y no hay transform que compensar. El
+            resultado era el texto cabeza abajo, solo en Android.
 
-                  <Text variant="body" style={{ color: mine ? colors.accentText : colors.text }}>
-                    {item.body}
-                  </Text>
+            Sacarlo de la lista lo arregla de raíz, en vez de parchearlo con un
+            `Platform.select` que volvería a romperse la próxima vez que React
+            Native cambie cómo implementa `inverted`. */}
+        {messages.length === 0 ? (
+          <View style={styles.empty}>
+            <Text variant="callout" tone="tertiary" center>
+              Todavía no hay mensajes.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={messages}
+            keyExtractor={(item) => item.id}
+            inverted
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => {
+              const mine = item.senderId === userId;
 
-                  <View style={styles.meta}>
-                    <Text
-                      variant="caption"
-                      style={{ color: mine ? colors.accentText : colors.textTertiary, opacity: 0.8 }}>
-                      {elapsedShort(item.createdAt)}
-                    </Text>
-                    {item.pending ? (
-                      <MaterialIcons
-                        name="schedule"
-                        size={11}
-                        color={mine ? colors.accentText : colors.textTertiary}
-                      />
+              return (
+                <View style={[styles.bubbleRow, mine ? styles.mineRow : styles.theirsRow]}>
+                  <Pressable
+                    onLongPress={mine ? undefined : () => offerReport(item)}
+                    delayLongPress={400}
+                    accessibilityRole={mine ? undefined : 'button'}
+                    accessibilityHint={mine ? undefined : 'Mantén apretado para denunciar'}
+                    style={[
+                      styles.bubble,
+                      {
+                        backgroundColor: mine ? colors.accent : colors.surfaceSunken,
+                        borderBottomRightRadius: mine ? Radius.sm : Radius.lg,
+                        borderBottomLeftRadius: mine ? Radius.lg : Radius.sm,
+                      },
+                    ]}>
+                    {item.isDrill ? (
+                      <View style={styles.drillTag}>
+                        <DrillBanner compact />
+                      </View>
                     ) : null}
-                  </View>
-                </Pressable>
-              </View>
-            );
-          }}
-        />
+
+                    <Text variant="body" style={{ color: mine ? colors.accentText : colors.text }}>
+                      {item.body}
+                    </Text>
+
+                    <View style={styles.meta}>
+                      <Text
+                        variant="caption"
+                        style={{
+                          color: mine ? colors.accentText : colors.textTertiary,
+                          opacity: 0.8,
+                        }}>
+                        {elapsedShort(item.createdAt)}
+                      </Text>
+                      {item.pending ? (
+                        <MaterialIcons
+                          name="schedule"
+                          size={11}
+                          color={mine ? colors.accentText : colors.textTertiary}
+                        />
+                      ) : null}
+                    </View>
+                  </Pressable>
+                </View>
+              );
+            }}
+          />
+        )}
 
         <View
           style={[
@@ -235,7 +250,11 @@ export default function ChatScreen() {
             accessibilityLabel="Mensaje"
             style={[
               styles.input,
-              { backgroundColor: colors.surfaceSunken, borderColor: colors.border, color: colors.text },
+              {
+                backgroundColor: colors.surfaceSunken,
+                borderColor: colors.border,
+                color: colors.text,
+              },
             ]}
           />
 
@@ -264,7 +283,8 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   list: { gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg },
-  empty: { paddingVertical: Spacing.xxl, transform: [{ scaleY: -1 }] },
+  // Sin `transform`: ya no vive dentro de la lista invertida.
+  empty: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg },
   bubbleRow: { flexDirection: 'row' },
   mineRow: { justifyContent: 'flex-end' },
   theirsRow: { justifyContent: 'flex-start' },

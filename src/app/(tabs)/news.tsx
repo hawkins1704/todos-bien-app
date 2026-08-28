@@ -22,7 +22,7 @@ import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { fetchQuakeFeed, PremiumRequiredError, type QuakeFeedScope } from '@/lib/api';
-import { Radius, Spacing, TabBarExtraInset } from '@/theme/tokens';
+import { Radius, Spacing, tabScreenBottomInset } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import type { QuakeEvent } from '@/types/domain';
 
@@ -91,8 +91,8 @@ export default function NewsScreen() {
   const isPremium = mySettings?.isPremium ?? false;
 
   // En iOS `insets.bottom` ya incluye la tab bar glass; en Android hay que
-  // sumarle la barra de Material (ver TabBarExtraInset).
-  const fondo = insets.bottom + TabBarExtraInset;
+  // sumarle la barra de Material (ver tabScreenBottomInset).
+  const fondo = tabScreenBottomInset(insets.bottom);
 
   const load = useCallback(
     async (target: QuakeFeedScope, { force = false }: { force?: boolean } = {}) => {
@@ -365,7 +365,7 @@ function ListaBloqueada() {
     <ScrollView
       contentContainerStyle={[
         styles.bloqueado,
-        { paddingBottom: insets.bottom + TabBarExtraInset + Spacing.lg },
+        { paddingBottom: tabScreenBottomInset(insets.bottom) + Spacing.lg },
       ]}>
       <View style={styles.muestras} pointerEvents="none">
         {muestras.map((quake, index) => (

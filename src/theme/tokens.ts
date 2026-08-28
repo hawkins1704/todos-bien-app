@@ -169,18 +169,27 @@ export const Type = {
 } as const;
 
 /**
- * Alto EXTRA a reservar bajo el contenido, además de `insets.bottom`, para que
- * la tab bar nativa no tape el último elemento de una lista.
+ * Cuánto del safe area inferior tiene que aplicar A MANO una pantalla de tabs.
  *
- * En iOS es 0 a propósito: dentro de una pantalla de NativeTabs el inset
- * inferior que reporta la pantalla YA incluye la tab bar. Medido en iPhone 17 /
- * iOS 26.3: 83pt dentro de los tabs contra 34pt fuera de ellos (drill), o sea
- * los 34 del home indicator más los 49 de la barra glass. Sumarle una constante
- * encima contaría doble.
+ * **En iOS: todo.** Dentro de una pantalla de NativeTabs el inset inferior que
+ * reporta la pantalla YA incluye la tab bar. Medido en iPhone 17 / iOS 26.3:
+ * 83pt dentro de los tabs contra 34pt fuera de ellos (drill), o sea los 34 del
+ * home indicator más los 49 de la barra glass. Aplicarlo alcanza.
  *
- * En Android no pasa lo mismo: las window insets solo traen la barra de
- * navegación del sistema, así que la altura de la BottomNavigationView de
- * Material va aparte. ⚠️ Los 80dp son el valor de Material 3, sin verificar
- * todavía en un dispositivo (ver docs/ESTADO-DEL-PROYECTO.md §4).
+ * **En Android: nada.** NativeTabs envuelve el contenido en un `SafeAreaView`
+ * que ya aplica el inset inferior de la tab bar (docs de Expo SDK 57, «Native
+ * Tabs»), y encima ahí la barra de Material es opaca: no tapa contenido. Sumar
+ * `insets.bottom` otra vez —y peor, más una constante— lo contaba dos o tres
+ * veces. Era el hueco enorme al final de todas las listas que aparecía SOLO en
+ * Android, reportado el 2026-08-27 probando en dispositivo.
+ *
+ * Reemplaza a `TabBarExtraInset`, que sumaba 80dp «de Material 3» sin haberse
+ * verificado nunca en un teléfono. No hay API para leer el alto de la tab bar
+ * nativa: los docs de Expo dicen explícitamente que todavía no existe.
+ *
+ * ⚠️ Solo para pantallas DENTRO de `(tabs)`. Un modal o una pantalla apilada no
+ * tiene tab bar y necesita su `insets.bottom` completo en las dos plataformas.
  */
-export const TabBarExtraInset = Platform.select({ ios: 0, android: 80 }) ?? 0;
+export function tabScreenBottomInset(safeAreaBottom: number): number {
+  return Platform.OS === 'android' ? 0 : safeAreaBottom;
+}

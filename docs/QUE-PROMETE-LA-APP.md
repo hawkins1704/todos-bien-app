@@ -155,8 +155,10 @@ que pagar para que le avisen que tembló donde está. Vender eso sería vender e
 |---|---|---|
 | **Alerta** — tembló cerca tuyo, o fuerte en tu país | ✅ | ✅ **igual** |
 | Captura automática de ubicación, círculo, chat, simulacros | ✅ | ✅ **igual** |
-| **«María no responde»** a los 20 minutos | ✅ | ✅ **igual** |
+| **«María no responde»** a los 20 minutos, **si ese sismo también te alcanzó a ti** | ✅ | ✅ **igual** |
+| **«Tembló cerca de María»** cuando el sismo **no** te alcanzó a ti | ❌ | ✅ |
 | **Guardián** — «tembló cerca de María», al minuto 0, y su cierre «ya reportó» | ❌ | ✅ |
+| El aro de estado en el círculo de un contacto que está en un sismo vivo | ✅ | ✅ **igual** |
 | **Noticias** de sismos en tu país | ✅ | ✅ |
 | **Noticias** de sismos en el resto del mundo | ❌ | ✅ |
 | Feed global de sismos | ❌ | ✅ |
@@ -169,10 +171,26 @@ Borrar o esconder información de seguridad de alguien porque se le venció una 
 sería exactamente lo que este producto promete no hacer, y decirlo en la venta es un
 argumento, no una concesión.
 
-**El corte que hay que saber defender** es el de las dos primeras filas de personas. Gratis
-te dice **cuando algo salió mal** —tu contacto no respondió—; Premium te deja **acompañar el
-evento** desde el primer minuto. La señal de alarma nunca se cobra; lo que se cobra es
-enterarse antes y ver el cierre.
+**El corte que hay que saber defender**, dicho con precisión (verificado en el código el
+2026-08-27, no deducido de la intención):
+
+> **Si el sismo te alcanzó a ti**, gratis tienes todo: tu alerta, tu círculo, y «X no
+> responde» a los 20 minutos.
+>
+> **Si el sismo NO te alcanzó**, gratis tienes que acordarte de abrir la app. Premium te
+> avisa.
+
+La frase corta —«la señal de que algo salió mal siempre es gratis»— **es cierta solo entre
+quienes compartieron el sismo**. `notify_silent_contacts` manda «X no responde» únicamente a
+quien tiene entrega de alerta de ese mismo sismo, así que quien está en Madrid **no recibe
+nada** por el canal gratuito. Decir la frase sin esa condición es prometerle a alguien de la
+diáspora justo lo que no va a llegarle.
+
+**Lo que sí es gratis para el que está lejos**, y conviene decirlo porque suena a Premium y no
+lo es: al abrir la app, un contacto que está dentro de un sismo vivo aparece con **su aro de
+estado** en el círculo, sin pagar nada. El estado siempre se vio entrando a su ficha; cobrar
+por el aro sería cobrar una comodidad visual de un dato que ya se regala. **Lo que se cobra es
+la interrupción**: que te avisen sin que se te ocurra mirar.
 
 **Y una limitación que se dice en voz alta, no en letra chica:** Guardián solo alcanza a los
 contactos que tienen ubicación guardada. De quien nunca dio el permiso no se sabe si el

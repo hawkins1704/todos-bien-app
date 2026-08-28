@@ -26,7 +26,7 @@ import { isOlderThan, timeAgo } from '@/lib/format';
 import { captureLocationOnce } from '@/lib/location';
 import { confirmedForQuake, isAlertActive, membersInQuakeZone } from '@/lib/quakes';
 import { reportMyStatus } from '@/lib/sync';
-import { Radius, Spacing, TabBarExtraInset, type StatusKey } from '@/theme/tokens';
+import { Radius, Spacing, tabScreenBottomInset, type StatusKey } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
 const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
@@ -115,7 +115,7 @@ export default function HomeScreen() {
           styles.content,
           {
             paddingTop: topInset + Spacing.md,
-            paddingBottom: insets.bottom + TabBarExtraInset + Spacing.xl,
+            paddingBottom: tabScreenBottomInset(insets.bottom) + Spacing.xl,
           },
         ]}
         refreshControl={

@@ -19,7 +19,7 @@ import {
 } from '@/lib/api';
 import { formatE164ForDisplay } from '@/lib/phone';
 import { syncMe } from '@/lib/sync';
-import { Radius, Spacing, TabBarExtraInset } from '@/theme/tokens';
+import { Radius, Spacing, tabScreenBottomInset } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import { FREE_DRILL_LIMIT } from '@/types/domain';
 
@@ -126,7 +126,7 @@ export default function SettingsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + TabBarExtraInset + Spacing.xl },
+          { paddingTop: insets.top + Spacing.md, paddingBottom: tabScreenBottomInset(insets.bottom) + Spacing.xl },
         ]}>
         <Text variant="title2">Ajustes</Text>
 

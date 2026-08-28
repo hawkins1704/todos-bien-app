@@ -85,9 +85,9 @@ TIPS DE PREPARACIÓN
 Con la fuente citada en cada uno: INDECI, Cruz Roja Peruana e Instituto Geofísico del Perú.
 
 PREMIUM (opcional)
-La app funciona completa sin pagar: la alerta de un sismo que te toca a ti, y el aviso de que alguien de tu círculo no respondió, nunca dependen de que pagues.
+Cuando el sismo te toca a ti, la app funciona completa sin pagar: tu alerta, tu círculo y el aviso de que alguien no respondió nunca dependen de que pagues.
 
-Premium sirve para lo contrario: enterarte de los demás. Te avisa apenas tiembla cerca de alguien de tu círculo —estés donde estés, con su nombre y a cuántos kilómetros le pasó— y otra vez cuando esa persona reporta que está bien. Agrega además avisos de sismos fuertes en cualquier parte del mundo, simulacros ilimitados y hasta cinco planes de acción con nombre, uno por situación: casa, trabajo, colegio.
+Premium sirve para lo contrario: los sismos que NO te tocan a ti. Te avisa apenas tiembla cerca de alguien de tu círculo —estés donde estés, con su nombre y a cuántos kilómetros le pasó— y otra vez cuando esa persona reporta que está bien. Agrega además avisos de sismos fuertes en cualquier parte del mundo, simulacros ilimitados y hasta cinco planes de acción con nombre, uno por situación: casa, trabajo, colegio.
 
 Tu familia no necesita pagar nada ni enterarse: Premium es tuyo, y sirve para saber de ellos.
 

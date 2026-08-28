@@ -18,7 +18,7 @@ import {
   type ConversationSummary,
 } from '@/lib/chat';
 import { timeAgo } from '@/lib/format';
-import { Spacing, TabBarExtraInset } from '@/theme/tokens';
+import { Spacing, tabScreenBottomInset } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 
 export default function ChatsScreen() {
@@ -68,7 +68,7 @@ export default function ChatsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + TabBarExtraInset + Spacing.xl },
+          { paddingTop: insets.top + Spacing.md, paddingBottom: tabScreenBottomInset(insets.bottom) + Spacing.xl },
         ]}
         refreshControl={
           // El spinner se ancla al borde del ScrollView, que acá empieza en y=0

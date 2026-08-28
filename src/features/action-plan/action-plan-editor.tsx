@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
@@ -68,17 +68,19 @@ export function ActionPlanEditor({
           </Text>
         </View>
 
+        {/* Los ejemplos se LEEN, no se tocan.
+
+            Eran `Pressable` y al tocarlos reemplazaban el texto entero por el
+            ejemplo. Dos problemas: en el paso 4 del alta borraba de un toque lo
+            que la persona acababa de escribir, sin avisar ni forma de deshacer;
+            y un plan copiado de un ejemplo no es un plan, es relleno — el valor
+            está en pensar la salida y el punto de encuentro propios. */}
         {EXAMPLES.map((example) => (
-          <Pressable
-            key={example}
-            onPress={() => onChange(example)}
-            accessibilityRole="button"
-            accessibilityLabel={`Usar ejemplo: ${example}`}
-            style={({ pressed }) => [styles.example, pressed ? styles.pressed : null]}>
+          <View key={example} style={styles.example}>
             <Text variant="footnote" tone="secondary">
               “{example}”
             </Text>
-          </Pressable>
+          </View>
         ))}
       </Card>
 
@@ -102,5 +104,4 @@ const styles = StyleSheet.create({
   counter: { alignSelf: 'flex-end' },
   hintHeader: { alignItems: 'center', flexDirection: 'row', gap: Spacing.xs, marginBottom: Spacing.sm },
   example: { paddingVertical: Spacing.xs },
-  pressed: { opacity: 0.6 },
 });

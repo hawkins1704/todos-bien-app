@@ -81,19 +81,32 @@ function RootNavigator() {
   useEffect(() => {
     if (!ready) return;
 
-    void SplashScreen.hideAsync();
-
     const group = segments[0];
     const inAuth = group === '(auth)';
     const inOnboarding = group === '(onboarding)';
 
+    let destino: '/welcome' | '/profile' | '/' | null = null;
     if (!session) {
-      if (!inAuth) router.replace('/welcome');
+      if (!inAuth) destino = '/welcome';
     } else if (!onboardingCompleted) {
-      if (!inOnboarding) router.replace('/profile');
+      if (!inOnboarding) destino = '/profile';
     } else if (inAuth || inOnboarding) {
-      router.replace('/');
+      destino = '/';
     }
+
+    // El splash se oculta DESPUÉS de llegar a la ruta correcta, no antes.
+    //
+    // Antes se ocultaba al entrar a este efecto, y como `router.replace` tarda
+    // un frame en aplicarse quedaba un parpadeo: el splash se iba, la Home
+    // asomaba un instante y recién entonces entraba el onboarding. Al depender
+    // de `segments`, el efecto se vuelve a ejecutar ya en destino y ahí sí cae
+    // en el `hideAsync` de abajo.
+    if (destino) {
+      router.replace(destino);
+      return;
+    }
+
+    void SplashScreen.hideAsync();
   }, [ready, session, onboardingCompleted, segments, router]);
 
   return (

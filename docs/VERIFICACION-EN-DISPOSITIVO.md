@@ -68,6 +68,18 @@ returning id;
 > de un mismo bloque devuelve siempre la misma hora, así que hay que restar a mano:
 > `now() - interval '30 minutes'`.
 
+> 🔴 **No falsees coordenadas de un teléfono encendido: la app te las pisa.** Aprendido a los
+> golpes el 2026-08-27. Se le puso a la cuenta B una posición en Arequipa, se sembró el sismo
+> ahí, y a **un segundo** de recibir el push su app despertó, capturó su ubicación real (Lima)
+> y sobrescribió la falsa. A partir de ahí `get_active_alert` hacía la cuenta correcta —sismo
+> a 756 km, radio 150— y la Home decía «sin alertas activas». Parecía un bug de la app y era
+> la **captura automática del §7.2 funcionando**.
+>
+> **La forma que sí funciona con dos teléfonos en la misma ciudad:** no tocar ninguna
+> ubicación y **subirle el radio a la cuenta B** a 300 km —opción real del menú—, sembrando el
+> sismo a ~265 km. Alcanza a B y a nadie más, las posiciones son verdaderas y la app de B
+> muestra la alerta de verdad, que es lo que hace falta para probar el cierre (7b.5).
+
 **Verificar a quién le llegó, antes de mirar el teléfono:**
 
 ```sql
@@ -197,6 +209,10 @@ algo de acá falla, no hay nada que vender.
 **Necesita dos cuentas y un sismo sembrado.** El truco para no viajar a Madrid: sembrar el
 sismo lejos de **tu** posición y cerca de la del contacto, editándole las coordenadas a mano.
 
+> ✅ **7b.4 y 7b.5 verificados el 2026-08-27** con dos teléfonos (iPhone premium + Android
+> gratis). Apertura enviada a los 0,7 s del insert; cierre enviado al reportar. La corrida
+> destapó además los tres huecos de abajo, todos ya cerrados.
+
 | # | Paso | Qué tiene que pasar |
 |---|---|---|
 | 7b.1 | Instalación nueva, conceder ubicación, y mirar `select country_code from user_settings where user_id = '<ID>'` | Dice el país **real**. Hasta el 2026-08-25 todos decían `PE` sin excepción, porque nadie lo escribía nunca |
@@ -213,6 +229,22 @@ sismo lejos de **tu** posición y cerca de la del contacto, editándole las coor
 | 7b.12 | Correr el reparto del mismo sismo dos veces | No se duplica (`dedupe_key`) |
 | 7b.13 | Ajustes → GUARDIÁN, apagar el interruptor y repetir | No llega ninguno de los dos avisos |
 | 7b.14 | Con A y B **bloqueados** entre sí (0021) | No llega nada: `accepted_circle_of` deja fuera a los bloqueados |
+
+---
+
+## 7.c · Lo que destapó la corrida de Guardián (2026-08-27)
+
+Tres huecos que solo aparecen con dos teléfonos y un sismo real de por medio. Los tres están
+arreglados; esto es para que no vuelvan.
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 7c.1 | Con alerta activa, mirar el círculo de la cuenta **que sí recibió** el sismo | 🔴 Un contacto al que la alerta **no** le llegó sale **apagado**, no «sin confirmar». Y el contador dice `confirmados/los-de-la-zona`, no sobre el círculo entero. Antes marcaba como callado a cualquiera que viviera en otra ciudad — el perfil exacto al que se le vende Guardián (migración 0025) |
+| 7c.2 | Sin alerta propia, con un contacto dentro de un sismo vivo | 🔴 Ese contacto sale **con su aro de estado** en la Home. Antes llegaba el push de Guardián, abrías la app y no había nada distinto que mirar |
+| 7c.3 | Que ese contacto marque «necesito ayuda» y **después** «estoy bien» | 🔴 Llegan **los dos** avisos, y el segundo dice «**ya está bien**». La clave de dedup era una por sismo, así que el alivio posterior a una alarma se descartaba en silencio: te avisaba 4 veces que necesitaba ayuda y 0 que ya estaba bien (migración 0026) |
+| 7c.4 | Que cambie de «estoy bien» a «ayudando» | **No** llega nada. Es el mismo grupo: repetirlo a las 3 AM es el ruido que hace que se apaguen las notificaciones |
+| 7c.5 | Abrir la ficha de un contacto y, desde el otro teléfono, cambiarle el estado | Tirar de la ficha hacia abajo la actualiza. Antes leía la caché **una sola vez al montar** y se quedaba congelada aunque la app sincronizara por detrás |
+| 7c.6 | Abrir la ficha de alguien cuyo último reporte es de hace días | **No** muestra estado ni ubicación: dice que la última es de hace N y que solo se guarda durante un sismo. Una coordenada de hace tres días es lo contrario de lo que promete la app |
 
 ---
 
@@ -267,7 +299,8 @@ Premium. Si algo de acá difiere entre las dos cuentas, **es un bug**, no una fu
 | 9b.2 | Las dos pantallas en modo alerta | Iguales: los 4 estados, el círculo, el contador |
 | 9b.3 | Captura automática de ubicación | Ocurre en las dos |
 | 9b.4 | Que un contacto marque «necesito ayuda» | Las dos reciben el aviso |
-| 9b.5 | Que un contacto se quede callado 20 min | 🔴 Las dos reciben **«X no responde»**. Este es el corte que hace legítimo cobrar Guardián: la señal de que algo salió mal nunca se cobra |
+| 9b.5 | Que un contacto se quede callado 20 min, **con el sismo alcanzando a las dos cuentas** | 🔴 Las dos reciben **«X no responde»**. Este es el corte que hace legítimo cobrar Guardián: entre quienes compartieron el sismo, la señal de que algo salió mal nunca se cobra |
+| 9b.5b | Lo mismo, pero con **la cuenta observadora fuera** del alcance del sismo | **No recibe nada**, ni gratis ni premium, porque `notify_silent_contacts` solo escribe a quien tiene entrega de ESE sismo (0020). No es un bug: es lo que hace que Guardián sea el **único** canal para un sismo que no te tocó. Lo que sí sería un bug es prometer lo contrario en la landing — ver `QUE-PROMETE-LA-APP.md` §7 |
 | 9b.6 | Chat, círculo ilimitado, plan de acción, tips | Iguales |
 | 9b.7 | Noticias → pestaña **Perú** | Igual en las dos |
 

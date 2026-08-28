@@ -15,7 +15,7 @@ import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { respondToConnection } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { effectiveStatus, isAlertActive, liveQuakeStatus } from '@/lib/quakes';
-import { Spacing, TabBarExtraInset } from '@/theme/tokens';
+import { Spacing, tabScreenBottomInset } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import type { CircleMember } from '@/types/domain';
 
@@ -44,7 +44,7 @@ export default function CircleScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + TabBarExtraInset + Spacing.xl },
+          { paddingTop: insets.top + Spacing.md, paddingBottom: tabScreenBottomInset(insets.bottom) + Spacing.xl },
         ]}
         refreshControl={
           // El spinner se ancla al borde del ScrollView, que acá empieza en y=0

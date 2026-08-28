@@ -62,7 +62,7 @@ funciones que operan **sobre** tus contactos sin que tus contactos necesiten nad
 | Captura automática de ubicación | Es la promesa central |
 | Chat individual y grupal | |
 | Círculo **ilimitado** | Prometido en la landing, y cobrarlo sería cobrar seguridad |
-| **«María no responde»** a los 20 min | **La señal de que algo salió mal es gratis.** Este corte es lo que hace legítimo todo lo demás |
+| **«María no responde»** a los 20 min, **si el sismo también te llegó a ti** | **La señal de que algo salió mal es gratis.** Este corte es lo que hace legítimo todo lo demás |
 | 1 plan de acción · 3 simulacros · noticias del país | |
 
 ### Premium — todo es «vigilar a los míos»
@@ -78,6 +78,30 @@ funciones que operan **sobre** tus contactos sin que tus contactos necesiten nad
 **Guardián es el único que importa.** Los otros son relleno de lista: nadie paga por
 simulacros ilimitados. Guardián es lo que convierte la app de «me avisa a mí» a «cuida a los
 míos».
+
+### ⚠️ El corte real es más filoso de lo que decía este documento
+
+Verificado en el código el **2026-08-27**, probando con dos teléfonos. `notify_silent_contacts`
+manda «X no responde» **solo a quien tiene entrega de alerta de ESE mismo sismo**
+(restricción que puso la migración 0020, §1.13.5 de ESTADO). O sea:
+
+| | Contacto **cerca** de ti | Contacto **lejos** de ti |
+|---|---|---|
+| **Gratis** | Alerta propia + «no responde» a los 20 min | **Nada** |
+| **Premium** | Igual | Aviso al minuto 0 y el cierre |
+
+Este documento afirmaba antes que el aviso de los 20 minutos llegaba siempre. **Para el
+escenario de Madrid —el que abre §3.1— es falso: no llega nada.**
+
+Las consecuencias son dos, y van en direcciones opuestas:
+
+1. **A favor del precio.** Guardián no es «una notificación más»: es el **único canal que
+   existe** para enterarte de un sismo que a ti no te alcanzó. Eso sostiene los S/ 79,90.
+2. **En contra de la promesa pública.** La frase «la señal de que algo salió mal siempre es
+   gratis» hay que decirla completa: es gratis **entre quienes compartieron el sismo**.
+   Escribirla sin esa condición es venderle a alguien de la diáspora exactamente lo que no va
+   a recibir. Ya se corrigió en `QUE-PROMETE-LA-APP.md` §7, que es la fuente de las
+   afirmaciones públicas.
 
 ### 3.1 · El hueco de 20 minutos, que es el producto entero
 
