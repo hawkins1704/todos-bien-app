@@ -2,8 +2,6 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { Avatar } from '@/components/avatar';
 import { SubscriptionManager } from '@/components/subscription-manager';
 import { Button } from '@/components/ui/button';
@@ -113,9 +112,7 @@ export default function AccountScreen() {
     <Screen>
       <Stack.Screen options={{ title: 'Mi cuenta' }} />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -255,7 +252,7 @@ export default function AccountScreen() {
             </Card>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Screen>
   );
 }

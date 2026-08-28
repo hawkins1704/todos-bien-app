@@ -220,6 +220,7 @@ export type Database = {
           contact_message: boolean;
           contact_needs_help: boolean;
           contact_not_responding: boolean;
+          contact_reported: boolean;
           guardian_alerts: boolean;
           quake_national: boolean;
           quake_worldwide: boolean;
@@ -232,6 +233,7 @@ export type Database = {
           contact_message?: boolean;
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
+          contact_reported?: boolean;
           guardian_alerts?: boolean;
           quake_national?: boolean;
           quake_worldwide?: boolean;
@@ -243,6 +245,7 @@ export type Database = {
           contact_message?: boolean;
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
+          contact_reported?: boolean;
           guardian_alerts?: boolean;
           quake_national?: boolean;
           quake_worldwide?: boolean;

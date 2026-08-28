@@ -1,8 +1,9 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { ScrollView, StyleSheet, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { Button } from '@/components/ui/button';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
@@ -104,9 +105,7 @@ export default function ActionPlanEditScreen() {
     <Screen>
       <Stack.Screen options={{ title: esNuevo ? 'Nuevo plan' : 'Editar plan' }} />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
           keyboardShouldPersistTaps="handled">
@@ -163,7 +162,7 @@ export default function ActionPlanEditScreen() {
             size="lg"
           />
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Screen>
   );
 }

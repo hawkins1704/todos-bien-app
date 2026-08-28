@@ -117,7 +117,7 @@ Deno.serve(async (req: Request) => {
       admin.from('profiles').select('id, display_name').in('id', ids),
       admin
         .from('connections')
-        .select('user_a, user_b, status')
+        .select('user_a, user_b, status, blocked_by')
         .or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
     ]);
 
@@ -127,9 +127,26 @@ Deno.serve(async (req: Request) => {
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
 
   const connectionByOther = new Map<string, string>();
+
+  /**
+   * A quién bloqueó **quien está preguntando**, y solo eso.
+   *
+   * `blocked_by` NUNCA sale de acá tal cual, y es deliberado: el estado
+   * `'blocked'` es el mismo para los dos lados, así que devolverlo sin más le
+   * diría a la persona bloqueada que la bloquearon. Un bloqueo que se anuncia
+   * no protege de nada — invita a buscar otra vía.
+   *
+   * Este conjunto solo puede contener a alguien si el que consulta es el que
+   * bloqueó, así que decírselo no le revela nada que no sepa; le recuerda algo
+   * que hizo. Del otro lado el campo llega en `false` y la pantalla los agrupa
+   * con el resto de "no se puede agregar", sin dar razón.
+   */
+  const bloqueadosPorMi = new Set<string>();
+
   for (const c of connections ?? []) {
     const other = c.user_a === user.id ? c.user_b : c.user_a;
     connectionByOther.set(other, c.status);
+    if (c.status === 'blocked' && c.blocked_by === user.id) bloqueadosPorMi.add(other);
   }
 
   const matches = matched
@@ -141,6 +158,7 @@ Deno.serve(async (req: Request) => {
         phone_hash: s.phone_hash,
         display_name: profile.display_name,
         connection_status: connectionByOther.get(s.user_id) ?? null,
+        blocked_by_me: bloqueadosPorMi.has(s.user_id),
       };
     })
     .filter((m) => m !== null);

@@ -69,6 +69,12 @@
         {
           "enableBackgroundRemoteNotifications": true
         }
+      ],
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyDqZkcCaQt18AFZqj0vcMEzrAjAdmuUgkw"
+        }
       ]
     ],
     "experiments": {

@@ -156,6 +156,7 @@ que pagar para que le avisen que tembló donde está. Vender eso sería vender e
 | **Alerta** — tembló cerca tuyo, o fuerte en tu país | ✅ | ✅ **igual** |
 | Captura automática de ubicación, círculo, chat, simulacros | ✅ | ✅ **igual** |
 | **«María no responde»** a los 20 minutos, **si ese sismo también te alcanzó a ti** | ✅ | ✅ **igual** |
+| **«María está bien»** cuando reporta, **si ese sismo también te alcanzó a ti** | ✅ | ✅ **igual** |
 | **«Tembló cerca de María»** cuando el sismo **no** te alcanzó a ti | ❌ | ✅ |
 | **Guardián** — «tembló cerca de María», al minuto 0, y su cierre «ya reportó» | ❌ | ✅ |
 | El aro de estado en el círculo de un contacto que está en un sismo vivo | ✅ | ✅ **igual** |
@@ -174,11 +175,25 @@ argumento, no una concesión.
 **El corte que hay que saber defender**, dicho con precisión (verificado en el código el
 2026-08-27, no deducido de la intención):
 
-> **Si el sismo te alcanzó a ti**, gratis tienes todo: tu alerta, tu círculo, y «X no
-> responde» a los 20 minutos.
+> **Si el sismo te alcanzó a ti**, gratis tienes todo: tu alerta, tu círculo, «X no responde»
+> a los 20 minutos, y el aviso cuando esa persona reporta que está bien.
 >
 > **Si el sismo NO te alcanzó**, gratis tienes que acordarte de abrir la app. Premium te
 > avisa.
+
+> ✅ **La segunda mitad de la línea de arriba es de la migración 0027 (2026-08-28), y antes
+> era falsa en la dirección contraria.** Dentro de tu propio sismo el «está bien» de un
+> contacto **no llegaba nunca**, ni pagando: colgaba de haber recibido la apertura de Guardián,
+> que solo reciben los que están **fuera** de la zona. El resultado era al revés de lo que
+> cualquiera esperaría —alguien en Madrid con Premium recibía «María está bien», y quien estaba
+> en el mismo terremoto que María, no—, y dejaba a la persona que más lo necesita recibiendo
+> **solo malas noticias**: «necesita ayuda» sí es gratis e incondicional desde siempre.
+>
+> **Y va gratis, no en Premium, por una razón que conviene tener escrita:** ponerlo detrás del
+> muro volvería falsa la frase «cuando el sismo te toca a ti, todo es gratis», que está
+> publicada en el paywall, en la landing, en la ficha de la tienda y en la FAQ. Guardián no
+> pierde nada — sigue siendo el único canal para el sismo que **no** te tocó, que es lo que se
+> vende.
 
 La frase corta —«la señal de que algo salió mal siempre es gratis»— **es cierta solo entre
 quienes compartieron el sismo**. `notify_silent_contacts` manda «X no responde» únicamente a

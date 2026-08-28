@@ -1,8 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -10,6 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { Avatar } from '@/components/avatar';
 import { OnboardingStep } from '@/components/onboarding-step';
 import { Button } from '@/components/ui/button';
@@ -85,9 +84,7 @@ export default function OnboardingProfileScreen() {
 
   return (
     <Screen tone="plain">
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -166,7 +163,7 @@ export default function OnboardingProfileScreen() {
             style={styles.cta}
           />
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Screen>
   );
 }

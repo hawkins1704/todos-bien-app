@@ -48,6 +48,11 @@ const NOTIFICATION_LABELS: { key: keyof NotificationPrefs; title: string; detail
     title: 'Contacto sin responder',
     detail: 'Un contacto no actualizó su estado un rato después de una alerta.',
   },
+  {
+    key: 'contactReported',
+    title: 'Alguien reportó que está bien',
+    detail: 'Un contacto reportó su estado en un sismo que también te alcanzó a ti.',
+  },
 ];
 
 /**
@@ -249,12 +254,16 @@ export default function SettingsScreen() {
             ))}
           </Card>
 
-          {/* Decía «no mandamos notificación cuando alguien marca que está
-              bien». Dejó de ser cierto con Guardián (0022), que avisa
-              justamente eso — a quien recibió el aviso de apertura. */}
+          {/* Este texto ya mintió dos veces, así que conviene explicar por qué.
+              Nació diciendo «no mandamos notificación cuando alguien marca que
+              está bien», y Guardián (0022) lo volvió falso. Se corrigió a «fuera
+              de Guardián no avisamos», y la 0027 lo volvió falso otra vez: ahora
+              el reporte de un contacto también avisa a quien el mismo sismo
+              alcanzó, gratis. Regla para la próxima: la condición es *dónde
+              estabas vos*, no *qué plan tenés*. */}
           <Text variant="caption" tone="tertiary" style={styles.note}>
-            Fuera de Guardián no avisamos cuando alguien marca que está bien. Solo por lo que
-            necesitas saber.
+            Si el sismo también te alcanzó a ti, te avisamos cuando alguien de tu círculo
+            reporta cómo está. Si no te alcanzó, ese aviso es parte de Guardián.
           </Text>
         </Section>
 

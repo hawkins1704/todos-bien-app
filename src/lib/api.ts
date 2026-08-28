@@ -448,6 +448,7 @@ export async function matchContacts(
       phone_hash: string;
       display_name: string;
       connection_status: string | null;
+      blocked_by_me?: boolean;
     }[];
   }>('match-contacts', { body: { hashes: entries.map((e) => e.hash) } });
 
@@ -459,6 +460,10 @@ export async function matchContacts(
     localName: nameByHash.get(m.phone_hash) ?? m.display_name,
     phoneHash: m.phone_hash,
     connectionStatus: (m.connection_status as ConnectionStatus | null) ?? null,
+    // `?? false` y no un cast: si la app corre contra una versión vieja de la
+    // función edge, el campo no viene y hay que degradar a "no lo bloqueé" —
+    // que es el lado seguro, el que no afirma nada.
+    blockedByMe: m.blocked_by_me ?? false,
   }));
 }
 
@@ -637,6 +642,15 @@ export type NotificationPrefs = {
    * del par.
    */
   guardianAlerts: boolean;
+  /**
+   * «X está bien» cuando el sismo también me alcanzó a MÍ (migración 0027).
+   *
+   * Va aparte de `guardianAlerts` y no colgado de él: este aviso es **gratis**
+   * —dentro de tu propio sismo la app es completa— y el interruptor de Guardián
+   * está bloqueado en las cuentas gratis, así que compartirlos dejaría a esas
+   * cuentas recibiendo algo que no pueden apagar.
+   */
+  contactReported: boolean;
 };
 
 export async function fetchNotificationPrefs(userId: string): Promise<NotificationPrefs | null> {
@@ -658,6 +672,7 @@ export async function fetchNotificationPrefs(userId: string): Promise<Notificati
     quakeNational: data.quake_national,
     quakeWorldwide: data.quake_worldwide,
     guardianAlerts: data.guardian_alerts,
+    contactReported: data.contact_reported,
   };
 }
 
@@ -676,6 +691,7 @@ export async function updateNotificationPrefs(
   if (patch.quakeNational !== undefined) payload.quake_national = patch.quakeNational;
   if (patch.quakeWorldwide !== undefined) payload.quake_worldwide = patch.quakeWorldwide;
   if (patch.guardianAlerts !== undefined) payload.guardian_alerts = patch.guardianAlerts;
+  if (patch.contactReported !== undefined) payload.contact_reported = patch.contactReported;
 
   // Upsert y no update: un `update` sobre una fila que no existe afecta cero
   // filas y **no devuelve error**, así que el interruptor se veía cambiado en

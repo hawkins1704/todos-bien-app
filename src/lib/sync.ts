@@ -13,6 +13,7 @@ import { writeCircle } from '@/lib/db/circle';
 import { getDb } from '@/lib/db';
 import { KV, kvGet, kvSet } from '@/lib/db/kv';
 import {
+  discard,
   enqueue,
   markFailed,
   markSent,
@@ -113,6 +114,34 @@ export async function syncEverything(userId: string): Promise<void> {
 
 let flushing = false;
 
+/**
+ * ¿Este rechazo es definitivo, o vale la pena reintentarlo?
+ *
+ * La distinción no es un lujo: sin ella, un mensaje que la RLS rechazó porque
+ * la otra persona te bloqueó se quedaba en la cola y se reintentaba en cada
+ * sincronización. El día que se levantaba el bloqueo, **entraba** — la persona
+ * bloqueada terminaba entregando lo que escribió mientras lo estaba, y el
+ * bloqueo dejaba de significar algo.
+ *
+ * Los códigos son de Postgres y llegan tal cual por PostgREST:
+ *
+ * - `42501` privilegio insuficiente: lo que devuelve una política de RLS que no
+ *   deja pasar la fila. Es el caso del bloqueo.
+ * - `23503` clave foránea: la conversación o el usuario ya no existen.
+ * - `23514` restricción CHECK: el contenido nunca va a ser válido.
+ * - `22023` parámetro inválido, `28000` sin autenticar contra la regla.
+ *
+ * Todo lo demás —timeouts, DNS, 5xx, sin red— se reintenta, que es la razón de
+ * ser del outbox.
+ */
+const RECHAZOS_DEFINITIVOS = new Set(['42501', '23503', '23514', '22023', '28000']);
+
+function esRechazoDefinitivo(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' && RECHAZOS_DEFINITIVOS.has(code);
+}
+
 export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
   if (flushing) return { sent: 0, failed: 0 };
   flushing = true;
@@ -152,6 +181,27 @@ export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
         await markSent(item.id);
         sent += 1;
       } catch (error) {
+        if (esRechazoDefinitivo(error)) {
+          // Fuera de la cola: reintentarlo no lo va a arreglar, y guardarlo es
+          // peor que perderlo (ver `discard`).
+          await discard(item.id);
+
+          // Y fuera de la pantalla. La burbuja local se pintó de forma
+          // optimista con su relojito de "pendiente"; dejarla ahí sería un
+          // reloj que no se apaga nunca, mintiendo que el mensaje va a salir.
+          // Borrarla dice la verdad: no se envió y no se va a enviar.
+          if (item.kind === 'message') {
+            const db = await getDb();
+            await db.runAsync(
+              'DELETE FROM messages_cache WHERE id = ?',
+              (item.payload as MessageOutboxPayload).clientId,
+            );
+          }
+
+          failed += 1;
+          continue;
+        }
+
         await markFailed(item.id, error instanceof Error ? error.message : String(error));
         failed += 1;
       }

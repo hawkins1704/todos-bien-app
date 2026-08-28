@@ -2,14 +2,13 @@ import { Stack, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { AuthField } from '@/components/auth/auth-field';
 import { Button } from '@/components/ui/button';
 import { Screen } from '@/components/ui/screen';
@@ -71,9 +70,7 @@ export default function ChangePasswordScreen() {
     <Screen>
       <Stack.Screen options={{ title: 'Cambiar contraseña' }} />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
           keyboardShouldPersistTaps="handled">
@@ -153,7 +150,7 @@ export default function ChangePasswordScreen() {
             sigues adentro.
           </Text>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Screen>
   );
 }

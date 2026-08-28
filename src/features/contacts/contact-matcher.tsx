@@ -220,19 +220,40 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
               <Text variant="footnote" tone="secondary" weight="600" style={styles.listHeader}>
                 YA CONECTADOS O CON SOLICITUD ENVIADA
               </Text>
+              {/*
+                A quien bloqueaste se le pone etiqueta propia. Antes caía en
+                esta lista con el mismo tilde verde que un contacto aceptado,
+                así que veías a alguien que bloqueaste listado como si
+                estuvieran conectados.
+
+                Del OTRO lado no hay etiqueta y no puede haberla: `blockedByMe`
+                solo llega en `true` a quien bloqueó (ver `match-contacts`).
+                Quien fue bloqueado sigue viendo la fila genérica, sin razón —
+                un bloqueo que se anuncia no protege, invita a buscar otra vía.
+              */}
               {already.map((match) => (
                 <View key={match.userId} style={styles.row}>
                   <Avatar
                     displayName={match.displayName}
                     size={32}
                     status={null}
+                    dimmed={match.blockedByMe}
                   />
                   <View style={styles.rowCopy}>
                     <Text variant="subhead" numberOfLines={1}>
                       {match.displayName}
                     </Text>
+                    {match.blockedByMe ? (
+                      <Text variant="caption" tone="tertiary">
+                        Lo bloqueaste · puedes deshacerlo en Ajustes
+                      </Text>
+                    ) : null}
                   </View>
-                  <MaterialIcons name="check" size={20} color={status.safe.base} />
+                  {match.blockedByMe ? (
+                    <MaterialIcons name="block" size={20} color={colors.textTertiary} />
+                  ) : (
+                    <MaterialIcons name="check" size={20} color={status.safe.base} />
+                  )}
                 </View>
               ))}
             </Card>

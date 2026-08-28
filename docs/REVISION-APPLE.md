@@ -18,7 +18,20 @@ el motivo de fondo del cambio de código OTP a contraseña (ESTADO §1.1.1): con
 código, el correo llegaba a una casilla que Apple no tiene y la revisión era un rechazo
 garantizado.
 
-### ✅ Creada y sembrada el 2026-08-24
+### ✅ Creada el 2026-08-24 · círculo **repuesto el 2026-08-28**
+
+> ⚠️ **El círculo se había quedado vacío.** Los cuatro contactos se borraron durante una
+> limpieza de datos de prueba y la cuenta llegó al 2026-08-28 con **cero conexiones**. Un
+> revisor que entra a una app vacía no puede evaluar la función principal: es el rechazo
+> *«we were unable to review»*. **Conviene verificarlo el mismo día del envío**, con esta
+> consulta:
+>
+> ```sql
+> select count(*) from public.connections
+>  where (user_a = '00000000-0000-4000-a000-000000000001'
+>      or user_b = '00000000-0000-4000-a000-000000000001')
+>    and status = 'accepted';  -- tiene que dar 4
+> ```
 
 | Campo | Valor |
 |---|---|
@@ -45,6 +58,16 @@ Qué tiene adentro:
 > producto. Un círculo donde todos dicen «estoy bien» no muestra para qué sirve la app; lo
 > que hay que poder ver es la diferencia entre quien respondió y quien no.
 
+> 🔴 **Pero el revisor NO va a ver esos estados, y hay que decírselo.** Desde el 2026-08-27 la
+> app oculta el estado y la ubicación de todo el mundo fuera de una alerta activa
+> (`contact/[id].tsx`, `circle.tsx`, regla §5.2). En un martes tranquilo el círculo se ve como
+> cuatro nombres sin nada más. **Es correcto y es la promesa de privacidad funcionando**, pero
+> si el revisor lo lee como «la app no hace nada», cuesta el ciclo. Por eso la nota de §2
+> ahora se lo explica y lo manda al **simulacro**, que es donde los estados sí se ven.
+>
+> Los estados sembrados no son inútiles: siguen siendo los datos correctos si el revisor corre
+> el simulacro o si ocurre un sismo durante la revisión.
+
 Los cuatro contactos son cuentas reales con correos `todosbienapp+nombre@gmail.com`: llegan a
 la misma casilla del dueño y no rebota nada. Se sembraron con UUID fijos
 (`00000000-0000-4000-a000-00000000000X`), así que el script se puede volver a correr sin
@@ -62,9 +85,8 @@ duplicar nada.
 > ⚠️ **Después de la aprobación conviene rotar la contraseña**, porque queda escrita en App
 > Store Connect y en el historial de la revisión.
 
-> Las cuentas de prueba viejas se borran antes de enviar: `qa.simulador@example.com` sigue en
-> la base (`QUE-FALTA.md` 2.9). Una cuenta de QA con datos raros que aparezca en el círculo
-> del revisor es ruido en el peor momento.
+> ✅ **`qa.simulador@example.com` borrado el 2026-08-28.** Una cuenta de QA con datos raros que
+> aparezca en el círculo del revisor es ruido en el peor momento.
 
 ---
 
@@ -88,10 +110,17 @@ alert does. It is clearly labeled as a drill and never notifies other users unle
 explicitly chooses that option.
 
 DEMO ACCOUNT
-Email: appreview@todosbien.app
+Email: todosbienapp@gmail.com
 Password: [ver el gestor de contraseñas]
-The account already has an accepted circle of 4 contacts with mixed statuses, an action plan
-and a chat thread, so every screen has content.
+The account already has an accepted circle of 4 contacts, an action plan and a chat thread,
+so every screen has content.
+
+WHY THE CIRCLE LOOKS QUIET
+Outside of an active earthquake the app deliberately does NOT display anyone's status or
+location. This is a privacy decision, not missing data: we only store where someone was
+during an earthquake, so showing a position on a calm day would turn the app into a location
+history, which is exactly what we promise not to be. Run the drill above to see statuses,
+the status ring and the location card exactly as a real alert shows them.
 
 REPORTING AND BLOCKING (guideline 1.2)
 Users can report objectionable content and block other users:
@@ -152,23 +181,29 @@ la app hoy.
 | # | Riesgo | Por qué aplica acá | Estado |
 |---|---|---|---|
 | 1 | **Guideline 1.2 — contenido generado por usuarios sin moderación** | Hay chat entre personas. Apple pide: forma de denunciar, forma de bloquear, canal de contacto publicado y compromiso de actuar en 24 h | ✅ **Cerrado el 2026-08-24.** Denunciar desde el chat y desde el contacto (migración 0020), bloquear con «Quitar de mi círculo», contacto en `/soporte`, y las 24 h escritas en los términos §5.1 y sostenidas por el chequeo diario del runbook |
-| 2 | **Guideline 3.1.2 — paywall sin Términos ni Privacidad** | El paywall vive en RevenueCat, y ahí es un campo que se olvida | 🔴 Abierto (`QUE-FALTA.md` 2.6) |
+| 2 | **Guideline 3.1.2 — paywall sin Términos ni Privacidad** | El paywall vive en RevenueCat, y ahí es un campo que se olvida | ✅ **Cerrado el 2026-08-28.** Los dos enlaces y «Restaurar compras» están en el pie |
 | 3 | **Guideline 5.1.1(v) — borrar la cuenta** | La app crea cuentas | ✅ Hecho, y la ruta está en §2 |
 | 4 | **Guideline 2.1 — no pudimos probar la función principal** | Requiere un sismo real | ✅ Cubierto por la nota del simulacro |
 
-> El 1 es el que puede costar el ciclo. La respuesta más barata es un «Denunciar» en el
-> detalle del contacto y en el chat que mande el reporte a una tabla y confirme al usuario —
-> no hace falta un panel de moderación para el envío inicial, hace falta que el mecanismo
-> exista y que se pueda demostrar.
+> **Los cuatro están cerrados al 2026-08-28.** El que quedaba vivo era el 2, y era el más
+> barato de todos: dos campos de texto en RevenueCat. Vale la pena mirar el pie del paywall en
+> el teléfono antes de enviar (`VERIFICACION-EN-DISPOSITIVO.md` 8.3) — que el campo esté
+> guardado en la consola y que se **vea** en la pantalla no son lo mismo.
 
 ---
 
 ## 5 · Antes de tocar «Submit for Review»
 
-- [ ] La cuenta demo existe, entra, y tiene círculo, plan y chat sembrados
+- [x] La cuenta demo existe, entra, y tiene círculo, plan y chat sembrados — **repuesto el
+      2026-08-28**; volver a contarlo el día del envío con la consulta de §1
+- [ ] **El correo de la cuenta demo en las notas es `todosbienapp@gmail.com`.** Hasta el
+      2026-08-28 este documento decía `appreview@todosbien.app`, que **no existe**: pegado tal
+      cual, era el rechazo «no pudimos entrar» garantizado
 - [ ] La contraseña de la cuenta demo está pegada en el formulario (no en git)
-- [ ] `qa.simulador@example.com` borrado
-- [ ] El paywall de RevenueCat tiene los enlaces a Términos y Privacidad
-- [ ] Decidido qué se hace con la moderación de §4.1
-- [ ] El build subido es **posterior** al arreglo de los textos de permiso del 2026-08-24:
-      esos textos van en el `Info.plist` y viajan dentro del binario
+- [x] `qa.simulador@example.com` borrado — 2026-08-28
+- [x] El paywall de RevenueCat tiene los enlaces a Términos y Privacidad — 2026-08-28
+- [x] Decidido qué se hace con la moderación de §4.1 — denunciar y bloquear existen
+- [ ] La nota le explica al revisor **por qué el círculo se ve quieto** y lo manda al
+      simulacro. Sin eso, la app parece vacía en un día sin sismos
+- [ ] El build subido es **posterior a los arreglos del 2026-08-27/28**: los textos de permiso
+      viajan en el `Info.plist`, y los cuatro bugs de interfaz viajan en el bundle de JS

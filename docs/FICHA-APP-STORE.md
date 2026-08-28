@@ -133,10 +133,18 @@ Decir «sí» en contenido generado por el usuario **obliga a tener moderación*
 denunciar contenido ofensivo, forma de bloquear al que lo manda, y compromiso de actuar en
 24 horas. Es una causal de rechazo frecuente.
 
-> ⚠️ **Esto es trabajo de código que todavía no existe.** El chat es solo entre contactos
-> que ambos aceptaron y cualquiera puede eliminar la conexión, lo cual es un argumento
-> razonable —bloquear existe, se llama «eliminar contacto»—, pero no hay **denunciar**. Ver
-> `QUE-FALTA.md`; hay que decidirlo antes de enviar, no durante la revisión.
+> ✅ **Cerrado el 2026-08-24** (migraciones 0020 y 0021). Los cuatro requisitos existen y se
+> pueden demostrar en pantalla, que es lo que pide la guía 1.2:
+>
+> | Requisito | Dónde está |
+> |---|---|
+> | Denunciar contenido | Mantener apretado un mensaje ajeno en el chat, o desde la ficha del contacto. Guarda **copia del mensaje** como evidencia (`content_reports`) |
+> | Bloquear a una persona | Ficha del contacto → «Bloquear». Cierra el chat en **las dos direcciones** —incluido el que ya existía, que era el agujero real— e impide nuevas solicitudes |
+> | Deshacer el bloqueo | Ajustes → «Personas bloqueadas». El bloqueado no puede deshacerlo |
+> | Actuar en 24 h | Escrito en los términos §5.1 y sostenido por el chequeo diario del `RUNBOOK-OPERACION.md` |
+>
+> El recorrido para verificarlo en el teléfono es `VERIFICACION-EN-DISPOSITIVO.md` §8.b, y el
+> texto que se le explica al revisor está en `REVISION-APPLE.md` §2.
 
 Clasificación esperada: **4+**.
 
@@ -148,7 +156,7 @@ Apple exige, como mínimo, el juego del iPhone más grande; los tamaños menores
 ese si no se suben aparte. **Confirmar los tamaños vigentes en App Store Connect al subir**,
 que cambian con cada generación de iPhone.
 
-Las seis, en orden, y qué tiene que verse en cada una:
+Las siete, en orden, y qué tiene que verse en cada una:
 
 | # | Pantalla | Qué demuestra | Texto sugerido encima |
 |---|---|---|---|
@@ -158,6 +166,17 @@ Las seis, en orden, y qué tiene que verse en cada una:
 | 4 | Detalle de contacto con el mini mapa | La ubicación, con su límite | «Su ubicación después del sismo. No antes, no siempre» |
 | 5 | Ajustes de radio y magnitud | Control del usuario | «Tú eliges qué te despierta» |
 | 6 | Simulacro | Que se puede probar sin un terremoto | «Practica antes de necesitarlo» |
+| 7 | Noticias, con la lista de sismos de Perú y la del mundo | Que hay contenido todos los días, no solo cuando tiembla fuerte | «Los sismos del IGP, y los del mundo» |
+
+**Por qué la lista de sismos va séptima y no antes.** Es la pantalla que contesta «¿y qué
+hago con esta app un martes cualquiera?», y eso importa: sin ella la app parece algo que se
+abre una vez al año. Pero **no es la promesa** — un catálogo de sismos lo tienen el IGP y una
+docena de apps gratis. Ponerla arriba invita a compararnos con ellas, que es la comparación
+que perdemos. Va al final, como razón para no desinstalar.
+
+> El texto dice **«los sismos del IGP»** y no «alerta de sismos» a propósito: nombrar la
+> fuente es exacto y además es la palabra que la gente busca en Perú. Ver §8 de
+> `QUE-PROMETE-LA-APP.md` para por qué «alerta» a secas está prohibida en la ficha.
 
 **Tres reglas para no tener que rehacerlas:**
 
@@ -189,6 +208,12 @@ más allá de Perú. Lo que ya está decidido para cuando toque:
 
 - [ ] La descripción no dice «durante el sismo» en ninguna parte
 - [ ] La descripción no dice «alerta sísmica» ni «alerta temprana» como algo que la app haga
-- [ ] Los precios que se ven en el sitio coinciden con los productos de App Store Connect
+- [x] Los precios que se ven en el sitio coinciden con los productos de App Store Connect —
+      **9,90 · 59,90 · 79,90**, cerrado el 2026-08-28
 - [ ] Las capturas no muestran datos de personas reales
-- [ ] Está resuelto el punto de moderación de §4
+- [x] Está resuelto el punto de moderación de §4 — denunciar y bloquear existen desde el
+      2026-08-24
+- [ ] La descripción de Premium sigue diciendo la verdad sobre lo que es gratis. **Es lo que
+      más se desactualiza**: el corte cambió el 2026-08-27 y estaba mal escrito en cuatro
+      lugares públicos a la vez. La versión buena es la de §2, y su fuente es
+      `QUE-PROMETE-LA-APP.md` §7

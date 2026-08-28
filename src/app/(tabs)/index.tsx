@@ -179,21 +179,49 @@ export default function HomeScreen() {
               ) : null}
             </Card>
 
+            {/*
+              Durante una alerta la Home muestra SOLO a quienes les llegó el
+              sismo, no el círculo entero.
+
+              El resto no es que "falte": es que no tenía nada que reportar. En
+              una pantalla que se mira con el pulso a 120 y en la que cada cara
+              es una pregunta sin responder, mezclarlos obliga a hacer un
+              descarte mental —"¿este está callado o simplemente no le tocó?"—
+              justo cuando nadie está en condiciones de hacerlo. El círculo
+              completo sigue a un toque de distancia, en la pestaña Círculo.
+            */}
             <Card>
               <View style={styles.circleHeader}>
-                <Text variant="headline">Tu círculo</Text>
+                <Text variant="headline">
+                  {enZona.length > 0 ? 'Tu gente en la zona' : 'Tu círculo'}
+                </Text>
                 {enZona.length > 0 ? (
                   <Text variant="footnote" tone="secondary" weight="600">
                     {confirmed}/{enZona.length} confirmados
                   </Text>
-                ) : accepted.length > 0 ? (
-                  <Text variant="footnote" tone="secondary" weight="600">
-                    Nadie de tu círculo en la zona
-                  </Text>
                 ) : null}
               </View>
+
+              {enZona.length === 0 && accepted.length > 0 ? (
+                <Text variant="footnote" tone="tertiary" style={styles.circleNote}>
+                  A nadie de tu círculo le llegó esta alerta. El sismo no llegó hasta donde
+                  están.
+                </Text>
+              ) : null}
+
               <View style={styles.circleBody}>
-                <CircleGrid members={accepted} activeQuakeId={activeQuake.id} showStatus collapsed />
+                {/*
+                  Sin nadie en zona se muestra igual el círculo entero, apagado.
+                  Una tarjeta vacía en mitad de un sismo se lee como "no tengo a
+                  nadie", que es lo contrario de lo que queremos decir: los
+                  tienes, y están fuera del sismo.
+                */}
+                <CircleGrid
+                  members={enZona.length > 0 ? enZona : accepted}
+                  activeQuakeId={activeQuake.id}
+                  showStatus
+                  collapsed
+                />
               </View>
             </Card>
 
@@ -363,6 +391,7 @@ const styles = StyleSheet.create({
   subline: { marginTop: 2 },
   picker: { marginTop: Spacing.lg },
   circleHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  circleNote: { marginTop: Spacing.xs },
   circleBody: { marginTop: Spacing.lg },
   requests: {
     alignItems: 'center',

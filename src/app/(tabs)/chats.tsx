@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -26,7 +26,7 @@ export default function ChatsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { userId } = useAuth();
-  const { accepted } = useAppData();
+  const { accepted, refresh } = useAppData();
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [opening, setOpening] = useState<string | null>(null);
@@ -58,7 +58,33 @@ export default function ChatsScreen() {
     try {
       const id = await openDirectConversation(otherUserId);
       router.push(`/chat/${id}`);
+    } catch (error) {
+      // `get_or_create_direct_conversation` lanza `42501` cuando ya no hay
+      // conexión aceptada: te quitaron del círculo, o te bloquearon.
+      //
+      // Antes esto no tenía `catch` y el error escapaba como promesa no
+      // capturada: la pantalla no navegaba, no decía nada, y la fila seguía
+      // ahí invitando a tocarla otra vez. Encontrado el 2026-08-28.
+      //
+      // EL TEXTO NO DICE «te bloquearon», y es deliberado. Quitar del círculo y
+      // bloquear dejan exactamente el mismo estado visible, así que nombrar el
+      // bloqueo sería avisarle a la persona bloqueada — que es justo lo que un
+      // bloqueo no debe hacer. La frase es cierta para los dos casos.
+      const code = (error as { code?: unknown } | null)?.code;
+      Alert.alert(
+        'No se pudo abrir el chat',
+        code === '42501'
+          ? 'Ya no están conectados, así que esta conversación está cerrada.'
+          : 'Revisa tu conexión e intenta de nuevo.',
+      );
     } finally {
+      // Los dos, siempre: si la conexión se cayó, la fila tiene que dejar de
+      // aparecer en vez de quedarse ahí invitando a tocarla otra vez. `refresh`
+      // trae el círculo (de donde salió esa persona) y `load` las
+      // conversaciones; con uno solo la lista quedaba a medio corregir, que es
+      // lo que se veía como «desaparece de Círculo pero sigue en Chats».
+      await refresh();
+      await load();
       setOpening(null);
     }
   };

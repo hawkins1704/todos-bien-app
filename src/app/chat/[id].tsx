@@ -4,8 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   TextInput,
@@ -14,10 +12,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DrillBanner } from '@/components/drill-banner';
+import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/auth';
 import { useDrill } from '@/context/drill';
+import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import {
   markConversationRead,
   readCachedMessages,
@@ -36,6 +36,7 @@ export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const alturaTeclado = useKeyboardHeight();
   const { colors } = useTheme();
   const { userId } = useAuth();
   const { isDrilling } = useDrill();
@@ -152,10 +153,12 @@ export default function ChatScreen() {
       <Stack.Screen options={{ title: 'Chat' }} />
       {isDrilling ? <DrillBanner /> : null}
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 96 : 0}>
+      {/*
+        El teclado en Android con edge-to-edge tiene su propia historia, y vive
+        entera en `KeyboardAvoider`: acá se usa y ya. `iosOffset` es el alto del
+        header nativo, que solo iOS necesita descontar.
+      */}
+      <KeyboardAvoider style={styles.flex} iosOffset={96}>
         {/* El vacío se pinta FUERA de la lista, no con `ListEmptyComponent`.
 
             `inverted` se implementa distinto en cada plataforma: en iOS da
@@ -237,7 +240,12 @@ export default function ChatScreen() {
             {
               backgroundColor: colors.background,
               borderTopColor: colors.border,
-              paddingBottom: insets.bottom + Spacing.sm,
+              // El inset inferior reserva la barra de navegación de Android o
+              // el indicador de inicio de iOS. Con el teclado arriba ese
+              // espacio lo ocupa el teclado —que ya se descontó en el contenedor
+              // con su alto real—, así que sumarlo otra vez dejaría una franja
+              // muerta entre el campo y las teclas.
+              paddingBottom: (alturaTeclado > 0 ? 0 : insets.bottom) + Spacing.sm,
             },
           ]}>
           <TextInput
@@ -275,7 +283,7 @@ export default function ChatScreen() {
             />
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Screen>
   );
 }

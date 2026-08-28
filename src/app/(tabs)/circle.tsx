@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -14,10 +14,17 @@ import { useAppData } from '@/context/app-data';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { respondToConnection } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
-import { effectiveStatus, isAlertActive, liveQuakeStatus } from '@/lib/quakes';
-import { Spacing, tabScreenBottomInset } from '@/theme/tokens';
+import { effectiveStatus, isAlertActive, liveQuakeStatus, wasAlertedFor } from '@/lib/quakes';
+import { Radius, Spacing, tabScreenBottomInset } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import type { CircleMember } from '@/types/domain';
+
+/**
+ * El filtro solo existe mientras haya una alerta propia activa. Fuera de ella
+ * no hay «zona» de la que hablar, y un selector con dos opciones vacías es peor
+ * que no tenerlo.
+ */
+type Filtro = 'zona' | 'fuera' | 'todos';
 
 export default function CircleScreen() {
   const insets = useSafeAreaInsets();
@@ -27,14 +34,53 @@ export default function CircleScreen() {
 
   const { refreshing, onRefresh } = usePullToRefresh(refresh);
   const [responding, setResponding] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<Filtro>('zona');
   const alertActive = isAlertActive(activeQuake);
+  const activeQuakeId = alertActive ? (activeQuake?.id ?? null) : null;
+
+  const { enZona, fuera } = useMemo(() => {
+    const dentro: CircleMember[] = [];
+    const afuera: CircleMember[] = [];
+    for (const m of accepted) {
+      (wasAlertedFor(m, activeQuakeId) ? dentro : afuera).push(m);
+    }
+    return { enZona: dentro, fuera: afuera };
+  }, [accepted, activeQuakeId]);
+
+  // Sin alerta activa el filtro no se aplica aunque haya quedado elegido de una
+  // alerta anterior: la pantalla vuelve sola a ser la lista completa.
+  const visibles = !alertActive
+    ? accepted
+    : filtro === 'zona'
+      ? enZona
+      : filtro === 'fuera'
+        ? fuera
+        : accepted;
 
   const respond = async (connectionId: string, accept: boolean) => {
     setResponding(connectionId);
     try {
       await respondToConnection(connectionId, accept);
-      await refresh();
+    } catch (error) {
+      // `42501` de `respond_to_connection` significa una sola cosa: la solicitud
+      // ya no está `pending`. Casi siempre es benigno —un toque doble que se
+      // coló entre el `setResponding` y el re-render, o la respondiste desde el
+      // otro dispositivo, o la retiraron—, así que alarmar con un diálogo sería
+      // mentir sobre algo que ya salió bien. El `refresh` de abajo deja la
+      // pantalla mostrando la verdad, que es lo único que hacía falta.
+      //
+      // Antes esto no tenía `catch`: el error escapaba como promesa no
+      // capturada y, de paso, se llevaba puesto el `refresh`. Por eso aceptar
+      // una solicitud dejaba la lista sin actualizar y tiraba un error en
+      // consola. Encontrado el 2026-08-28.
+      const code = (error as { code?: unknown } | null)?.code;
+      if (code !== '42501') {
+        Alert.alert('No se pudo responder', 'Revisa tu conexión e intenta de nuevo.');
+      }
     } finally {
+      // Siempre, haya fallado o no: la lista tiene que terminar reflejando lo
+      // que dice el servidor.
+      await refresh();
       setResponding(null);
     }
   };
@@ -121,22 +167,74 @@ export default function CircleScreen() {
           </Card>
         ) : null}
 
+        {/*
+          El filtro aparece SOLO con una alerta propia activa, que es el único
+          momento en que la distinción existe. Es la misma pantalla de siempre
+          el resto del tiempo: no se le agrega un control a una lista de cuatro
+          personas para que se vea completa.
+        */}
+        {alertActive && accepted.length > 0 ? (
+          <View style={[styles.segmented, { backgroundColor: colors.surfaceSunken }]}>
+            {(
+              [
+                { key: 'zona' as const, label: 'En la zona', total: enZona.length },
+                { key: 'fuera' as const, label: 'Fuera', total: fuera.length },
+                { key: 'todos' as const, label: 'Todos', total: accepted.length },
+              ]
+            ).map((opcion) => {
+              const activo = filtro === opcion.key;
+
+              return (
+                <Pressable
+                  key={opcion.key}
+                  onPress={() => setFiltro(opcion.key)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activo }}
+                  accessibilityLabel={`${opcion.label}, ${opcion.total} ${
+                    opcion.total === 1 ? 'persona' : 'personas'
+                  }`}
+                  style={[
+                    styles.segment,
+                    activo ? { backgroundColor: colors.surface, borderColor: colors.border } : null,
+                  ]}>
+                  <View style={styles.segmentInner}>
+                    <Text variant="subhead" weight={activo ? '600' : '400'}>
+                      {opcion.label}
+                    </Text>
+                    <Text variant="caption" tone="tertiary">
+                      {opcion.total}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
         {accepted.length > 0 ? (
           <Card padded={false}>
             <Text variant="footnote" tone="secondary" weight="600" style={styles.sectionHeader}>
-              {accepted.length} {accepted.length === 1 ? 'PERSONA' : 'PERSONAS'}
+              {visibles.length} {visibles.length === 1 ? 'PERSONA' : 'PERSONAS'}
             </Text>
 
-            {accepted.map((member, index) => (
-              <MemberRow
-                key={member.userId}
-                member={member}
-                activeQuakeId={alertActive ? (activeQuake?.id ?? null) : null}
-                showStatus={alertActive}
-                first={index === 0}
-                onPress={() => router.push(`/contact/${member.userId}`)}
-              />
-            ))}
+            {visibles.length === 0 ? (
+              <Text variant="subhead" tone="secondary" style={styles.filtroVacio}>
+                {filtro === 'zona'
+                  ? 'A nadie de tu círculo le llegó esta alerta. El sismo no llegó hasta donde están.'
+                  : 'A todos los de tu círculo les llegó esta alerta.'}
+              </Text>
+            ) : (
+              visibles.map((member, index) => (
+                <MemberRow
+                  key={member.userId}
+                  member={member}
+                  activeQuakeId={activeQuakeId}
+                  showStatus={alertActive}
+                  first={index === 0}
+                  onPress={() => router.push(`/contact/${member.userId}`)}
+                />
+              ))
+            )}
           </Card>
         ) : (
           <Card>
@@ -278,6 +376,16 @@ const styles = StyleSheet.create({
   },
   rowCopy: { flex: 1, gap: 2 },
   statusLine: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm },
+  segmented: { borderRadius: Radius.md, flexDirection: 'row', gap: 2, padding: 3 },
+  segment: {
+    borderColor: 'transparent',
+    borderRadius: Radius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
+    paddingVertical: Spacing.sm,
+  },
+  segmentInner: { alignItems: 'center', flexDirection: 'row', gap: Spacing.xs, justifyContent: 'center' },
+  filtroVacio: { paddingBottom: Spacing.lg, paddingHorizontal: Spacing.lg },
   emptyBody: { marginTop: Spacing.xs },
   emptyAction: { marginTop: Spacing.lg },
   pressed: { opacity: 0.6 },

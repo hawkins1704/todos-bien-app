@@ -42,6 +42,7 @@ export default function ContactDetailScreen() {
   const { refreshing, onRefresh } = usePullToRefresh(refresh);
 
   const [member, setMember] = useState<CircleMember | null>(null);
+  const [buscado, setBuscado] = useState(false);
   const [opening, setOpening] = useState(false);
 
   // `lastCircleSync` en las dependencias es lo que arregla la ficha congelada:
@@ -51,7 +52,11 @@ export default function ContactDetailScreen() {
   // estado y la ubicación con los que se abrió. Con la marca de la última
   // sincronización como dependencia, cada sync relee la fila local.
   useEffect(() => {
-    if (id) void readCircleMember(id).then(setMember);
+    if (!id) return;
+    void readCircleMember(id).then((fila) => {
+      setMember(fila);
+      setBuscado(true);
+    });
   }, [id, lastCircleSync]);
 
   // Y al abrir la ficha se pide al servidor, en vez de confiar en lo cacheado:
@@ -63,13 +68,18 @@ export default function ContactDetailScreen() {
     }, [refresh]),
   );
 
+  // «Cargando…» y «ya no está en tu círculo» se veían igual, y son cosas
+  // distintas: la segunda pasa al bloquear o quitar a alguien desde el otro
+  // teléfono, y dejaba la ficha con un spinner eterno esperando algo que no iba
+  // a llegar nunca. `buscado` distingue «todavía no leí la caché» de «la leí y
+  // esta persona no está».
   if (!member) {
     return (
       <Screen>
         <Stack.Screen options={{ title: '' }} />
         <View style={styles.loading}>
-          <Text variant="callout" tone="tertiary">
-            Cargando…
+          <Text variant="callout" tone="tertiary" center>
+            {buscado ? 'Esta persona ya no está en tu círculo.' : 'Cargando…'}
           </Text>
         </View>
       </Screen>
@@ -124,9 +134,12 @@ export default function ContactDetailScreen() {
           text: 'Quitar',
           style: 'destructive',
           onPress: () => {
-            void removeConnection(member.connectionId)
-              .then(refresh)
-              .then(() => router.back());
+            // Mismo orden que en `confirmBlock`: salir primero (ver el porqué
+            // ahí), sincronizar después.
+            void removeConnection(member.connectionId).then(() => {
+              router.back();
+              void refresh();
+            });
           },
         },
       ],
@@ -149,9 +162,20 @@ export default function ContactDetailScreen() {
           text: 'Bloquear',
           style: 'destructive',
           onPress: () => {
+            // Salir PRIMERO, sincronizar después.
+            //
+            // Antes era `.then(refresh).then(router.back)`, y `refresh` es una
+            // sincronización completa —perfil, círculo, tips, alerta, permisos,
+            // token de push—. Nada de eso hace falta para irse: el bloqueo ya
+            // está hecho en el servidor. Mientras se esperaba, el propio
+            // `refresh` reescribía la caché sin esta persona, la ficha releía y
+            // se quedaba en «Cargando…» mirando a alguien que acababas de
+            // bloquear. Encontrado en Android el 2026-08-28.
             void blockConnection(member.userId)
-              .then(refresh)
-              .then(() => router.back())
+              .then(() => {
+                router.back();
+                void refresh();
+              })
               .catch(() =>
                 Alert.alert('No se pudo bloquear', 'Revisa tu conexión e intenta de nuevo.'),
               );

@@ -3,7 +3,6 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { AuthField } from '@/components/auth/auth-field';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -99,9 +99,7 @@ export default function DeleteAccountScreen() {
     <Screen>
       <Stack.Screen options={{ title: 'Borrar cuenta' }} />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
           keyboardShouldPersistTaps="handled">
@@ -181,7 +179,7 @@ export default function DeleteAccountScreen() {
             size="lg"
           />
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Screen>
   );
 }

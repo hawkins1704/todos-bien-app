@@ -112,6 +112,23 @@ export async function markSent(id: number): Promise<void> {
   notifyOutboxChange();
 }
 
+/**
+ * Saca un item de la cola porque el servidor lo rechazó **para siempre**, no
+ * porque falló la red.
+ *
+ * Es distinto de `markSent` a propósito, aunque el SQL sea el mismo: acá no se
+ * envió nada. Existe porque `markFailed` guardaba todos los fallos por igual y
+ * los reintentaba en cada sincronización, sin tope. Un mensaje que la RLS
+ * rechazó por un bloqueo se quedaba en la cola esperando, y el día que se
+ * levantaba el bloqueo **entraba**: la persona bloqueada terminaba entregando
+ * el mensaje que escribió mientras lo estaba. Encontrado el 2026-08-28.
+ */
+export async function discard(id: number): Promise<void> {
+  const db = await getDb();
+  await db.runAsync('DELETE FROM outbox WHERE id = ?', id);
+  notifyOutboxChange();
+}
+
 export async function markFailed(id: number, error: string): Promise<void> {
   const db = await getDb();
   await db.runAsync(

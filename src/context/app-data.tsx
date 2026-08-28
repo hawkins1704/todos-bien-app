@@ -1,3 +1,4 @@
+import * as Notifications from 'expo-notifications';
 import * as Network from 'expo-network';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
@@ -203,6 +204,34 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active' && userId) void refresh();
+    });
+    return () => subscription.remove();
+  }, [userId, refresh]);
+
+  /**
+   * Un aviso que llega con la app ABIERTA también refresca.
+   *
+   * Sin esto había un agujero que se veía como un bug del servidor. Los cuatro
+   * disparadores de refresco eran: montar, recuperar red, volver al primer plano
+   * y tirar de la lista. Ninguno ocurre si la persona ya está mirando la app
+   * cuando llega el push — que es exactamente lo que pasa en un sismo, porque
+   * la abrió a los diez segundos de que temblara y no la soltó más.
+   *
+   * El síntoma real (recorrido del 2026-08-28): a la cuenta A le llegó la
+   * notificación del sismo y su Home decía «Nadie de tu círculo en la zona»
+   * aunque B estuviera adentro, y el dato estaba bien en el servidor. Se
+   * arreglaba solo tirando de la lista a mano. El resto de los avisos tenía el
+   * mismo problema, más silencioso: reportar «estoy bien» desde el otro teléfono
+   * no movía nada acá hasta que alguien saliera y volviera a entrar a la app.
+   *
+   * Va acá y no en `NotificationRouter` a propósito: ese solo escucha el TOQUE
+   * de un aviso (`ResponseReceived`), que es el caso en el que la app pasa a
+   * primer plano y el `AppState` de arriba ya cubría.
+   */
+  useEffect(() => {
+    if (!userId) return;
+    const subscription = Notifications.addNotificationReceivedListener(() => {
+      void refresh();
     });
     return () => subscription.remove();
   }, [userId, refresh]);

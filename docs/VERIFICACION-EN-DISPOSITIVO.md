@@ -80,6 +80,31 @@ returning id;
 > sismo a ~265 km. Alcanza a B y a nadie más, las posiciones son verdaderas y la app de B
 > muestra la alerta de verdad, que es lo que hace falta para probar el cierre (7b.5).
 
+> 🔴 **Blindar a los usuarios reales por umbral de magnitud NO alcanza. Aprendido el
+> 2026-08-28 mandándole una alerta falsa a dos personas de verdad.**
+>
+> Se les subió `alert_min_magnitude` y `alert_countrywide_magnitude` a dos usuarios ajenos a
+> la prueba, y quedaron efectivamente fuera de todos los sismos sembrados. Después, al
+> reportar «necesito ayuda» desde una cuenta de prueba, **les llegó igual**: `contact_needs_help`
+> sale al **círculo entero sin mirar radio, magnitud ni plan** — es la señal que la app promete
+> no cobrar nunca, y por eso no pasa por ninguno de esos filtros. Los umbrales protegen del
+> **sismo**; no protegen de nada de lo que pase después.
+>
+> **El blindaje que sirve son las preferencias**, y hay que ponerlo antes del primer sismo:
+>
+> ```sql
+> -- Guardá los valores originales ANTES. Nacen todos en `true`.
+> update public.notification_preferences
+>    set contact_needs_help = false, contact_not_responding = false, contact_message = false,
+>        guardian_alerts = false, quake_national = false, quake_worldwide = false,
+>        contact_reported = false
+>  where user_id in ('<ajeno-1>', '<ajeno-2>');
+> ```
+>
+> Y una trampa de segundo orden: si durante la sesión se aplica una migración que **agrega una
+> columna de preferencia**, esa nace en `true` y abre un agujero nuevo en un blindaje que ya
+> creías puesto. Pasó el mismo día con `contact_reported` (migración 0027).
+
 **Verificar a quién le llegó, antes de mirar el teléfono:**
 
 ```sql
@@ -248,6 +273,20 @@ arreglados; esto es para que no vuelvan.
 
 ---
 
+## 7.d · Lo que destapó la corrida del 2026-08-28
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 7d.1 | Con la app **abierta y a la vista**, disparar el sismo de prueba | 🔴 La pantalla se actualiza **sola** al llegar el aviso, sin tirar de la lista. Era el agujero: los cuatro disparadores de refresco —montar, recuperar red, volver al primer plano, pull— **ninguno ocurre si la persona ya está mirando la app**, que es exactamente lo que pasa en un sismo. Se veía como un bug del servidor: la Home decía «Nadie de tu círculo en la zona» con el dato correcto en la base |
+| 7d.2 | Lo mismo, pero con un **reporte de estado** del otro teléfono | Igual: el círculo se mueve solo. El fallo era el mismo y más silencioso, porque nadie espera un push visible de eso |
+| 7d.3 | Home con alerta activa y **un contacto en zona de tres** | El título dice «**Tu gente en la zona**» y la grilla muestra **solo a ese**, con el contador `N/1`. Los otros dos no están «faltando»: no tenían nada que reportar |
+| 7d.4 | Home con alerta activa y **nadie** del círculo en zona | Título «Tu círculo», la explicación de que a nadie le llegó, y **el círculo completo apagado**. Una tarjeta vacía en mitad de un sismo se lee como «no tengo a nadie» |
+| 7d.5 | Pestaña Círculo **con** alerta activa | Selector triple arriba con los conteos: **En la zona · Fuera · Todos** |
+| 7d.6 | Pestaña Círculo **sin** alerta activa | El selector **no está**. Fuera de una alerta no hay «zona» de la que hablar |
+| 7d.7 | Filtrar por «En la zona» sin nadie adentro | Dice que a nadie le llegó la alerta, no una lista vacía |
+
+---
+
 ## 8.b · Denunciar y bloquear (nuevo el 2026-08-24)
 
 Es lo que mira App Review por la guía 1.2, así que conviene recorrerlo entero.
@@ -293,10 +332,16 @@ pantalla. Es el recorrido que decide si lo que cobramos coincide con lo que publ
 Esta es la que importa más, y la que es fácil romper sin querer al agregar una función
 Premium. Si algo de acá difiere entre las dos cuentas, **es un bug**, no una función.
 
+> ✅ **9b.1, 9b.2 y 9b.7 verificados el 2026-08-28** con el iPhone premium y el Android gratis.
+> Junto con **7b.10**, que salió de regalo en la misma corrida: la cuenta premium **no** recibió
+> aviso de Guardián por un contacto que estaba en su mismo sismo.
+
 | # | Con las dos cuentas | Tiene que pasar |
 |---|---|---|
-| 9b.1 | Sembrar un sismo que alcance a las dos | 🔴 Las dos reciben la alerta, **al mismo tiempo y con el mismo texto** |
+| 9b.1 | Sembrar un sismo que alcance a las dos | 🔴 Las dos reciben la alerta, **al mismo tiempo y con el mismo texto**. «Al mismo tiempo» es **hasta 30 s de diferencia**: `fan_out_quake` reparte con `now() + random() * interval '30 seconds'` a propósito, para no golpear APNs de golpe. Una llegando medio minuto después de la otra es la prueba pasando, no fallando |
 | 9b.2 | Las dos pantallas en modo alerta | Iguales: los 4 estados, el círculo, el contador |
+| 9b.2b | Que uno de los dos reporte **«estoy bien»** | 🔴 Al otro le llega **«\<nombre\> está bien»**, en las dos cuentas por igual. Antes de la migración 0027 no llegaba **nunca** estando dentro del mismo sismo, ni pagando: el aviso colgaba de haber recibido la apertura de Guardián, que solo reciben los que están **fuera** de la zona |
+| 9b.2c | Que reporte «necesita ayuda» y **después** «estoy bien» | Llegan los dos, y el segundo dice «**ya** está bien». Ese «ya» distingue el cierre de una alarma de un reporte limpio (0026 + 0027) |
 | 9b.3 | Captura automática de ubicación | Ocurre en las dos |
 | 9b.4 | Que un contacto marque «necesito ayuda» | Las dos reciben el aviso |
 | 9b.5 | Que un contacto se quede callado 20 min, **con el sismo alcanzando a las dos cuentas** | 🔴 Las dos reciben **«X no responde»**. Este es el corte que hace legítimo cobrar Guardián: entre quienes compartieron el sismo, la señal de que algo salió mal nunca se cobra |

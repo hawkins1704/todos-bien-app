@@ -122,6 +122,15 @@ export type ContactMatch = {
   localName: string;
   phoneHash: string;
   connectionStatus: ConnectionStatus | null;
+  /**
+   * ¿Yo bloqueé a esta persona?
+   *
+   * Solo puede ser `true` para quien bloqueó. El servidor **no** informa el caso
+   * contrario a propósito: `connectionStatus` vale `'blocked'` para los dos
+   * lados, y distinguirlos en el cliente le diría a la persona bloqueada que la
+   * bloquearon. Ver `match-contacts`.
+   */
+  blockedByMe: boolean;
 };
 
 export const FREE_DRILL_LIMIT = 3;

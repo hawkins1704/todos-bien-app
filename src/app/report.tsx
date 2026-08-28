@@ -3,8 +3,6 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Screen } from '@/components/ui/screen';
@@ -131,9 +130,7 @@ export default function ReportScreen() {
     <Screen>
       <Stack.Screen options={{ title: 'Denunciar' }} />
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider style={styles.flex}>
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
           keyboardShouldPersistTaps="handled">
@@ -225,7 +222,7 @@ export default function ReportScreen() {
             (116), a la policía (105) o al SAMU (106).
           </Text>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Screen>
   );
 }

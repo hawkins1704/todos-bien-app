@@ -63,16 +63,17 @@ funciones que operan **sobre** tus contactos sin que tus contactos necesiten nad
 | Chat individual y grupal | |
 | Círculo **ilimitado** | Prometido en la landing, y cobrarlo sería cobrar seguridad |
 | **«María no responde»** a los 20 min, **si el sismo también te llegó a ti** | **La señal de que algo salió mal es gratis.** Este corte es lo que hace legítimo todo lo demás |
+| **«María está bien»** cuando reporta, **si el sismo también te llegó a ti** | La contraparte de la anterior, y faltaba (migración 0027). Dentro de tu propio sismo la app te mandaba **solo malas noticias** |
 | 1 plan de acción · 3 simulacros · noticias del país | |
 
 ### Premium — todo es «vigilar a los míos»
 
 | Función | Estado |
 |---|---|
-| **Guardián** · aviso al **minuto 0** cuando tiembla cerca de un contacto, estés donde estés — con nombre y distancia — y el cierre «María dijo que está bien» | 🔨 por construir |
+| **Guardián** · aviso al **minuto 0** cuando tiembla cerca de un contacto, estés donde estés — con nombre y distancia — y el cierre «María dijo que está bien» | ✅ existe, **verificado en dos teléfonos** el 2026-08-27 |
 | Avisos y feed de sismos en el mundo | ✅ existe |
 | Simulacros ilimitados | ✅ existe |
-| Hasta 5 planes de acción con nombre | 🔨 por construir |
+| Hasta 5 planes de acción con nombre | ✅ existe (migración 0024) |
 | SMS al que no responde | ⏳ más adelante |
 
 **Guardián es el único que importa.** Los otros son relleno de lista: nadie paga por
@@ -87,11 +88,24 @@ manda «X no responde» **solo a quien tiene entrega de alerta de ESE mismo sism
 
 | | Contacto **cerca** de ti | Contacto **lejos** de ti |
 |---|---|---|
-| **Gratis** | Alerta propia + «no responde» a los 20 min | **Nada** |
+| **Gratis** | Alerta propia, «no responde» a los 20 min, y «está bien» cuando reporta | **Nada** |
 | **Premium** | Igual | Aviso al minuto 0 y el cierre |
 
 Este documento afirmaba antes que el aviso de los 20 minutos llegaba siempre. **Para el
 escenario de Madrid —el que abre §3.1— es falso: no llega nada.**
+
+> **La casilla de arriba a la izquierda se completó el 2026-08-28** (migración 0027), y hasta
+> entonces le faltaba la mitad buena. Con el sismo alcanzándote a ti, «X no responde» llegaba
+> y «X está bien» **no llegaba nunca**, ni pagando: el segundo colgaba de haber recibido la
+> apertura de Guardián, que por diseño solo reciben los que están **fuera** de la zona. El
+> efecto neto era que la app te mandaba solo malas noticias justo cuando estabas adentro del
+> terremoto.
+>
+> Se arregló **del lado gratis a propósito**. Cobrarlo habría sido la salida obvia —es
+> exactamente la clase de tranquilidad por la que alguien paga— y habría vuelto falsa la
+> frase que este proyecto acababa de corregir en cuatro lugares públicos: *«cuando el sismo te
+> toca a ti, todo es gratis»*. El precio no se sostiene sobre lo que le sacas a alguien que
+> está en una emergencia; se sostiene sobre el escenario de Madrid, que sigue intacto.
 
 Las consecuencias son dos, y van en direcciones opuestas:
 
