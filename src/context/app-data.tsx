@@ -17,10 +17,13 @@ import { readCircle } from '@/lib/db/circle';
 import { getDb } from '@/lib/db';
 import { KV, kvGet } from '@/lib/db/kv';
 import { syncPushToken } from '@/lib/notifications';
+import { isAlertActive } from '@/lib/quakes';
 import { onOutboxChange, pendingCount } from '@/lib/db/outbox';
 import { supabase } from '@/lib/supabase';
 import { flushOutbox, syncEverything } from '@/lib/sync';
+import { drillQuakeId } from '@/types/domain';
 import type {
+  ActiveDrill,
   Group,
   CircleMember,
   MyProfile,
@@ -46,7 +49,15 @@ type AppDataState = {
   myProfile: MyProfile | null;
   mySettings: MySettings | null;
   myStatus: MyStatus | null;
+  /**
+   * El sismo que la app está mostrando. Durante un simulacro es uno sintético
+   * y **local**; si tiembla de verdad, el real siempre gana.
+   */
   activeQuake: QuakeEvent | null;
+  /** El simulacro en curso, o `null`. Ver `DrillProvider` para las acciones. */
+  activeDrill: ActiveDrill | null;
+  /** Quiénes están practicando. Vacío en un simulacro individual. */
+  drillParticipantIds: string[];
   tips: Tip[];
   lastMonitoringCheck: string | null;
   lastCircleSync: string | null;
@@ -72,6 +83,7 @@ const AppDataContext = createContext<AppDataState | null>(null);
 /** Referencia estable: evita recrear el array vacío en cada render. */
 const EMPTY_CIRCLE: CircleMember[] = [];
 const EMPTY_GROUPS: Group[] = [];
+const EMPTY_IDS: string[] = [];
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const { userId } = useAuth();
@@ -83,12 +95,37 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [mySettings, setMySettings] = useState<MySettings | null>(null);
   const [myStatus, setMyStatus] = useState<MyStatus | null>(null);
   const [activeQuake, setActiveQuake] = useState<QuakeEvent | null>(null);
+  const [activeDrill, setActiveDrill] = useState<ActiveDrill | null>(null);
   const [tips, setTips] = useState<Tip[]>([]);
   const [lastMonitoringCheck, setLastMonitoringCheck] = useState<string | null>(null);
   const [lastCircleSync, setLastCircleSync] = useState<string | null>(null);
   const [pendingWrites, setPendingWrites] = useState(0);
 
-  const online = networkState.isInternetReachable ?? networkState.isConnected ?? false;
+  /**
+   * ¿Hay conexión?
+   *
+   * 🔴 **`isInternetReachable` no significa lo mismo en los dos sistemas**, y
+   * creer que sí costó un diagnóstico entero el 2026-09-01. La doc de Expo SDK
+   * 57 lo dice: en iOS ese campo *siempre* vale lo mismo que `isConnected`,
+   * pero en Android exige que el sistema haya **confirmado** el acceso a
+   * internet —la validación de portal cautivo— y que una VPN, si la hay, tenga
+   * ancho de banda de bajada distinto de cero.
+   *
+   * O sea que en Android hay redes que funcionan perfecto y reportan `false`.
+   * Y como `??` solo cae al siguiente valor con `null` o `undefined`, ese
+   * `false` le ganaba a un `isConnected: true` correcto: la insignia decía «Sin
+   * conexión · mostrando datos guardados» mientras la app bajaba sismos sin
+   * problema. Peor que el cartel: con `online` clavado en `false`, el refresco
+   * al reconectar de más abajo **no se dispara nunca**, así que la pantalla se
+   * queda sin volver a renderizar y hasta la hora relativa se congela.
+   *
+   * La regla nueva: manda `isConnected`, que es la pregunta que la insignia de
+   * verdad hace —¿hay red?—. `isInternetReachable` solo se usa para lo que sí
+   * sabe: si es `false` **y además** no hay conexión, no hay nada. Mientras la
+   * duda exista, la app intenta; si el intento falla, quien lo cuenta es el
+   * contador de escrituras pendientes, que sí mide la realidad.
+   */
+  const online = networkState.isConnected ?? networkState.isInternetReachable ?? false;
   const wasOnline = useRef(online);
 
   const reloadLocal = useCallback(async () => {
@@ -102,6 +139,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       settings,
       status,
       quake,
+      drill,
       monitoring,
       circleSync,
       tipRows,
@@ -113,6 +151,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       kvGet<MySettings>(KV.mySettings),
       kvGet<MyStatus>(KV.myStatus),
       kvGet<QuakeEvent>(KV.activeQuake),
+      kvGet<ActiveDrill>(KV.activeDrill),
       kvGet<string>(KV.lastQuakeCheck),
       kvGet<string>(KV.lastCircleSync),
       db.getAllAsync<{
@@ -134,6 +173,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setMySettings(settings);
     setMyStatus(status);
     setActiveQuake(quake);
+    setActiveDrill(drill);
     setLastMonitoringCheck(monitoring);
     setLastCircleSync(circleSync);
     setPendingWrites(pending);
@@ -298,17 +338,99 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [userId, groups],
   );
 
+  const drill = userId ? activeDrill : null;
+
+  // ---------------------------------------------------------------------------
+  // El modo simulacro, resuelto acá y en ningún otro lado
+  //
+  // La tentación era meterle un `if (isDrilling)` a cada pantalla —la Home, la
+  // grilla, la ficha del contacto—. Eso habría repartido la regla por seis
+  // archivos y garantizado que uno se olvidara.
+  //
+  // En vez de eso, el simulacro se traduce a los MISMOS datos que produce un
+  // sismo real: un `activeQuake` sintético y unos contactos marcados como
+  // alertados por él. Así `effectiveStatus`, `membersInQuakeZone` y
+  // `confirmedForQuake` funcionan sin enterarse de que hay un simulacro, y las
+  // pantallas tampoco.
+  //
+  // ⚠️ No es inventar datos. Los participantes SÍ recibieron el aviso del
+  // simulacro, y su reporte con `is_drill` SÍ es su reporte. Lo único falso es
+  // el sismo, y por eso no existe fuera del teléfono: sembrar una fila en
+  // `quake_events` haría que `quake_ingested_fan_out` se la mandara a gente real.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Quiénes están practicando. En un simulacro individual, nadie más — y por eso
+   * la grilla se ve vacía, que es la verdad: no hay nadie del otro lado.
+   */
+  const drillParticipantIds = useMemo(() => {
+    if (!drill?.groupId) return EMPTY_IDS;
+    const grupo = visibleGroups.find((g) => g.id === drill.groupId);
+    return grupo ? grupo.members.map((m) => m.userId) : EMPTY_IDS;
+  }, [drill, visibleGroups]);
+
+  /**
+   * El sismo que ve la app. **Un sismo real siempre gana**: si tiembla de verdad
+   * durante un simulacro, lo que se pinta es el sismo. La salida del modo la
+   * dispara `DrillProvider`, que también lo vigila.
+   */
+  const effectiveQuake = useMemo(() => {
+    const real = userId ? activeQuake : null;
+    if (real && isAlertActive(real)) return real;
+    if (!drill) return real;
+
+    return {
+      id: drillQuakeId(drill.id),
+      magnitude: 5.8,
+      place: 'Simulacro',
+      region: null,
+      latitude: -12.05,
+      longitude: -77.05,
+      depthKm: 30,
+      occurredAt: drill.startedAt,
+      source: 'simulacro',
+      intensityMmi: null,
+    } satisfies QuakeEvent;
+  }, [userId, activeQuake, drill]);
+
+  /**
+   * La red, con los participantes marcados como alcanzados por el sismo del
+   * simulacro. Sin esta traducción, `effectiveStatus` los devolvería en `null`
+   * y la grilla los pintaría apagados con «el sismo no llegó hasta donde está»,
+   * que en un simulacro es exactamente al revés de lo que pasa.
+   */
+  const acceptedParaVista = useMemo(() => {
+    if (!drill || drillParticipantIds.length === 0) return accepted;
+
+    const quakeId = drillQuakeId(drill.id);
+    const participantes = new Set(drillParticipantIds);
+
+    return accepted.map((m) =>
+      participantes.has(m.userId)
+        ? {
+            ...m,
+            alertedQuakeIds: [...m.alertedQuakeIds, quakeId],
+            // Su reporte cuenta como reporte de ESTE simulacro solo si lo hizo
+            // en modo simulacro. Un «estoy bien» de ayer no confirma nada hoy.
+            quakeEventId: m.isDrill ? quakeId : m.quakeEventId,
+          }
+        : m,
+    );
+  }, [accepted, drill, drillParticipantIds]);
+
   const value = useMemo<AppDataState>(
     () => ({
       circle: visibleCircle,
-      accepted,
+      accepted: acceptedParaVista,
       incomingRequests,
       outgoingRequests,
       groups: visibleGroups,
       myProfile: userId ? myProfile : null,
       mySettings: userId ? mySettings : null,
       myStatus: userId ? myStatus : null,
-      activeQuake: userId ? activeQuake : null,
+      activeQuake: effectiveQuake,
+      activeDrill: drill,
+      drillParticipantIds,
       tips,
       lastMonitoringCheck,
       lastCircleSync,
@@ -320,14 +442,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [
       userId,
       visibleCircle,
-      accepted,
+      acceptedParaVista,
       incomingRequests,
       outgoingRequests,
       visibleGroups,
       myProfile,
       mySettings,
       myStatus,
-      activeQuake,
+      effectiveQuake,
+      drill,
+      drillParticipantIds,
       tips,
       lastMonitoringCheck,
       lastCircleSync,

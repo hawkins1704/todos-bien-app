@@ -160,6 +160,8 @@ export type Database = {
         Row: {
           cancelled_at: string | null;
           completed_at: string | null;
+          ends_at: string;
+          group_id: string | null;
           id: string;
           mode: string;
           reported_status: string | null;
@@ -258,6 +260,7 @@ export type Database = {
           contact_needs_help: boolean;
           contact_not_responding: boolean;
           contact_reported: boolean;
+          drill_invites: boolean;
           guardian_alerts: boolean;
           quake_national: boolean;
           quake_worldwide: boolean;
@@ -271,6 +274,7 @@ export type Database = {
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
           contact_reported?: boolean;
+          drill_invites?: boolean;
           guardian_alerts?: boolean;
           quake_national?: boolean;
           quake_worldwide?: boolean;
@@ -283,6 +287,7 @@ export type Database = {
           contact_needs_help?: boolean;
           contact_not_responding?: boolean;
           contact_reported?: boolean;
+          drill_invites?: boolean;
           guardian_alerts?: boolean;
           quake_national?: boolean;
           quake_worldwide?: boolean;
@@ -591,8 +596,26 @@ export type Database = {
         Returns: Database['public']['Tables']['connections']['Row'];
       };
       start_drill: {
-        Args: { drill_mode: string };
+        Args: { drill_mode: string; p_group_id?: string | null };
         Returns: Database['public']['Tables']['drills']['Row'];
+      };
+      get_active_drill: {
+        Args: Record<never, never>;
+        Returns: {
+          id: string;
+          mode: string;
+          group_id: string | null;
+          group_name: string | null;
+          started_by: string;
+          started_by_name: string;
+          is_mine: boolean;
+          started_at: string;
+          ends_at: string;
+        }[];
+      };
+      end_my_drill: {
+        Args: { p_drill_id: string };
+        Returns: undefined;
       };
     };
     Enums: Record<never, never>;

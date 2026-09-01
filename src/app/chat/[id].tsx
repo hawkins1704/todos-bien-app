@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DrillBanner } from '@/components/drill-banner';
+import { DrillTag } from '@/components/drill-banner';
 import { KeyboardAvoider } from '@/components/ui/keyboard-avoider';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
@@ -169,7 +169,6 @@ export default function ChatScreen() {
           `otherUserId` contra la red, y ahí ya se ve con quién estás hablando
           por las burbujas. */}
       <Stack.Screen options={{ title: tituloGrupal ?? 'Chat' }} />
-      {isDrilling ? <DrillBanner /> : null}
 
       {/*
         El teclado en Android con edge-to-edge tiene su propia historia, y vive
@@ -220,7 +219,7 @@ export default function ChatScreen() {
                     ]}>
                     {item.isDrill ? (
                       <View style={styles.drillTag}>
-                        <DrillBanner compact />
+                        <DrillTag />
                       </View>
                     ) : null}
 

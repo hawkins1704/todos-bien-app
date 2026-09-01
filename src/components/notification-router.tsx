@@ -84,8 +84,12 @@ export function NotificationRouter() {
           if (data.quakeEventId) router.push(`/quake/${data.quakeEventId}`);
           return;
 
-        // El de ALERTA de sismo ya está donde tiene que estar. La Home es la
-        // pantalla de la alerta activa, así que abrir la app **es** la acción.
+        // El de ALERTA de sismo, y los dos del simulacro, ya están donde tienen
+        // que estar: la Home ES la pantalla de la alerta y del modo simulacro,
+        // así que abrir la app **es** la acción. Lo que hace falta —que aparezca
+        // `activeDrill`— lo trae el refresco que dispara volver al primer plano.
+        case 'drill_started':
+        case 'drill_ended':
         default:
           return;
       }

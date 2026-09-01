@@ -6,17 +6,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { PermissionsChecklist } from '@/components/permissions-checklist';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
 import { useAuth } from '@/context/auth';
+import { useDrill } from '@/context/drill';
 import {
   fetchNotificationPrefs,
   updateMySettings,
   updateNotificationPrefs,
   type NotificationPrefs,
 } from '@/lib/api';
+import { timeAgo } from '@/lib/format';
 import { formatE164ForDisplay } from '@/lib/phone';
 import { syncMe } from '@/lib/sync';
 import { Radius, Spacing, tabScreenBottomInset } from '@/theme/tokens';
@@ -52,6 +55,13 @@ const NOTIFICATION_LABELS: { key: keyof NotificationPrefs; title: string; detail
     key: 'contactReported',
     title: 'Alguien reportó que está bien',
     detail: 'Un contacto reportó su estado en un sismo que también te alcanzó a ti.',
+  },
+  {
+    key: 'drillInvites',
+    title: 'Simulacros de mis grupos',
+    // Dice lo que de verdad hace, y es más que un push: apagarlo te saca de la
+    // lista de participantes en el servidor (migración 0035).
+    detail: 'Practicar cuando alguien convoca un simulacro. Apagado, no te suman a ninguno.',
   },
 ];
 
@@ -89,6 +99,8 @@ export default function SettingsScreen() {
   const { colors, status } = useTheme();
   const { userId, signOut } = useAuth();
   const { myProfile, mySettings, myStatus, refresh } = useAppData();
+  const { activeDrill, isDrilling, end: endDrill } = useDrill();
+  const [saliendoDelSimulacro, setSaliendoDelSimulacro] = useState(false);
 
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
 
@@ -188,6 +200,121 @@ export default function SettingsScreen() {
             <MaterialIcons name="chevron-right" size={20} color={colors.textTertiary} />
           </Pressable>
         </Card>
+
+        {/* PRÁCTICA va ACÁ, entre el perfil y los umbrales, y es **una sola
+            sección** que cambia de contenido: en reposo ofrece practicar, con un
+            simulacro encendido ofrece salir.
+
+            Está tan arriba porque cuando hay simulacro es **la única salida**:
+            el banner amarillo de toda la app dice «para salir, ve a Ajustes», y
+            quien llega buscándola no tiene por qué recorrer seis secciones. Un
+            modo del que no se ve cómo salir es una trampa.
+
+            Y es la misma caja de siempre, en el mismo lugar de siempre: dos
+            cajas distintas —una para entrar, otra para salir, en extremos
+            opuestos de la pantalla— obligan a aprender dos lugares para lo
+            mismo. */}
+        <Section title="PRÁCTICA">
+          {isDrilling && activeDrill ? (
+            <Card>
+              <View style={styles.aviso}>
+                <MaterialIcons name="school" size={18} color={colors.text} />
+                <Text variant="callout" weight="600" style={styles.flex}>
+                  Simulacro activo
+                </Text>
+              </View>
+
+              {/* Se decide por `groupId` y no por `groupName`: al convocarlo, el
+                  nombre todavía no llegó del servidor, y mirarlo hacía que un
+                  simulacro grupal se anunciara como «practicas tú solo» durante
+                  el primer segundo. */}
+              <Text variant="footnote" tone="secondary" style={styles.gapTop}>
+                {activeDrill.groupId
+                  ? activeDrill.isMine
+                    ? `Lo convocaste tú${activeDrill.groupName ? `, con «${activeDrill.groupName}»` : ''}. Todo lo que hagas ahora es práctica.`
+                    : `Lo convocó ${activeDrill.startedByName}${activeDrill.groupName ? ` con «${activeDrill.groupName}»` : ''}. Todo lo que hagas ahora es práctica.`
+                  : 'Estás practicando tú solo. Nadie de tu red se entera ni recibe nada.'}
+              </Text>
+
+              <Text variant="caption" tone="tertiary" style={styles.gapTop}>
+                Si no lo cierra nadie, termina solo {timeAgo(activeDrill.endsAt)}.
+              </Text>
+
+              {/* Un botón, dos significados, y el servidor decide cuál: quien
+                  convocó un simulacro grupal lo cierra para todos; el resto solo
+                  se va. La llamada es la misma y solo cambia el rótulo — pero
+                  «para todos» exige que haya otros: en un simulacro individual
+                  el único que practica eres tú, y prometer que lo cierras para
+                  un grupo que no existe solo confunde. */}
+              <Button
+                title={
+                  activeDrill.isMine && activeDrill.groupId
+                    ? 'Cerrar simulacro para todos'
+                    : 'Salir del modo simulacro'
+                }
+                variant="danger"
+                loading={saliendoDelSimulacro}
+                onPress={() => {
+                  const eraMioYGrupal = Boolean(activeDrill.isMine && activeDrill.groupId);
+                  void (async () => {
+                    setSaliendoDelSimulacro(true);
+                    try {
+                      // Salir de este teléfono siempre funciona; lo que puede
+                      // fallar es avisarle al servidor. Solo se dice cuando
+                      // tiene consecuencia para otra persona: si convocaste un
+                      // simulacro grupal y el cierre no llegó, los demás siguen
+                      // practicando y tu pantalla ya no lo muestra. Callarlo
+                      // sería dejarte creyendo que cerraste algo que sigue
+                      // abierto.
+                      const cerrado = await endDrill();
+                      if (!cerrado && eraMioYGrupal) {
+                        Alert.alert(
+                          'Saliste, pero no pudimos cerrarlo para los demás',
+                          'Revisa tu conexión. Si no lo cierras, el simulacro termina solo en menos de una hora.',
+                        );
+                      }
+                    } finally {
+                      setSaliendoDelSimulacro(false);
+                    }
+                  })();
+                }}
+                style={styles.gapTopLg}
+              />
+
+              {activeDrill.isMine && activeDrill.groupId ? (
+                <Text variant="caption" tone="tertiary" center style={styles.gapTop}>
+                  Lo cierra para todos los que estén practicando.
+                </Text>
+              ) : null}
+            </Card>
+          ) : (
+            <Card>
+              {/* «Usados» y no «completados»: desde la 0035 el cupo se descuenta
+                  al INICIAR. Antes se descontaba al terminar y se podía empezar
+                  y abandonar sin gastar nada, que con simulacros grupales era un
+                  agujero — convocás, no cerrás, repetís. */}
+              <Text variant="callout" weight="500">
+                Simulacros usados
+              </Text>
+              <Text variant="footnote" tone="secondary" style={styles.gapTop}>
+                {mySettings?.drillsCompleted ?? 0} de{' '}
+                {mySettings?.isPremium ? 'ilimitados' : FREE_DRILL_LIMIT}
+              </Text>
+              <Text variant="caption" tone="tertiary" style={styles.gapTop}>
+                Cuenta los que convocas tú. Practicar en el simulacro de otra persona no gasta nada.
+              </Text>
+
+              <Pressable
+                onPress={() => router.push('/drill')}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.gapTopLg, pressed ? styles.pressed : null]}>
+                <Text variant="footnote" tone="accent" weight="600">
+                  Hacer un simulacro
+                </Text>
+              </Pressable>
+            </Card>
+          )}
+        </Section>
 
         <Section title="CUÁNDO AVISARME DE UN SISMO">
           <Card padded={false}>
@@ -338,26 +465,6 @@ export default function SettingsScreen() {
             Esto es informativo y podés apagarlo sin miedo: la alerta de un sismo que sí te toca
             llega siempre, y es igual en Premium que en la versión gratuita.
           </Text>
-        </Section>
-
-        <Section title="PRÁCTICA">
-          <Card>
-            <Text variant="callout" weight="500">
-              Simulacros completados
-            </Text>
-            <Text variant="footnote" tone="secondary" style={styles.gapTop}>
-              {mySettings?.drillsCompleted ?? 0} de{' '}
-              {mySettings?.isPremium ? 'ilimitados' : FREE_DRILL_LIMIT}
-            </Text>
-            <Pressable
-              onPress={() => router.push('/drill')}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.gapTopLg, pressed ? styles.pressed : null]}>
-              <Text variant="footnote" tone="accent" weight="600">
-                Hacer un simulacro
-              </Text>
-            </Pressable>
-          </Card>
         </Section>
 
         <Section title="PERMISOS">

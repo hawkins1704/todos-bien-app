@@ -72,13 +72,13 @@ funciones que operan **sobre** tus contactos sin que tus contactos necesiten nad
 |---|---|
 | **Guardián** · «María está bien» y «María no responde» **cuando el sismo NO te alcanzó a ti** | ✅ existe (migración 0030) |
 | Avisos y feed de sismos en el mundo | ✅ existe |
-| Simulacros ilimitados | ✅ existe |
+| **Simulacros ilimitados**, solos o con un grupo | ✅ existe (migración 0035) |
 | Hasta 5 planes de acción con nombre | ✅ existe (migración 0024) |
 | **Grupos ilimitados** — gratis son 2 | ✅ existe (migraciones 0031 y 0034) |
 | SMS al que no responde | ⏳ más adelante, y es el mejor candidato — ver §3.3 |
 
-**Guardián es el único que importa.** Los otros son relleno de lista: nadie paga por
-simulacros ilimitados.
+**Guardián es el único que importa.** Los otros eran relleno de lista, y esa frase envejeció a
+medias: **el simulacro grupal dejó de serlo** (0035). Ver §3.2.2.
 
 > **Los grupos son la excepción parcial, y por eso el tope está donde está.** Cumplen la
 > prueba de §2.1 mejor que cualquier otra función: **mientras más gente te importa, más grupos
@@ -94,10 +94,10 @@ chat no depende de Premium»*. Limitar los grupos roza esa frase: con el cupo ll
 puedes abrir es un chat grupal más.
 
 Se evaluó mover el gancho al **simulacro grupal** —«ensaya con tu familia entera, no solo
-contigo»— y dejar los grupos libres. Es el argumento más limpio de los dos y sigue disponible
-para más adelante. Se descartó por ahora porque el simulacro grupal **todavía no existe** y el
-tope de grupos sí, y un plan Premium con una promesa a futuro es peor que uno con un límite
-entendible.
+contigo»— y dejar los grupos libres. Se decidió no elegir entre los dos: el simulacro grupal se
+construyó ese mismo día (0035) y **quedó con los 3 gratis**, por el motivo de §3.2.2. Así que el
+tope de grupos sigue siendo el gancho, y el simulacro grupal es lo que hace que alguien quiera
+llegar a él.
 
 **Cómo se sostiene la frase sin mentir**, y es lo que hay que escribir en la venta:
 
@@ -129,6 +129,31 @@ del plan). La oferta llega cuando el deseo ya existe y está medido por la propi
 Es el mismo criterio que la pestaña **Global** de Sismos, que se muestra con candado en vez de
 esconderse. Mecánica en `src/hooks/use-paywall.ts`; el porqué, en `ESTADO-DEL-PROYECTO.md`
 §1.9.1.0.
+
+#### 3.2.2 · El simulacro grupal, y por qué NO se cobra desde el primero
+
+Se evaluó hacerlo Premium de entrada —«ensaya con tu familia entera, no solo contigo» es la
+mejor frase de venta que tiene el producto— y se descartó. El motivo:
+
+> **El simulacro grupal es la mejor demostración que tiene la app de sí misma.** Es el momento
+> en que una familia entera *siente* para qué sirve: llegan los avisos, cada uno reporta, y en
+> la pantalla se ve a los cuatro cambiando de color. Cobrarlo desde el primero significa que
+> quien pagaría **nunca llega a verlo**.
+
+Así que los **3 gratis sirven para individuales o grupales, indistintamente**. Que lo corran
+tres veces y después choquen con el muro es exactamente cuándo se paga, y encaja con la regla
+de §2.1: quien tiene un grupo familiar y quiere practicar cada trimestre paga en el cuarto.
+
+**Dos reglas del cupo, y las dos tienen el mismo motivo de fondo:**
+
+- **Cuenta lo que CONVOCAS.** Participar es gratis e ilimitado. Si gastara cupo, quien arma el
+  grupo estaría gastando el de los demás: corre tres y su familia se queda en cero sin haber
+  decidido nada, y choca con un paywall que no disparó. Es la misma forma del problema que ya
+  resolvió el tope de grupos de la 0034.
+- **Se descuenta al INICIAR, no al terminar.** Antes se contaba al completar, así que se podía
+  empezar y abandonar sin gastar nada — con grupales, un agujero. Una regla sola, sin letra
+  chica, y el botón la dice: *«Vas a usar 1 de tus 3 simulacros»*.
+
 
 ### 3.3 · Qué se le quitó a Guardián el 2026-08-31, y por qué
 

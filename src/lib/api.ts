@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { TablesUpdate } from '@/types/database.types';
 import type {
   ActionPlan,
+  ActiveDrill,
   CircleMember,
   ConnectionStatus,
   ContactMatch,
@@ -739,12 +740,67 @@ export async function fetchTips(): Promise<Tip[]> {
 // Simulacros
 // ---------------------------------------------------------------------------
 
-export async function startDrill(mode: 'silent' | 'notify'): Promise<{ id: string }> {
+/**
+ * Convoca un simulacro (migración 0035).
+ *
+ * `groupId` lo convierte en grupal: el servidor mete a los integrantes como
+ * participantes y les manda el aviso. Solo lo puede hacer el dueño del grupo,
+ * y solo hay uno activo por grupo a la vez — las dos cosas las rechaza el
+ * servidor con `42501`.
+ *
+ * ⚠️ **El cupo se descuenta acá, al iniciar**, no al terminar. Antes era al
+ * completar y se podía empezar y abandonar sin gastar nada; con simulacros
+ * grupales eso era un agujero.
+ */
+export async function startDrill(
+  mode: 'silent' | 'notify',
+  groupId: string | null = null,
+): Promise<{ id: string }> {
   const { data, error } = await supabase.rpc('start_drill', {
     drill_mode: mode,
+    p_group_id: groupId,
   });
   if (error) throw error;
   return { id: data.id };
+}
+
+/**
+ * El simulacro que tengo encima ahora mismo, si hay alguno.
+ *
+ * Es la fuente de verdad del modo simulacro y por eso viaja en cada
+ * sincronización: cuando alguien convoca uno grupal, esto es lo que hace que el
+ * otro teléfono entre en modo simulacro solo, sin que nadie toque nada.
+ */
+export async function fetchActiveDrill(): Promise<ActiveDrill | null> {
+  const { data, error } = await supabase.rpc('get_active_drill');
+  if (error) throw error;
+
+  const fila = (data ?? [])[0];
+  if (!fila) return null;
+
+  return {
+    id: fila.id,
+    groupId: fila.group_id,
+    groupName: fila.group_name,
+    startedBy: fila.started_by,
+    startedByName: fila.started_by_name,
+    isMine: fila.is_mine,
+    startedAt: fila.started_at,
+    endsAt: fila.ends_at,
+  };
+}
+
+/**
+ * Salir del simulacro. Una sola función para las dos cosas, y el servidor
+ * decide cuál según quién llama: el convocante lo cierra **para todos**, el
+ * resto se va solo.
+ *
+ * No falla si el simulacro ya no existe —pudo caducar, o el convocante pudo
+ * cerrarlo un segundo antes—: en ese caso el modo ya tenía que apagarse igual.
+ */
+export async function endMyDrill(drillId: string): Promise<void> {
+  const { error } = await supabase.rpc('end_my_drill', { p_drill_id: drillId });
+  if (error) throw error;
 }
 
 export async function completeDrill(
@@ -795,6 +851,15 @@ export type NotificationPrefs = {
    * cuentas recibiendo algo que no pueden apagar.
    */
   contactReported: boolean;
+  /**
+   * Que alguien te meta en un simulacro grupal (migración 0035).
+   *
+   * 🔴 Apagarlo **no apaga solo el push: te deja fuera del simulacro.** El
+   * servidor filtra por esta preferencia al armar la lista de participantes.
+   * Recibir el aviso y ser arrastrado igual al modo simulacro sería respetar la
+   * preferencia a medias, que es peor que no tenerla.
+   */
+  drillInvites: boolean;
 };
 
 export async function fetchNotificationPrefs(userId: string): Promise<NotificationPrefs | null> {
@@ -817,6 +882,7 @@ export async function fetchNotificationPrefs(userId: string): Promise<Notificati
     quakeWorldwide: data.quake_worldwide,
     guardianAlerts: data.guardian_alerts,
     contactReported: data.contact_reported,
+    drillInvites: data.drill_invites,
   };
 }
 
@@ -837,6 +903,7 @@ export async function updateNotificationPrefs(
   if (patch.quakeWorldwide !== undefined) payload.quake_worldwide = patch.quakeWorldwide;
   if (patch.guardianAlerts !== undefined) payload.guardian_alerts = patch.guardianAlerts;
   if (patch.contactReported !== undefined) payload.contact_reported = patch.contactReported;
+  if (patch.drillInvites !== undefined) payload.drill_invites = patch.drillInvites;
 
   // Upsert y no update: un `update` sobre una fila que no existe afecta cero
   // filas y **no devuelve error**, así que el interruptor se veía cambiado en

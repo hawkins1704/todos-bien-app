@@ -90,7 +90,10 @@ export function MyLocationCard({
         status: effectiveStatus ?? 'unconfirmed',
         message: myStatus?.message ?? null,
         location: fix,
-        quakeEventId: activeQuakeId,
+        // En simulacro va `null`: el sismo es sintético y `user_status` tiene
+        // clave foránea contra `quake_events`, así que mandar su id haría fallar
+        // la escritura entera. Lo que ata el reporte al simulacro es `isDrill`.
+        quakeEventId: isDrill ? null : activeQuakeId,
         isDrill,
       });
 

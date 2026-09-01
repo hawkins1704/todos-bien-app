@@ -347,8 +347,15 @@ function peruvianArea(rest: string[], spot: string): string | null {
  */
 export function describePlace(
   place: string | null | undefined,
-  source?: 'igp' | 'usgs',
+  source?: 'igp' | 'usgs' | 'simulacro',
 ): PlaceInfo {
+  // El sismo del modo simulacro no tiene lugar que describir: es sintético y
+  // local (0035). Se corta acá para que no pase por el parser y termine
+  // inventando un departamento del Perú a partir de la palabra «Simulacro».
+  if (source === 'simulacro') {
+    return { spot: 'Simulacro', country: null, continent: null, label: null, area: null };
+  }
+
   const texto = place?.trim();
   if (!texto) {
     return { spot: 'Zona no especificada', country: null, continent: null, label: null, area: null };

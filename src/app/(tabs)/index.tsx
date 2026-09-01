@@ -8,7 +8,6 @@ import { Avatar } from '@/components/avatar';
 import { CalmBanner } from '@/components/calm-banner';
 import { CircleGrid } from '@/components/circle-grid';
 import { ConnectionChip } from '@/components/connection-chip';
-import { DrillBanner } from '@/components/drill-banner';
 import { MyLocationCard } from '@/components/my-location-card';
 import { PreparednessChecklist } from '@/components/preparedness-checklist';
 import { QuakeCard } from '@/components/quake-card';
@@ -17,9 +16,11 @@ import { TipCard } from '@/components/tip-card';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
+import { useDrillTour, useTourScrollView, useTourTarget } from '@/components/drill-tour';
 import { useAppData } from '@/context/app-data';
 import { useDrill } from '@/context/drill';
 import { useDailyTip } from '@/hooks/use-daily-tip';
+import { useNow } from '@/hooks/use-now';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
 import { captureLocationForActiveAlert } from '@/lib/alert-response';
 import { isOlderThan, timeAgo } from '@/lib/format';
@@ -36,6 +37,24 @@ export default function HomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { isDrilling } = useDrill();
+
+  // Los tres objetivos de la guía del simulacro. `collapsable={false}` en las
+  // vistas marcadas no es decorativo: sin él Android las funde con su padre y
+  // no queda nada que medir. Ver `components/drill-tour`.
+  const refEstado = useTourTarget('estado');
+  const refRed = useTourTarget('red');
+  const refUbicacion = useTourTarget('ubicacion');
+  const { completar } = useDrillTour();
+
+  // Y el scroll, para que la guía pueda acercar lo que quede fuera de la vista:
+  // el mapa vive más abajo del viewport y sin esto el foco lo buscaba detrás de
+  // la barra de pestañas.
+  const tourScroll = useTourScrollView();
+
+  // Un reloj que avanza: «Reportado hace 1 minuto» clavado durante media hora
+  // hace parecer fresco un reporte que no lo es, y en modo alerta eso es
+  // justamente el dato que se está mirando.
+  const now = useNow();
 
   const {
     accepted,
@@ -101,6 +120,13 @@ export default function HomeScreen() {
   // se desactiva sola si la persona ya reportó para este sismo.
   useEffect(() => {
     if (!alertActive || !activeQuake) return;
+    // 🔴 En simulacro NO. `captureLocationForActiveAlert` escribe
+    // `quake_event_id = quake.id` con `is_drill: false`, y el sismo del
+    // simulacro es sintético: la escritura violaría la clave foránea de
+    // `user_status` y, si pasara, sería un reporte REAL con id inventado.
+    // Durante el simulacro la ubicación se captura al reportar el estado, que
+    // es justo el paso 1 de la guía.
+    if (activeQuake.source === 'simulacro') return;
 
     let cancelled = false;
     void captureLocationForActiveAlert(activeQuake)
@@ -122,8 +148,22 @@ export default function HomeScreen() {
     };
   }, [alertActive, activeQuake, reloadLocal]);
 
-  const myEffectiveStatus: StatusKey | null =
-    alertActive && myStatus?.quakeEventId !== activeQuake?.id ? null : (myStatus?.status ?? null);
+  /**
+   * Mi estado, respecto del evento que la pantalla está mostrando.
+   *
+   * En un simulacro no se puede comparar por id de sismo: el sintético no viaja
+   * al servidor —`user_status.quake_event_id` tiene clave foránea contra
+   * `quake_events`— así que mi reporte vuelve con `quakeEventId: null`. Lo que
+   * lo ata a ESTE simulacro es `isDrill`. Sin esta rama, tocar «estoy bien»
+   * durante el simulacro dejaba el selector como si no hubieras reportado.
+   */
+  const myEffectiveStatus: StatusKey | null = !alertActive
+    ? (myStatus?.status ?? null)
+    : activeQuake?.source === 'simulacro'
+      ? (myStatus?.isDrill ? (myStatus.status ?? null) : null)
+      : myStatus?.quakeEventId !== activeQuake?.id
+        ? null
+        : (myStatus?.status ?? null);
 
   const report = async (status: StatusKey) => {
     setReporting(true);
@@ -152,6 +192,9 @@ export default function HomeScreen() {
         isDrill: isDrilling,
       });
       await reloadLocal();
+      // El paso 1 de la guía se completa HACIENDO la acción, no tocando
+      // «Siguiente»: es la única forma de que la práctica sea la de verdad.
+      completar('estado');
     } catch {
       // `reportMyStatus` escribe local y encola, así que no falla por red. Si
       // igual falla, hay que decirlo: el silencio acá se lee como "ya avisé".
@@ -164,16 +207,15 @@ export default function HomeScreen() {
     }
   };
 
-  // Con el simulacro activo el banner es lo primero de la pantalla y se queda
-  // con el safe area de arriba, así que el scroll ya no tiene que reservarlo:
-  // sumarlo dos veces dejaría un hueco del alto del status bar.
+  // Con el simulacro activo, la franja amarilla del layout raíz ya se llevó el
+  // safe area de arriba (ver `DrillBanner`), así que el scroll no tiene que
+  // reservarlo otra vez: sumarlo dos veces dejaría un hueco del alto del reloj.
   const topInset = isDrilling ? 0 : insets.top;
 
   return (
     <Screen>
-      {isDrilling ? <DrillBanner topInset /> : null}
-
       <ScrollView
+        {...tourScroll}
         contentContainerStyle={[
           styles.content,
           {
@@ -219,11 +261,11 @@ export default function HomeScreen() {
               <Text variant="headline">Mi estado</Text>
               <Text variant="footnote" tone="secondary" style={styles.subline}>
                 {myEffectiveStatus
-                  ? `Reportado ${timeAgo(myStatus?.reportedAt)}`
+                  ? `Reportado ${timeAgo(myStatus?.reportedAt, now)}`
                   : 'Tu red todavía no sabe cómo estás'}
               </Text>
 
-              <View style={styles.picker}>
+              <View ref={refEstado} collapsable={false} style={styles.picker}>
                 <StatusPicker
                   value={myEffectiveStatus}
                   onChange={(status) => void report(status)}
@@ -298,7 +340,7 @@ export default function HomeScreen() {
                 </View>
               ) : null}
 
-              <View style={styles.circleBody}>
+              <View ref={refRed} collapsable={false} style={styles.circleBody}>
                 {/*
                   Sin nadie en zona se muestra igual la red entera, apagada.
                   Una tarjeta vacía en mitad de un sismo se lee como "no tengo a
@@ -330,13 +372,15 @@ export default function HomeScreen() {
               que se quiere de una acción de seguimiento — la haces minutos
               después de mirar cómo está tu gente, no antes.
             */}
-            <MyLocationCard
-              myStatus={myStatus}
-              activeQuakeId={activeQuake.id}
-              effectiveStatus={myEffectiveStatus}
-              isDrill={isDrilling}
-              onUpdated={reloadLocal}
-            />
+            <View ref={refUbicacion} collapsable={false}>
+              <MyLocationCard
+                myStatus={myStatus}
+                activeQuakeId={activeQuake.id}
+                effectiveStatus={myEffectiveStatus}
+                isDrill={isDrilling}
+                onUpdated={reloadLocal}
+              />
+            </View>
 
             {tip ? <TipCard tip={tip} variant="compact" onNext={nextTip} /> : null}
           </>

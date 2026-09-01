@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
+import { useNow } from '@/hooks/use-now';
 import { elapsedShort, formatMagnitude } from '@/lib/format';
 import { describePlace } from '@/lib/geo';
 import { Radius, Spacing, type StatusKey } from '@/theme/tokens';
@@ -41,6 +42,10 @@ export function QuakeCard({
   tone?: QuakeCardTone;
 }) {
   const { status, colors } = useTheme();
+  // El reloj avanza aunque no lleguen datos nuevos. Sin esto la tarjeta se
+  // quedaba diciendo «hace 1 min» con el sismo cumpliendo media hora: la hora
+  // se congelaba en el último render, y sin datos nuevos no hay render.
+  const now = useNow();
 
   const palette =
     tone === 'alert' ? status.needs_help : status[magnitudeSeverity(quake.magnitude)];
@@ -90,7 +95,7 @@ export function QuakeCard({
         <View style={styles.metaRow}>
           <MaterialIcons name="schedule" size={13} color={palette.strong} />
           <Text variant="footnote" style={{ color: palette.strong }}>
-            {elapsedShort(quake.occurredAt)}
+            {elapsedShort(quake.occurredAt, now)}
           </Text>
 
           {quake.depthKm != null ? (

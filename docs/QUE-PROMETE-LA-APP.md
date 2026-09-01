@@ -164,7 +164,27 @@ que pagar para que le avisen que tembló donde está. Vender eso sería vender e
 | Feed global de sismos | ❌ | ✅ |
 | **Planes de acción** | 1 | **hasta 5**, cada uno con su nombre |
 | **Grupos** — Casa, Familia, Trabajo, cada uno con su chat | 2 | **ilimitados** |
-| Simulacros | 3 | ilimitados |
+| Simulacros — solo o con un grupo | 3 | ilimitados |
+
+**Sobre los simulacros, y lo que hay que decir para no asustar a nadie.** Un simulacro enciende
+la app entera como si acabara de temblar: aparece la alerta, reportas tu estado, ves a los tuyos
+y tu ubicación, con una guía paso a paso. **El sismo es lo único falso**, y existe solo dentro
+del teléfono — la app nunca inventa un sismo en sus registros.
+
+- **El individual es privado.** Nadie de tu red se entera ni recibe nada.
+- **El grupal lo convoca quien creó el grupo.** A los integrantes les llega un aviso que dice con
+  todas las letras que es un simulacro, nunca el texto de una alerta real.
+- **Cada uno puede salirse cuando quiera**, y quien lo convocó puede cerrarlo para todos. Si no
+  lo cierra nadie, **termina solo en una hora**.
+- **Se puede apagar del todo**, desde Ajustes → Notificaciones. Apagado, nadie te puede sumar a
+  un simulacro.
+- **Mientras dura, hay una franja amarilla arriba en todas las pantallas** que dice SIMULACRO y
+  dónde se sale. No se puede confundir con un sismo real.
+- **Y si tiembla de verdad durante un simulacro, el simulacro se cierra solo.** Lo que se ve es
+  la alerta.
+
+**El cupo de 3 cuenta los que convocas tú.** Practicar en el simulacro de otra persona es gratis
+e ilimitado: quien arma el grupo no gasta el cupo de los demás.
 
 **Sobre los grupos, y esto hay que decirlo en la app y no solo acá.** Un grupo es **gente + un
 chat**: una sola cosa. Se comparte — todos los que están adentro ven el nombre y a los demás — y

@@ -4,63 +4,70 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CircleGrid } from '@/components/circle-grid';
-import { DrillBanner } from '@/components/drill-banner';
 import { PremiumCta } from '@/components/premium-cta';
-import { StatusPicker } from '@/components/status-picker';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
 import { DRILL_LIMIT_ERROR, useDrill } from '@/context/drill';
-import { captureLocationOnce } from '@/lib/location';
-import { reportMyStatus } from '@/lib/sync';
-import { Radius, Spacing, type StatusKey } from '@/theme/tokens';
+import { Radius, Spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import { FREE_DRILL_LIMIT } from '@/types/domain';
 
-type Step = 'intro' | 'alert' | 'report' | 'done';
-
 /**
- * Modo simulacro (spec §9).
+ * Convocar un simulacro.
  *
- * Todo el recorrido va marcado con DrillBanner de forma persistente e
- * inequívoca, y el estado que se reporta viaja con `is_drill = true` para que
- * el círculo nunca confunda la práctica con un evento real.
+ * **Esta pantalla ya no ES el simulacro**, y ese es el cambio de la 0035. Antes
+ * el simulacro entero vivía acá: una alerta de mentira, un selector de estado
+ * propio y un resumen. Se practicaba en una maqueta, así que lo que se aprendía
+ * era a usar la maqueta — el día del sismo la pantalla iba a ser otra.
+ *
+ * Ahora esto solo elige con quién y arranca. Lo que sigue pasa en la app de
+ * verdad: la Home entra en modo alerta, la red se pinta, la ubicación se
+ * captura. Lo único falso es el sismo.
  */
 export default function DrillScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, status } = useTheme();
-  const { accepted, mySettings, reloadLocal } = useAppData();
-  const { start, finish, abandon, activeDrill } = useDrill();
+  const { colors } = useTheme();
+  const { groups, mySettings } = useAppData();
+  const { start } = useDrill();
 
-  const [step, setStep] = useState<Step>('intro');
-  const [mode, setMode] = useState<'silent' | 'notify'>('silent');
-  const [reported, setReported] = useState<StatusKey | null>(null);
+  const [elegido, setElegido] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [limiteServidor, setLimiteServidor] = useState(false);
 
-  const remaining = mySettings?.isPremium
-    ? Infinity
-    : Math.max(0, FREE_DRILL_LIMIT - (mySettings?.drillsCompleted ?? 0));
+  const esPremium = mySettings?.isPremium ?? false;
+  const usados = mySettings?.drillsCompleted ?? 0;
+  const restantes = esPremium ? Infinity : Math.max(0, FREE_DRILL_LIMIT - usados);
 
   // El servidor también corta por su cuenta: si la cuenta local viene atrasada,
-  // `remaining` puede decir que quedan y el rechazo llegar igual.
-  const sinSimulacros = remaining === 0 || limiteServidor;
+  // `restantes` puede decir que quedan y el rechazo llegar igual.
+  const sinCupo = restantes === 0 || limiteServidor;
 
-  const begin = async () => {
+  // Solo los grupos que creaste: convocar es de quien lo armó (migración 0035).
+  const misGrupos = groups.filter((g) => g.isOwner);
+
+  const empezar = async () => {
     setBusy(true);
     setError(null);
     try {
-      await start(mode);
-      setStep('alert');
+      await start(elegido);
+      // `dismissTo` y no `replace`: esta pantalla es un modal a pantalla
+      // completa, así que `replace` montaría la Home DENTRO de la presentación
+      // modal. Lo que se quiere es cerrar el modal y aterrizar en la Home, que
+      // es donde ocurre el simulacro.
+      router.dismissTo('/');
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : '';
+      const code = (caught as { code?: unknown } | null)?.code;
+
       if (message.includes(DRILL_LIMIT_ERROR)) {
         setLimiteServidor(true);
+      } else if (code === '42501') {
+        setError('Ya hay un simulacro activo en ese grupo, o dejaste de ser quien lo administra.');
       } else {
         setError('No pudimos iniciar el simulacro. Revisa tu conexión.');
       }
@@ -69,98 +76,79 @@ export default function DrillScreen() {
     }
   };
 
-  const report = async (chosen: StatusKey) => {
-    setBusy(true);
-    try {
-      const fix = await captureLocationOnce();
-      await reportMyStatus({
-        status: chosen,
-        location: fix,
-        quakeEventId: null,
-        isDrill: true,
-      });
-      setReported(chosen);
-      await reloadLocal();
-      setStep('done');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const close = async () => {
-    setBusy(true);
-    try {
-      if (activeDrill) await finish(reported);
-      // Deja el estado limpio: la marca de simulacro no debe quedar pegada.
-      await reportMyStatus({ status: reported ?? 'safe', quakeEventId: null, isDrill: false });
-      await reloadLocal();
-    } catch {
-      await abandon();
-    } finally {
-      setBusy(false);
-      router.replace('/');
-    }
-  };
-
-  const cancel = async () => {
-    await abandon();
-    router.replace('/');
-  };
-
   return (
     <Screen tone="plain">
-      {/* Pantalla sin header nativo: el banner es lo primero y por eso se lleva
-          el safe area de arriba (si no, queda debajo del reloj). El paddingTop
-          del ScrollView lo omite justamente cuando el banner está visible. */}
-      {step === 'intro' ? null : <DrillBanner topInset />}
-
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          {
-            paddingTop: step === 'intro' ? insets.top + Spacing.xl : Spacing.xl,
-            paddingBottom: insets.bottom + Spacing.xl,
-          },
+          { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
         ]}>
-        {step === 'intro' ? (
+        <View style={[styles.hero, { backgroundColor: colors.accentSoft }]}>
+          <MaterialIcons name="school" size={44} color={colors.accent} />
+        </View>
+
+        <Text variant="title" center>
+          Practicar antes, no durante
+        </Text>
+        <Text variant="body" tone="secondary" center>
+          La app se va a comportar como si acabara de temblar: vas a reportar tu estado, ver tu red
+          y tu ubicación, con una guía paso a paso. Nada de esto le llega a nadie que no esté
+          practicando contigo.
+        </Text>
+
+        {sinCupo ? (
+          <Card>
+            <Text variant="headline" center style={styles.limiteTitulo}>
+              Usaste tus {FREE_DRILL_LIMIT} simulacros
+            </Text>
+            <Text variant="subhead" tone="secondary" center style={styles.limiteTexto}>
+              Practicaste las {FREE_DRILL_LIMIT} veces que incluye el plan gratuito. Con Premium
+              puedes repetirlo cuando quieras, solo o con tus grupos.
+            </Text>
+            <PremiumCta />
+          </Card>
+        ) : (
           <>
-            <View style={[styles.hero, { backgroundColor: colors.accentSoft }]}>
-              <MaterialIcons name="school" size={48} color={colors.accent} />
-            </View>
+            <Card padded={false}>
+              <Text variant="footnote" tone="secondary" weight="600" style={styles.sectionHeader}>
+                ¿CON QUIÉN?
+              </Text>
 
-            <Text variant="title" center>
-              Practicar antes, no durante
-            </Text>
-            <Text variant="body" tone="secondary" center>
-              Vas a recorrer el flujo completo: llega la alerta, reportas tu estado y ves cómo
-              queda el dashboard. Toma menos de dos minutos.
-            </Text>
+              <Opcion
+                seleccionada={elegido === null}
+                onPress={() => setElegido(null)}
+                icon="person"
+                titulo="Solo yo"
+                detalle="Privado. Nadie de tu red se entera ni recibe nada."
+                primera
+              />
 
-            {/* Sin simulacros disponibles el selector de modo sobra: ofrecería
-                elegir cómo hacer algo que no se puede empezar. */}
-            {sinSimulacros ? null : (
-              <Card>
-                <Text variant="footnote" tone="secondary" weight="600">
-                  ¿AVISAMOS A TU RED?
-                </Text>
-
-                <ModeOption
-                  selected={mode === 'silent'}
-                  onPress={() => setMode('silent')}
-                  icon="volume-off"
-                  title="Modo silencioso"
-                  detail="Practicas tú solo. Nadie de tu red se entera ni recibe nada."
+              {misGrupos.map((grupo) => (
+                <Opcion
+                  key={grupo.id}
+                  seleccionada={elegido === grupo.id}
+                  onPress={() => setElegido(grupo.id)}
+                  icon="groups"
+                  titulo={grupo.name}
+                  detalle={`Les llega un aviso que dice que es un simulacro, y practican contigo. Son ${grupo.members.length - 1} ${grupo.members.length - 1 === 1 ? 'persona' : 'personas'}.`}
                 />
+              ))}
+            </Card>
 
-                <ModeOption
-                  selected={mode === 'notify'}
-                  onPress={() => setMode('notify')}
-                  icon="campaign"
-                  title="Avisar a mi red"
-                  detail="Les llega un aviso que dice claramente que es un simulacro, nunca el texto de una alerta real."
-                />
-              </Card>
-            )}
+            {/* Se dice acá y no después: es lo que evita que alguien crea que
+                sus contactos van a recibir el texto de una alerta real. */}
+            {elegido !== null ? (
+              <Text variant="caption" tone="tertiary" style={styles.nota}>
+                Cada uno puede salirse cuando quiera, y tú puedes cerrarlo para todos. Si no lo
+                cierra nadie, termina solo en una hora.
+              </Text>
+            ) : null}
+
+            {misGrupos.length === 0 ? (
+              <Text variant="caption" tone="tertiary" style={styles.nota}>
+                Para practicar con otras personas necesitas un grupo tuyo. Se arman en Mi red.
+              </Text>
+            ) : null}
 
             {error ? (
               <Text variant="footnote" tone="danger" center>
@@ -168,138 +156,48 @@ export default function DrillScreen() {
               </Text>
             ) : null}
 
-            {/* Agotados los simulacros gratuitos se explica y se ofrece Premium,
-                en vez de dejar un botón deshabilitado sin salida. */}
-            {sinSimulacros ? (
-              <Card>
-                <Text variant="headline" center style={styles.limiteTitulo}>
-                  Ya hiciste tus {FREE_DRILL_LIMIT} simulacros
-                </Text>
-                <Text variant="subhead" tone="secondary" center style={styles.limiteTexto}>
-                  Practicaste el flujo completo las {FREE_DRILL_LIMIT} veces que incluye el
-                  plan gratuito. Con Premium puedes repetirlo cuando quieras.
-                </Text>
-                <PremiumCta />
-              </Card>
-            ) : (
-              <>
-                {remaining !== Infinity ? (
-                  <Text variant="caption" tone="tertiary" center>
-                    Te quedan {remaining} de {FREE_DRILL_LIMIT} simulacros del plan gratuito.
-                  </Text>
-                ) : null}
-
-                <Button
-                  title="Empezar simulacro"
-                  onPress={() => void begin()}
-                  loading={busy}
-                  size="lg"
-                />
-              </>
-            )}
-
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              style={({ pressed }) => (pressed ? styles.pressed : null)}>
-              <Text variant="footnote" tone="secondary" center>
-                {sinSimulacros ? 'Volver' : 'Ahora no'}
-              </Text>
-            </Pressable>
-          </>
-        ) : null}
-
-        {step === 'alert' ? (
-          <>
-            <View style={[styles.alertHero, { backgroundColor: status.needs_help.soft }]}>
-              <MaterialIcons name="warning" size={44} color={status.needs_help.base} />
-              <Text variant="title2" center style={{ color: status.needs_help.strong }}>
-                Sismo de magnitud 5,8
-              </Text>
-              <Text variant="subhead" center style={{ color: status.needs_help.strong }}>
-                Lima · hace 1 min
-              </Text>
-            </View>
-
-            <Text variant="body" tone="secondary" center>
-              Así se vería la alerta de verdad. Lo único que tienes que hacer es tocar tu estado:
-              tu red lo ve apenas abre la app.
-            </Text>
-
-            <Button title="Continuar" onPress={() => setStep('report')} size="lg" />
-
-            <Pressable
-              onPress={() => void cancel()}
-              accessibilityRole="button"
-              style={({ pressed }) => (pressed ? styles.pressed : null)}>
-              <Text variant="footnote" tone="secondary" center>
-                Salir del simulacro
-              </Text>
-            </Pressable>
-          </>
-        ) : null}
-
-        {step === 'report' ? (
-          <>
-            <Text variant="title2">¿Cómo estás?</Text>
-            <Text variant="body" tone="secondary">
-              Elige uno. En un sismo real este es el único paso que importa.
-            </Text>
-
-            <StatusPicker
-              value={reported}
-              onChange={(chosen) => void report(chosen)}
-              disabled={busy}
-            />
-
-            {busy ? (
+            {restantes !== Infinity ? (
               <Text variant="caption" tone="tertiary" center>
-                Guardando y tomando tu ubicación…
+                Vas a usar 1 de tus {FREE_DRILL_LIMIT} simulacros. Te quedan {restantes}.
               </Text>
             ) : null}
+
+            <Button
+              title="Empezar simulacro"
+              onPress={() => void empezar()}
+              loading={busy}
+              size="lg"
+            />
           </>
-        ) : null}
+        )}
 
-        {step === 'done' ? (
-          <>
-            <View style={[styles.hero, { backgroundColor: status.safe.soft }]}>
-              <MaterialIcons name="check-circle" size={48} color={status.safe.base} />
-            </View>
-
-            <Text variant="title" center>
-              Eso es todo
-            </Text>
-            <Text variant="body" tone="secondary" center>
-              Un toque y listo. Así se ve tu red cuando todos reportan.
-            </Text>
-
-            <Card>
-              <Text variant="headline">Tu red</Text>
-              <View style={styles.circleBody}>
-                <CircleGrid members={accepted} activeQuakeId={null} showStatus />
-              </View>
-            </Card>
-
-            <Button title="Terminar" onPress={() => void close()} loading={busy} size="lg" />
-          </>
-        ) : null}
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          style={({ pressed }) => (pressed ? styles.pressed : null)}>
+          <Text variant="footnote" tone="secondary" center>
+            {sinCupo ? 'Volver' : 'Ahora no'}
+          </Text>
+        </Pressable>
       </ScrollView>
     </Screen>
   );
 }
 
-function ModeOption({
-  selected,
+function Opcion({
+  seleccionada,
   onPress,
   icon,
-  title,
-  detail,
+  titulo,
+  detalle,
+  primera = false,
 }: {
-  selected: boolean;
+  seleccionada: boolean;
   onPress: () => void;
   icon: keyof typeof MaterialIcons.glyphMap;
-  title: string;
-  detail: string;
+  titulo: string;
+  detalle: string;
+  primera?: boolean;
 }) {
   const { colors } = useTheme();
 
@@ -307,28 +205,41 @@ function ModeOption({
     <Pressable
       onPress={onPress}
       accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected: seleccionada }}
+      accessibilityLabel={titulo}
       style={({ pressed }) => [
-        styles.mode,
-        {
-          backgroundColor: selected ? colors.accentSoft : 'transparent',
-          borderColor: selected ? colors.accent : colors.border,
-        },
+        styles.opcion,
+        primera
+          ? null
+          : { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth },
         pressed ? styles.pressed : null,
       ]}>
-      <MaterialIcons
-        name={icon}
-        size={22}
-        color={selected ? colors.accent : colors.textSecondary}
-      />
-      <View style={styles.modeCopy}>
-        <Text variant="callout" weight={selected ? '600' : '400'}>
-          {title}
+      <View
+        style={[
+          styles.opcionIcono,
+          { backgroundColor: seleccionada ? colors.accentSoft : colors.surfaceSunken },
+        ]}>
+        <MaterialIcons
+          name={icon}
+          size={20}
+          color={seleccionada ? colors.accent : colors.textSecondary}
+        />
+      </View>
+
+      <View style={styles.opcionCopy}>
+        <Text variant="callout" weight={seleccionada ? '600' : '400'}>
+          {titulo}
         </Text>
         <Text variant="caption" tone="secondary">
-          {detail}
+          {detalle}
         </Text>
       </View>
+
+      <MaterialIcons
+        name={seleccionada ? 'radio-button-checked' : 'radio-button-unchecked'}
+        size={22}
+        color={seleccionada ? colors.accent : colors.textTertiary}
+      />
     </Pressable>
   );
 }
@@ -339,28 +250,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     borderRadius: Radius.pill,
-    height: 100,
+    height: 92,
     justifyContent: 'center',
-    width: 100,
+    width: 92,
   },
-  alertHero: {
+  sectionHeader: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
+  opcion: {
     alignItems: 'center',
-    borderRadius: Radius.xl,
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xl,
-  },
-  mode: {
-    alignItems: 'flex-start',
-    borderRadius: Radius.lg,
-    borderWidth: 1,
     flexDirection: 'row',
     gap: Spacing.md,
-    marginTop: Spacing.md,
-    padding: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
-  modeCopy: { flex: 1, gap: 2 },
-  circleBody: { marginTop: Spacing.lg },
+  opcionIcono: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  opcionCopy: { flex: 1, gap: 2 },
+  nota: { paddingHorizontal: Spacing.xs },
   limiteTitulo: { marginBottom: Spacing.xs },
   limiteTexto: { marginBottom: Spacing.lg },
   pressed: { opacity: 0.7 },

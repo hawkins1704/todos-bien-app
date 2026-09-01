@@ -117,7 +117,86 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 | 1.12 | **Fortaleza del hash de teléfono** | La sal está hardcodeada en `src/lib/phone.ts` (`todosbien.v1`). El espacio de números peruanos es chico: con la sal conocida, la tabla de `phone_hash` es reversible por fuerza bruta. No bloquea el MVP; sí hay que resolverlo antes de tener padrón grande |
 | 1.14 | 🟡 **El contacto sin notificaciones desaparece del sistema de avisos** | Si alguien de tu red no tiene ningún dispositivo registrado, su entrega cierra como `no_token` y no como `sent` (`send-alerts/index.ts:186`). Y `notify_silent_contacts` solo mira a los callados con `status = 'sent'`, así que **nunca se dispara «X no responde» por esa persona** — ni gratis ni con Guardián. El silencio de la app coincide con el silencio de quien más te preocuparía. *(«X está bien» sí funciona: se dispara cuando ella reporta, y para reportar no hace falta recibir ningún push.)* **El arreglo NO es quitar el filtro de `sent`** — eso reintroduce el ruido sin antecedente que corrigió la 0020. Va como **estado permanente**, no como notificación: una línea en la ficha del contacto y un distintivo en la grilla de la red, con el texto *«No recibe notificaciones · Las notificaciones de Todos Bien no están llegando a su teléfono. No va a recibir el aviso de sismo.»* — redactado sobre el efecto y no sobre la causa, porque el servidor sabe que no hay a dónde mandar pero **no sabe por qué** (permiso denegado, teléfono nuevo, o reinstalación sin abrir la app). Implementación: `push_tokens` tiene RLS `_own` y no se toca; hace falta una función `security definer` que exponga solo ese booleano para la red aceptada, **mismo patrón que `get_circle_alert_scope` de la 0025**, que existe por este mismo problema con `alert_deliveries`. Cero notificaciones nuevas |
 | 1.15 | 🟡 **Que te metan en un grupo no te avisa** | Desde la 0034 el dueño de un grupo suma gente de su red, y la persona **entra sin enterarse**: el grupo y su chat le aparecen al siguiente refresco y punto. No es un agujero de privacidad —solo puede meterte alguien que ya es contacto tuyo, y del otro lado la pantalla avisa que quien entra lee todo lo anterior— pero sí es un silencio raro en una app cuyo propósito es que la gente se entere, y ahora pesa más que antes: el grupo es visible, tiene nombre, y hay gente adentro que puede no ser contacto tuyo. El arreglo es la **regla de los 4 lugares** de la 0028: `kind` en el CHECK de `notification_deliveries`, rama en `enqueue_notifications`, columna en `notification_preferences` y el emisor. Lo natural sería colgarlo de `contact_message`, que ya existe |
-| 1.13 | 🟡 **Quedan tres `try/finally` sin `catch`** | El barrido del 2026-08-28 encontró **siete** en total. Cinco están cerrados —aceptar solicitud, abrir chat, ficha del contacto, **reportar el estado** y actualizar la ubicación—; los tres que quedan son de menor consecuencia y están sin tocar: `context/drill.tsx` (completar un simulacro), `app/drill.tsx` (uno de sus tres bloques) y `(onboarding)/permissions.tsx` (los dos, en las peticiones de permiso del alta). El patrón deja el error escapando como promesa no capturada **y** se lleva puesto lo que venía después del `await`, así que da dos síntomas sin relación aparente. Se repite con: `for f in $(grep -rl "} finally {" src/); do ...` comparando cuántos `catch` y cuántos `finally` tiene cada archivo |
+| 1.13 | 🟡 **Queda uno: `(onboarding)/permissions.tsx`** (los dos bloques, en las peticiones de permiso del alta). El barrido del 2026-08-28 encontró **siete**; los dos del simulacro se cerraron el 2026-09-01 al reescribirlo. El de `context/drill.tsx` era el peor de la familia: salir del simulacro apagaba el modo local igual, así que un fallo de red **parecía haber funcionado** mientras los demás seguían practicando. Ahora `end()` no lanza, devuelve si el servidor confirmó, y Ajustes lo dice **solo cuando le pasa algo a otra persona** — un simulacro grupal tuyo que no se cerró. ⚠️ **`lib/alert-response.ts` aparece en el barrido y NO es un caso**: ese `finally` solo suelta el candado `capturing`, y los dos llamadores (`(tabs)/index.tsx` y `background-alert.ts`) capturan. Se repite con: `for f in $(grep -rl "} finally {" src/); do ...` comparando cuántos `catch` y cuántos `finally` tiene cada archivo |
+
+**Corregido el 2026-09-01 — «X no responde» tenía dos formas de mentir (migraciones 0037 y 0038,
+aplicadas y verificadas con dos teléfonos y sismos sembrados).** Las dos salieron de la misma
+corrida y las dos golpean la mitad de Guardián que sostiene el precio.
+
+- **0037 · La captura automática de ubicación apagaba el aviso.** `notify_silent_contacts`
+  buscaba a los callados como «quien no tiene fila de estado para ese sismo», pero
+  `captureLocationForActiveAlert` escribe una fila `unconfirmed` **sin que la persona reporte
+  nada**. O sea: *cuanto mejor funcionaba el teléfono de tu contacto, menos probable era que
+  Guardián te avisara de su silencio.* Medido antes de tocar nada: sin fila 1 aviso, con la fila
+  de la captura automática 0. La regla, ahora en un solo lugar: **`unconfirmed` no es un
+  reporte** — no lo puede elegir nadie, el selector no lo ofrece.
+- **0038 · Guardián se contradijo solo, y se vio en el teléfono.** A Renzo le llegó
+  «Paolo está bien» (20:01) y ocho minutos después «Paolo no responde» (20:10), **sobre el mismo
+  sismo**. Causa: `user_status` tiene **una fila por persona**, así que cuando llegó un segundo
+  sismo la captura automática sobrescribió la fila y desapareció la prueba de que había
+  contestado el primero. El cron seguía preguntando por el viejo. **La corrección es de sentido,
+  no de SQL:** con una tabla de estado actual, «¿contestó?» solo se puede responder sobre la
+  alerta vigente; de cada persona se mira su alerta más reciente y nada más. ⚠️ El orden importa
+  — el «más reciente» se elige **antes** del filtro de los 20 minutos, o un sismo nuevo que aún
+  no los cumple deja que el viejo vuelva a ganar, que es el bug mismo.
+
+No lo introdujo la 0037: con la condición anterior el falso aviso salía igual. Lo que hizo la
+0037 fue destaparlo en diez minutos.
+
+**Corregido el 2026-09-01 — cinco interruptores de Ajustes no hacían nada (migración 0036,
+aplicada y verificada).** Lo rompió la **0035 la noche anterior**: agregó las dos ramas del
+simulacro a `enqueue_notifications` con un `create or replace` sobre un cuerpo viejo, y en el
+mismo gesto **borró cinco ramas ajenas** — `quake_national`, `quake_worldwide`,
+`contact_reported`, `contact_is_safe` y el ya muerto `contact_in_quake_zone`. Todo lo que perdía
+su rama caía en el `else true`: se mandaba siempre. Apagar «Sismos en el país», «Sismos en el
+mundo», «Alguien reportó que está bien» o **Guardián entero** no tenía ningún efecto.
+
+No lo vivió nadie —desde anoche no se emitió ninguno de esos tipos— pero es el fallo que un
+usuario no puede diagnosticar: apaga un aviso y el aviso llega igual.
+
+**La lección es sobre la regla de los 4 lugares, no sobre el bug.** Esa regla existe para no
+*olvidarse* de un lugar al agregar un tipo. Acá pasó lo contrario: los cuatro lugares se
+hicieron bien, y el mismo gesto borró cuatro tipos ajenos. Un `create or replace` de una función
+de despacho no agrega: reemplaza, y lo que no se vuelve a escribir desaparece sin ruido. Por eso
+la 0036 convierte la regla en algo que falla solo —`private.assert_notification_kinds_mapped()`,
+que compara el CHECK contra el cuerpo del despachador— y **toda migración que vuelva a tocar
+`enqueue_notifications` tiene que llamarla al final**. Un documento se puede no leer; una
+excepción, no.
+
+**Cambiado el 2026-09-01 (noche) — el simulacro pasó a ser un MODO (migración 0035, aplicada y
+verificada).** Antes vivía en una pantalla propia con una alerta de mentira: se practicaba en una
+maqueta, así que lo que se aprendía era a usar la maqueta. Ahora enciende la app de verdad, con
+una guía paso a paso sobre los controles reales, y **puede ser de un grupo**: el dueño lo convoca
+y los teléfonos de los demás entran en modo solos.
+
+Lo que conviene tener presente:
+
+- **El sismo del simulacro es local**, jamás una fila en `quake_events` — sembrar una haría que
+  el fan-out se la mandara a usuarios reales.
+- **Un sismo real cierra el simulacro solo.** Es la única regla no negociable: el banner amarillo
+  sobre una alerta de verdad es una ambigüedad que puede costar una vida.
+- **El cupo de 3 cuenta lo que convocas** y se descuenta **al iniciar**. Participar es gratis e
+  ilimitado. Ver `MONETIZACION.md` §3.2.2.
+- **Caduca a los 60 minutos**, o un convocante sin batería dejaría a su familia encerrada.
+- ✅ **Corrido en dos teléfonos el 2026-09-01.** Pasó casi entero; los fallos que aparecieron están
+  arreglados y anotados en `VERIFICACION-EN-DISPOSITIVO.md` §9.f, marcados con 🔁 para volver a
+  correrlos. Tres tenían la misma raíz: **la guía daba por sentado que la Home estaba delante y
+  entera.** No lo está cuando el objetivo queda debajo del viewport (el mapa), ni cuando el
+  simulacro lo convoca otro y el teléfono está en un chat. Ahora la guía desplaza la pantalla
+  hasta el objetivo, lleva a la Home al empezar, y se esconde en cualquier otra vista en lugar de
+  iluminar coordenadas que ya no significan nada.
+- 🔴 **El bug caro del simulacro, encontrado por una insignia que decía «1 por enviar».** El id
+  del sismo sintético viajaba a `report_status(quake_id uuid)` y Postgres lo rechazaba con
+  `22P02`, así que **ningún reporte de estado de un simulacro llegó nunca al servidor** y en un
+  simulacro grupal nadie veía a nadie ponerse en verde. Encima `22P02` no estaba en los rechazos
+  definitivos del outbox: la fila se reintentaba para siempre. Dos arreglos, los dos en el cuello
+  de botella y no en quien llama —**el mismo olvido ya había pasado en tres pantallas**—: se
+  descarta el id sintético en `reportMyStatus`, y `22P02` se suma a los rechazos definitivos para
+  limpiar las colas ya envenenadas. La lección, que es la misma de la 0034: si un dato no puede
+  salir del teléfono, el filtro va donde sale, no en cada uno de los que lo mandan.
+- ⏸️ **Falta en dispositivo:** la caducidad a los 60 minutos y **la prueba del sismo real**
+  —simulacro activo + sismo sembrado que sí alcance a esa cuenta—, que es la que no se puede
+  saltear antes del build.
 
 **Cambiado el 2026-09-01 (tarde) — los círculos y las conversaciones grupales se fusionaron
 (migración 0034, aplicada y verificada).** Eran dos objetos que todo el mundo llamaba «grupo», y

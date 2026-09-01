@@ -97,13 +97,15 @@ returning id;
 > update public.notification_preferences
 >    set contact_needs_help = false, contact_not_responding = false, contact_message = false,
 >        guardian_alerts = false, quake_national = false, quake_worldwide = false,
->        contact_reported = false
+>        contact_reported = false, drill_invites = false
 >  where user_id in ('<ajeno-1>', '<ajeno-2>');
 > ```
 >
 > Y una trampa de segundo orden: si durante la sesión se aplica una migración que **agrega una
 > columna de preferencia**, esa nace en `true` y abre un agujero nuevo en un blindaje que ya
-> creías puesto. Pasó el mismo día con `contact_reported` (migración 0027).
+> creías puesto. Pasó con `contact_reported` (0027) y volvió a pasar con `drill_invites`
+> (0035) — que además de un push mete a la persona en un simulacro ajeno. **Dos veces es un
+> patrón: al agregar una preferencia, actualizar este bloque en la misma sesión.**
 
 **Verificar a quién le llegó, antes de mirar el teléfono:**
 
@@ -206,8 +208,8 @@ sola cuenta** (así se hizo el 2026-08-21, ESTADO §3.8.1).
 | # | Paso | Qué tiene que pasar |
 |---|---|---|
 | 7.1 | Con la app en segundo plano, disparar el sismo de prueba | Llega el aviso visible |
-| 7.2 | Sin tocar nada, esperar y mirar `user_status` | La ubicación se escribió sola. La firma que **solo** puede dejar la tarea de fondo es `status = 'unconfirmed'` sin jitter |
-| 7.3 | Mirar `background_traces` | La cadena de migajas completa |
+| 7.2 | Sin tocar nada, esperar y mirar `user_status` | La ubicación se escribió sola. ⚠️ **`status = 'unconfirmed'` NO alcanza como prueba**: la captura en primer plano escribe exactamente lo mismo, porque las dos llaman a la misma función. Si abriste la app aunque sea un segundo, el dato ya no distingue nada. **La única evidencia es `background_traces`** — ver 7.3 |
+| 7.3 | Mirar `background_traces` | La cadena completa: `woke` → `alert:found` → `captured`. 🟡 **En el Android del 2026-09-01 llegó hasta `no-fix`**: despertó y encontró la alerta en menos de un segundo, pero no consiguió posición. `captureLocationOnce` da 12 s al GPS y después cae a la última conocida de menos de 30 min; si las dos fallan, `no-fix`. Sospecha a confirmar: en segundo plano Android restringe la ubicación con permiso solo de primer plano, que es el que la función comprueba (`location.ts:80`). **Despertar funciona; capturar en Android está sin demostrar.** Las migajas se suben en el refresco siguiente, así que hay que volver a mirar después de abrir la app |
 | 7.4 | **Con la app cerrada a mano** desde el multitarea | El aviso visible **llega igual**; la captura automática no ocurre. Es la limitación conocida, no un bug |
 | 7.5 | Tocar el aviso | Se abre la app, captura la ubicación, y el sistema le devuelve el permiso de despertarse sola |
 | 7.6 | Con la app **terminada por el sistema** | 🟡 No se puede forzar. Lo contesta el próximo sismo real leyendo las migajas (ESTADO §3.8.2) |
@@ -231,29 +233,68 @@ sola cuenta** (así se hizo el 2026-08-21, ESTADO §3.8.1).
 Guardián es lo único que sostiene el precio de Premium (`MONETIZACION.md` §3), así que si
 algo de acá falla, no hay nada que vender.
 
-**Necesita dos cuentas y un sismo sembrado.** El truco para no viajar a Madrid: sembrar el
-sismo lejos de **tu** posición y cerca de la del contacto, editándole las coordenadas a mano.
+> 🔴 **Reescrita el 2026-09-01. La versión anterior probaba una función que ya no existe.**
+> Las filas viejas giraban alrededor de «Tembló cerca de \<B\>», que la **0030 eliminó** —no se
+> podía enunciar en una frase—, y de ahí colgaban seis pasos más. Correrlas habría gastado una
+> tarde persiguiendo un push que nadie manda.
+>
+> **Guardián hoy son dos avisos, los dos sobre el ESTADO de un contacto, los dos solo cuando el
+> sismo NO te alcanzó a ti:**
+>
+> | Aviso | `kind` | Cuándo sale | Interruptor |
+> |---|---|---|---|
+> | «\<B\> está bien» | `contact_is_safe` | Al reportar B. Inmediato | GUARDIÁN |
+> | «\<B\> no responde» | `contact_not_responding` | Cron cada 5 min, si la entrega está `sent` hace **más de 20 minutos** y B no reportó | GUARDIÁN |
+>
+> **Y su gemelo gratis:** si el sismo **sí** te alcanzó, «\<B\> está bien» llega igual, como
+> `contact_reported`, con el interruptor «Alguien reportó que está bien» (0027).
 
-> ✅ **7b.4 y 7b.5 verificados el 2026-08-27** con dos teléfonos (iPhone premium + Android
-> gratis). Apertura enviada a los 0,7 s del insert; cierre enviado al reportar. La corrida
-> destapó además los tres huecos de abajo, todos ya cerrados.
+**El banco de pruebas, con los dos teléfonos en la misma ciudad.** No se falsean coordenadas
+—la app las pisa, ver §0—: se separa a las dos cuentas **por radio**. Con un epicentro en
+**Pisco** (`-13.710, -76.200`), a 198–206 km de todos los teléfonos del proyecto:
+
+- Radio **300 km** → le llega. Radio **150 km** (el de fábrica) → no le llega.
+- Con `country_code` en NULL y magnitud 5,5 **no se dispara nada más**: ni la regla nacional ni
+  la noticia mundial. Comprobado con la función real antes de sembrar: con los ajustes de
+  fábrica ese sismo no le llega a **nadie**.
+
+```sql
+-- Ensayo en seco OBLIGATORIO antes de sembrar: dice exactamente a quién le va a llegar.
+select p.display_name, s.alert_radius_km,
+       round(public.distance_km(us.latitude, us.longitude, -13.710, -76.200)::numeric, 0) as km,
+       private.quake_applies(
+         s.is_premium, s.alert_worldwide_enabled, s.country_code,
+         s.alert_radius_km, s.alert_min_magnitude, s.alert_countrywide_magnitude,
+         us.latitude, us.longitude, 5.5, null, -13.710, -76.200) as le_llega
+from public.profiles p
+join public.user_settings s on s.user_id = p.id
+left join public.user_status us on us.user_id = p.id
+where s.onboarding_completed_at is not null
+order by le_llega desc;
+```
 
 | # | Paso | Qué tiene que pasar |
 |---|---|---|
 | 7b.1 | Instalación nueva, conceder ubicación, y mirar `select country_code from user_settings where user_id = '<ID>'` | Dice el país **real**. Hasta el 2026-08-25 todos decían `PE` sin excepción, porque nadie lo escribía nunca |
 | 7b.2 | Repetir con el teléfono en **modo avión** al conceder el permiso | Queda en `PE` y **no** se marca como resuelto: el geocodificador necesita red. Al volver la señal y refrescar la app, se corrige solo |
-| 7b.3 | Ponerle `is_premium = true` a la cuenta A, y a la cuenta B una ubicación en Lima | — |
-| 7b.4 | Sembrar un sismo M6,5 **a 20 km de B** y lejos de A | 🔴 A recibe **«Tembló cerca de \<B\>»** con la distancia en el cuerpo. Es la función entera |
-| 7b.5 | Desde B, marcar «estoy bien» | 🔴 A recibe **«\<B\> está bien»**. Sin este, Guardián solo fabrica ansiedad |
-| 7b.6 | Tocar el aviso de 7b.4 | Abre la ficha de B, con su ubicación |
-| 7b.7 | Quitarle Premium a A y repetir 7b.4 | A **no** recibe nada |
-| 7b.8 | Con A premium, pero con la ubicación de B **borrada** (`latitude = null`) | A **no** recibe nada. Es la regla de honestidad: sin coordenadas no se sabe si le tocó cerca |
-| 7b.9 | Con B a 900 km del epicentro, sismo M6,5 en su país | A **no** recibe nada, aunque B sí reciba su alerta nacional. «Cerca» tiene que ser cierto |
-| 7b.10 | Con **A también dentro del radio** del sismo | A recibe su alerta normal y **no** el aviso de Guardián: ya está en modo emergencia y su red muestra lo mismo |
-| 7b.11 | Con 3 contactos de A en la zona | Un **solo** aviso: «Tembló cerca de 3 de tus contactos», y al tocarlo abre la red |
-| 7b.12 | Correr el reparto del mismo sismo dos veces | No se duplica (`dedupe_key`) |
-| 7b.13 | Ajustes → GUARDIÁN, apagar el interruptor y repetir | No llega ninguno de los dos avisos |
-| 7b.14 | Con A y B **bloqueados** entre sí (0021) | No llega nada: `accepted_circle_of` deja fuera a los bloqueados |
+| 7b.3 | **A** premium, radio **150**. **B** gratis, radio **300**. Sembrar el sismo de Pisco | Le llega **solo a B**. A no ve ninguna alerta: es el escenario entero de Guardián |
+| 7b.4 ✅ | Desde B, marcar «estoy bien» | 🔴 A recibe **«\<B\> está bien»**, y el cuerpo **nombra el sismo** («Hubo un sismo de magnitud 5,5 en Pisco…»). Sin el antecedente, a quien no sintió nada le llega un alivio de algo que no sabía. Puede tardar hasta 5 min: `send-notifications` es un cron. **Verificado en dos teléfonos el 2026-09-01**, enviado 2 s después del reporte |
+| 7b.5 | Tocar ese aviso | Abre la ficha de B, con su ubicación y su plan |
+| 7b.6 ✅ | Repetir 7b.3 y que B **no** reporte nada | 🔴 A los ~20-25 min A recibe **«\<B\> no responde»**. Es la mitad que sostiene el precio: enterarte del silencio. **Y hay que leerle la magnitud**: tiene que hablar del sismo **vigente**. El 2026-09-01 llegó nombrando uno anterior que B ya había contestado — así se encontró la 0038 |
+| 7b.7 ✅ | Quitarle Premium a A y repetir 7b.4 | A **no** recibe nada |
+| 7b.8 ✅ | A premium, **Ajustes → GUARDIÁN apagado**, repetir 7b.4 y 7b.6 | 🔴 **No llega ninguno de los dos.** Roto entre la 0035 y la 0036: el despachador había perdido la rama y mandaba ignorando el interruptor |
+| 7b.9 ✅ | Subirle a **A** el radio a 300 también, y repetir 7b.4 | A recibe la alerta del sismo como cualquiera, y el «está bien» le llega por la vía **gratis** (`contact_reported`), no por Guardián. Un mismo hecho, dos puertas |
+| 7b.10 ✅ | Con A en zona y **«Alguien reportó que está bien» apagado** | 🔴 No llega. Misma rotura que 7b.8, mismo arreglo |
+| 7b.11 ✅ | Con A y B **bloqueados** entre sí (0021) | No llega nada: bloquear pone `connections.status = 'blocked'` y `accepted_circle_of` filtra por `'accepted'` |
+
+> ✅ **7b.7 a 7b.11 verificados el 2026-09-01**, seis casos de seis, en una transacción revertida
+> que dispara el trigger de verdad y cuenta lo que entra en `notification_deliveries`. **No hacen
+> falta los teléfonos para estos**: lo que prueban es *quién califica*, y que el push llega
+> físicamente ya está probado en 7.1 y 7b.4. El bloque de SQL está en el historial de la sesión;
+> lo que hay que recordar es la forma — un `pg_temp` que deja a B sin reportar y lo hace reportar,
+> se corre una vez por caso cambiando un solo ajuste, y `rollback` al final.
+| 7b.12 | `select private.fan_out_quake('<id>')` dos veces sobre el mismo sismo | No se duplica: `alert_deliveries_unique` y `dedupe_key` |
+| 7b.13 | Un contacto de A **sin ningún dispositivo registrado**, callado tras la alerta | ⚠️ **Falla a propósito y ya está anotado**: su entrega cierra como `no_token`, y `notify_silent_contacts` solo mira las `sent`. Nunca se dispara «no responde» por esa persona. Es la deuda **1.14** de `QUE-FALTA.md`; no perder tiempo diagnosticándolo acá |
 
 ---
 
@@ -509,6 +550,78 @@ Esto necesita **tres cuentas**: A (dueño), B y C, donde **B y C no están conec
 > de miembro, `on_message_sent` deja de incluirte y `get_or_create_direct_conversation` **no te
 > vuelve a agregar** — quedarías en silencio permanente con ese contacto, sin saberlo y sin forma
 > de volver.
+
+## 9.f · El simulacro como modo (nuevo el 2026-09-01 · migración 0035)
+
+> **Corrido en dos teléfonos el 2026-09-01.** Pasó casi entero. Lo que falló ya está arreglado y
+> son los marcados con 🔁 abajo — hay que volver a correr **esos**.
+>
+> El quinto apareció mirando la insignia de conexión y era el más grave de todos: **el reporte de
+> estado de un simulacro no llegaba nunca al servidor.** El id del sismo sintético
+> (`simulacro:<uuid>`) iba a `report_status(quake_id uuid)`, Postgres lo rechazaba con `22P02`, y
+> como ese código no estaba en la lista de rechazos definitivos la fila se quedaba en el outbox
+> reintentando para siempre: «1 por enviar» pegado después de terminar. Se veía como un detalle
+> cosmético y se llevaba puesto el sentido entero del simulacro grupal (9f.17). Arreglado en el
+> cuello de botella —`reportMyStatus`— porque **el mismo olvido ya había pasado tres veces** en
+> tres pantallas distintas.
+>
+> Los otros cuatro:
+>
+> 1. En un simulacro individual el botón de salida decía «Cerrar simulacro para todos» (9f.12).
+> 2. La guía no desplazaba la pantalla, así que el paso del mapa iluminaba la barra de
+>    pestañas — el mapa está más abajo del viewport (9f.8).
+> 3. Al participante de un simulacro grupal la guía le oscurecía la pantalla **donde estuviera**,
+>    resaltando pedazos de una vista que no era la Home (9f.16).
+> 4. Salir del simulacro estaba en una caja y entrar en otra, en extremos opuestos de Ajustes
+>    (9f.11).
+>
+> Lo que sigue sin verse en un teléfono: la caducidad a los 60 minutos (9f.27) y **la prueba del
+> sismo real**, que es la del recuadro al final y no se puede saltear.
+
+### Individual
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9f.1 | Ajustes → Práctica → Hacer un simulacro | Dice cuántos te quedan y que **vas a usar uno**. Ofrece «Solo yo» y tus grupos |
+| 9f.2 | «Solo yo» → Empezar | 🔴 Cierra la pantalla y **aterriza en la Home**, no en Ajustes. Si aparece la Home dentro de un modal, el `dismissTo` no funcionó |
+| 9f.3 | La Home | Está en **modo alerta**: banner del sismo, selector de estado, red y ubicación. El sismo dice «Simulacro» |
+| 9f.4 | La franja amarilla | 🔴 Arriba del todo, **en todas las pestañas**, en el chat, en las modales y en la ficha de un contacto. Dice «SIMULACRO · para salir, ve a Ajustes» |
+| 9f.5 | La guía, paso 1 | Oscurece todo menos el selector de estado. Dice «Tócalo para seguir», **sin botón de Siguiente** |
+| 9f.6 | Tocar un estado | 🔴 El toque **llega al selector de verdad** —el hueco no lo bloquea— y la guía pasa sola al paso 2. El estado queda marcado en el selector |
+| 9f.6.bis 🔁 | Mirar la insignia de arriba después de reportar, y otra vez al salir del simulacro | 🔴 Dice «Con conexión» **y nada más**. Si aparece el relojito con «1 por enviar», el reporte del simulacro se está atorando en el outbox: era el id sintético del sismo yendo a un parámetro `uuid`. Verlo pegado **después** de terminar el simulacro es el síntoma que lo delata |
+| 9f.7 | Pasos 2 y 3 | El foco se desliza suave hasta la red y se queda ahí para los dos pasos. Con «Siguiente» |
+| 9f.8 🔁 | Paso 4 | 🔴 La Home **se desplaza sola**, con animación, hasta poner el mapa arriba, y recién entonces lo ilumina. El foco nunca cae sobre la barra de pestañas, que es donde caía antes por medir un objetivo que estaba fuera del viewport |
+| 9f.9 | Paso 5 | Ilumina la **barra de pestañas** y explica que se sale por Ajustes |
+| 9f.10 🔁 | Irse a otra pestaña a mitad de la guía | La guía **desaparece** mientras estés fuera de la Home —no oscurece una pantalla que no es la suya— y al volver reaparece en el mismo paso, **sin reiniciarse** |
+| 9f.11 🔁 | Ajustes | 🔴 Hay **una sola** sección **PRÁCTICA**, entre el perfil y «Cuándo avisarme». Es la misma caja que sin simulacro: ahí donde decía «Simulacros usados» ahora dice «Simulacro activo» |
+| 9f.12 🔁 | El botón de esa caja, en un simulacro **individual** | 🔴 Dice **«Salir del modo simulacro»**. «Cerrar para todos» solo tiene sentido si hay un grupo — comparar con 9f.21 |
+| 9f.12.bis | Salir | La franja amarilla desaparece de todas las pantallas, la Home vuelve a modo tranquilo y la caja de PRÁCTICA vuelve a ofrecer «Hacer un simulacro» **en el mismo lugar** |
+| 9f.13 | Después de salir, mirar tu estado desde el **otro teléfono** | 🔴 **No quedó «necesita ayuda · simulacro» pegado.** Al salir se limpia |
+| 9f.14 | Usar los 3 y pedir un cuarto | Sale el paywall. 🔴 Y **empezar y salir enseguida gasta uno igual**: el cupo se descuenta al iniciar |
+
+### Grupal — hacen falta dos teléfonos
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9f.15 | Desde el dueño de un grupo, elegir ese grupo y empezar | — |
+| 9f.16 | **En el otro teléfono** | 🔴 Llega el push «Simulacro · Casa». Al abrir la app **ya está en modo simulacro**, con su franja y su guía, sin haber tocado nada |
+| 9f.16.bis 🔁 | Lo mismo pero con el otro teléfono **en otra vista** — un chat abierto, la pestaña Red, la ficha de un contacto | 🔴 La app **lo lleva a la Home** y ahí empieza la guía. Antes se quedaba donde estaba y resaltaba recuadros de una pantalla que no tenía nada que ver. Probar también con un chat abierto: tiene que cerrarse, no quedar debajo |
+| 9f.17 🔁 | El otro teléfono reporta «estoy bien» | 🔴 En el primero, esa persona **se pinta de verde en la grilla** al refrescar. Es el pago del simulacro grupal — y **no podía funcionar** hasta el arreglo del 9f.6.bis: ningún reporte de simulacro llegaba al servidor, así que la grilla no tenía de dónde pintarse |
+| 9f.18 | Tocar a esa persona en la grilla | Se abre su ficha con su ubicación y su plan, marcada como simulacro |
+| 9f.19 | El otro teléfono marca «necesito ayuda» | 🔴 Al primero le llega «Simulacro · <nombre>». **A un contacto que NO está en el grupo no le llega nada** — esto es lo que cambió: antes iba a la red entera |
+| 9f.20 | Ajustes, en el teléfono del **participante** | Dice quién lo convocó y ofrece **«Salir del modo simulacro»**, no «Cerrar para todos» |
+| 9f.21 | Ajustes, en el teléfono del **dueño** | 🔴 Ofrece **«Cerrar simulacro para todos»** y nada más. Acá sí, porque hay grupo: es el único caso en que aparece esa frase (comparar con 9f.12) |
+| 9f.22 | El participante sale solo | Sale él; el dueño **sigue en simulacro** |
+| 9f.23 | El dueño cierra para todos | 🔴 A los demás les llega «Simulacro terminado» y su franja desaparece |
+| 9f.24 | Intentar convocar otro en el mismo grupo mientras hay uno activo | Lo rechaza con un mensaje claro |
+| 9f.25 | Un integrante que **no** es el dueño | 🔴 No ve ese grupo en la lista de «¿con quién?». Convocar es del dueño |
+| 9f.26 | Apagar «Simulacros de mis grupos» en Notificaciones y que el dueño convoque | 🔴 **No te llega el aviso Y no entras al simulacro.** La preferencia te saca de la lista de participantes, no solo del push |
+| 9f.27 | Dejar un simulacro abierto **una hora** | Caduca solo: la franja se apaga sin que nadie toque nada |
+
+> 🔴 **La prueba que no se puede saltear, y que hay que hacer a mano.** Con un simulacro activo,
+> sembrar un sismo de prueba que **sí** alcance a esa cuenta (ver §0). El simulacro tiene que
+> **cerrarse solo** y la pantalla mostrar la alerta real. Un banner amarillo que dice «esto es
+> una práctica» encima de un sismo de verdad es la peor ambigüedad que puede tener esta app.
 
 ---
 

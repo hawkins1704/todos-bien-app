@@ -1817,6 +1817,107 @@ histórico todavía.
 alguien de tu red; en la pestaña Grupales lleva a Mi red, que es donde se arma un grupo. Es la
 mitad visible de la 0034: una sola forma de hacer una sola cosa.
 
+### 1.20 El simulacro es un MODO, no una pantalla (migración 0035)
+
+#### 1.20.1 Qué estaba mal
+
+El simulacro vivía entero en `/drill`: cuatro pasos con su propia alerta de mentira, su propio
+selector de estado y su propio resumen de la red. **Se practicaba en una maqueta**, así que lo
+que se aprendía era a usar esa maqueta — el día del sismo la pantalla iba a ser otra.
+
+Ahora `/drill` solo elige con quién y arranca. Lo que sigue pasa **en la app de verdad**: la Home
+entra en modo alerta, la grilla se pinta, la ubicación se captura, la ficha de un contacto se
+abre. Lo único falso es el sismo.
+
+#### 1.20.2 🔴 El sismo del simulacro es local y NUNCA una fila en `quake_events`
+
+Sembrar uno de verdad haría que `quake_ingested_fan_out` **lo repartiera a usuarios reales**. Así
+que el sismo lo fabrica `AppDataProvider` en memoria, con `source: 'simulacro'`.
+
+Eso trajo un problema y su solución, que es lo interesante de esta sección. La tentación era
+meterle un `if (isDrilling)` a cada pantalla: la Home, la grilla, la ficha del contacto, el
+contador. Seis archivos, y la garantía de que uno se olvidara.
+
+**En vez de eso, el simulacro se traduce a los mismos datos que produce un sismo real.** En un
+solo lugar —el `useMemo` de `AppDataProvider`— los participantes salen con el id sintético dentro
+de su `alertedQuakeIds`, y su reporte con `is_drill` sale como reporte de ese sismo. A partir de
+ahí `effectiveStatus`, `membersInQuakeZone` y `confirmedForQuake` funcionan **sin enterarse de
+que hay un simulacro**, y las pantallas tampoco.
+
+No es inventar datos: los participantes sí recibieron el aviso, y su reporte sí es su reporte.
+
+> **`source: 'simulacro'` está en la unión de tipos a propósito.** Al agregarlo, el compilador
+> señaló los cuatro sitios que miraban el origen del sismo y obligó a decidir qué hacer en cada
+> uno. Un `as` habría dejado los cuatro pasando en silencio.
+
+#### 1.20.3 🔴 Los tres lugares donde el id sintético se escapaba al servidor
+
+`user_status.quake_event_id` tiene clave foránea contra `quake_events`, así que escribir
+`simulacro:<uuid>` **revienta la transacción entera**. Los tres aparecieron al revisar quién
+escribía ese campo, no probando:
+
+| Dónde | Qué habría pasado |
+|---|---|
+| `captureLocationForActiveAlert` | La captura automática escribía `quake_event_id = quake.id` **con `is_drill: false`**: violación de FK y, si hubiera pasado, un reporte REAL con id inventado. Ahora no corre en simulacro — la ubicación se captura al reportar, que es el paso 1 de la guía |
+| `MyLocationCard` | «Actualizar mi ubicación» mandaba el id sintético. Ahora manda `null` cuando `isDrill` |
+| `myEffectiveStatus` en la Home | Comparaba `myStatus.quakeEventId === activeQuake.id`. Como el reporte vuelve con `null`, **tocar «estoy bien» dejaba el selector como si no hubieras reportado**. En simulacro la atadura es `isDrill`, no el id |
+
+#### 1.20.4 Un sismo real cierra el simulacro. Sin discusión
+
+Es la única regla no negociable: **el banner amarillo que dice «esto es una práctica» encima de
+una alerta de verdad es una ambigüedad que puede matar a alguien.** `AppDataProvider` prefiere
+siempre el sismo real, y `DrillProvider` vigila ese cambio y cierra el simulacro solo.
+
+#### 1.20.5 El simulacro grupal
+
+| | |
+|---|---|
+| **Quién convoca** | solo el dueño del grupo, igual que sumar y sacar (0034) |
+| **Cómo se enteran** | push `drill_started` → `refresh()` → aparece `activeDrill` → el otro teléfono entra en modo solo |
+| **Quién puede irse** | cualquiera, cuando quiera |
+| **Quién cierra para todos** | solo quien convocó |
+| **Si no lo cierra nadie** | caduca a los **60 minutos** (`drills.ends_at`) |
+
+**La caducidad no es un detalle.** Sin ella, un convocante que se queda sin batería deja a su
+familia entera en modo simulacro para siempre, y la única salida sería desinstalar.
+
+**`drill_invites` en `false` te deja fuera del simulacro, no solo del push.** El servidor filtra
+por esa preferencia al armar la lista de participantes. Recibir el aviso y ser arrastrado igual
+sería respetar la preferencia a medias, que es peor que no tenerla.
+
+**Y la audiencia del «necesito ayuda» de un simulacro cambió**: antes iba a la red entera si el
+modo era `notify`. Practicar con tu familia no tiene por qué interrumpirle el día a los 24
+contactos que no practican. Ahora son los participantes, y un simulacro individual no avisa a
+nadie — que es lo que «privado» significa.
+
+#### 1.20.6 El cupo se descuenta al INICIAR, y cuenta lo que convocas
+
+Dos cambios de regla, cada uno con su motivo:
+
+- **Al iniciar, no al completar.** Antes se contaba `completed_at is not null`, así que se podía
+  empezar y abandonar sin gastar nada. Con simulacros grupales eso era un agujero: convocás, no
+  cerrás, repetís. El diálogo lo dice antes: *«Vas a usar 1 de tus 3 simulacros»*.
+- **Cuenta lo que convocás, no dónde estás.** Participar es gratis e ilimitado. Si gastara cupo,
+  quien arma el grupo estaría gastando el de los demás — corre tres y su familia se queda en cero
+  sin haber decidido nada. Misma regla que el tope de grupos de la 0034.
+
+#### 1.20.7 La guía, y por qué vive en el layout raíz
+
+`components/drill-tour.tsx`. Oscurece la pantalla y deja **el control de verdad** iluminado, un
+paso a la vez: estado → red → tocar a alguien → ubicación → **cómo salir**.
+
+- **Está en el layout raíz** porque el último paso apunta a la barra de pestañas, que la Home no
+  contiene.
+- **El agujero son cuatro rectángulos oscuros, no una máscara SVG.** Menos dependencias, y el
+  hueco **deja pasar el toque**: por eso el paso 1 se completa tocando el estado de verdad, no un
+  botón «Siguiente».
+- **`collapsable={false}`** en cada vista marcada. Sin él, Android la funde con su padre en el
+  árbol nativo y `measureInWindow` no devuelve nada.
+- **El progreso lleva el id del simulacro adentro**, así que volver a la Home a mitad de la guía
+  no la reinicia y un simulacro nuevo sí la vuelve a mostrar. Va derivado y no en un efecto.
+- **El paso «cómo salir» no es opcional.** Si la única salida es Ajustes y la guía no lo enseña,
+  alguien se queda encerrado y desinstala la app.
+
 ---
 
 ## 2. Construido
@@ -1856,6 +1957,7 @@ mitad visible de la 0034: una sola forma de hacer una sola cosa.
 | `0032_conversaciones_renombrar_y_salir` | `grant update (title)` **por columna** para renombrar una grupal, y DELETE de la fila propia de `conversation_members` **solo si `kind = 'group'`**. Ese `and` es el cerrojo que impide el silencio permanente en un chat directo (§1.19.1) |
 | `0033_integrantes_de_conversacion` | Ver, sumar y sacar integrantes de una grupal, que hasta acá nacía cerrada. ⚰️ **Sus tres RPC se borraron en la 0034**, un día después: existían para editar los integrantes de una conversación suelta, que dejó de ser un objeto propio. No llegaron a ninguna build |
 | `0034_el_grupo_se_comparte` | 🔴 **La fusión.** `circle_groups` → `groups` (compartida, con dueño), `conversations.group_id` con `unique` y `on delete cascade`, y un disparador que mantiene los integrantes del grupo y los del chat como una sola lista. `create_group()` escribe las dos tablas en una transacción; `get_groups()` es security definer y devuelve `in_my_network` por integrante, que es lo que habilita el atajo de «Agregar a Ana». Deshacer una conexión ahora **borra** la pertenencia en vez de filtrarla al leer, porque un estado compartido no puede depender de quién mira (§1.18) |
+| `0035_simulacro_como_modo` | El simulacro deja de ser una pantalla: `drills` gana `group_id` y `ends_at` (caduca a los 60 min), aparece `drill_participants`, y tres RPC —`start_drill(mode, group_id)`, `get_active_drill()`, `end_my_drill()`— que hacen que convocar encienda el modo en los teléfonos de todo el grupo. El cupo pasa a descontarse **al iniciar** y a contar **lo que convocás**. `drill_invites` es la cuarta pieza de la regla de la 0028, y apagarlo **te deja fuera de la lista de participantes**, no solo del push (§1.20) |
 
 **Separación de privacidad clave:** `profiles` guarda lo compartible (nombre, avatar,
 plan de acción) y es legible por las conexiones. `user_settings` guarda lo privado

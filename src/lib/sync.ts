@@ -1,5 +1,6 @@
 import {
   fetchActiveAlert,
+  fetchActiveDrill,
   fetchCircle,
   fetchGroups,
   fetchLastMonitoringCheck,
@@ -24,7 +25,9 @@ import {
 } from '@/lib/db/outbox';
 import { isAlertActive } from '@/lib/quakes';
 import { supabase } from '@/lib/supabase';
+import { isDrillQuakeId } from '@/types/domain';
 import type {
+  ActiveDrill,
   Group,
   CircleMember,
   MyStatus,
@@ -114,6 +117,20 @@ export async function syncActiveQuake(): Promise<QuakeEvent | null> {
   return active;
 }
 
+/**
+ * El simulacro activo (migración 0035).
+ *
+ * Va en cada sincronización, y eso **no es un lujo**: es lo que hace que un
+ * simulacro grupal encienda el teléfono del otro. Cuando llega el push,
+ * `AppDataProvider` refresca, esto trae la fila, y la app entra en modo
+ * simulacro sola. Sin esto habría que abrir una pantalla a mano.
+ */
+export async function syncActiveDrill(): Promise<ActiveDrill | null> {
+  const drill = await fetchActiveDrill();
+  await kvSet(KV.activeDrill, drill);
+  return drill;
+}
+
 export async function syncEverything(userId: string): Promise<void> {
   // El outbox va primero: no tiene sentido bajar un círculo que ya sabemos
   // que está desactualizado respecto de lo que el usuario reportó offline.
@@ -124,6 +141,7 @@ export async function syncEverything(userId: string): Promise<void> {
     syncGroups(),
     syncTips(),
     syncActiveQuake(),
+    syncActiveDrill(),
     // Lo que anotó la tarea de fondo mientras nadie miraba. Casi siempre no hay
     // nada y ni toca la red; ver `background-trace.ts`.
     flushBackgroundTrace(userId),
@@ -152,11 +170,18 @@ let flushing = false;
  * - `23503` clave foránea: la conversación o el usuario ya no existen.
  * - `23514` restricción CHECK: el contenido nunca va a ser válido.
  * - `22023` parámetro inválido, `28000` sin autenticar contra la regla.
+ * - `22P02` el texto no se puede convertir al tipo que espera la función. Un
+ *   payload mal formado no se arregla esperando: reintentarlo es pedirle a
+ *   Postgres el mismo imposible cada cinco minutos, para siempre. Agregado el
+ *   2026-09-01, cuando el id sintético del simulacro se coló en `quake_id uuid`
+ *   y dejó un «1 por enviar» que no se iba ni cerrando la app. La causa ya está
+ *   tapada en `reportMyStatus`; esto es lo que limpia las colas que quedaron
+ *   envenenadas en los teléfonos que corrieron un simulacro antes del arreglo.
  *
  * Todo lo demás —timeouts, DNS, 5xx, sin red— se reintenta, que es la razón de
  * ser del outbox.
  */
-const RECHAZOS_DEFINITIVOS = new Set(['42501', '23503', '23514', '22023', '28000']);
+const RECHAZOS_DEFINITIVOS = new Set(['42501', '23503', '23514', '22023', '22P02', '28000']);
 
 function esRechazoDefinitivo(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
@@ -252,6 +277,27 @@ export async function reportMyStatus(input: {
   const previous = await kvGet<MyStatus>(KV.myStatus);
   const reportedAt = new Date().toISOString();
 
+  /**
+   * 🔴 El id del sismo de un simulacro se descarta acá, y acá es el único lugar
+   * donde tiene sentido hacerlo.
+   *
+   * `report_status` recibe `quake_id uuid`, y el sismo del simulacro es
+   * sintético: `simulacro:<uuid>` no es un uuid, así que Postgres rechaza la
+   * escritura con `22P02`. La consecuencia no era cosmética — **el reporte del
+   * simulacro no llegaba nunca al servidor**, así que en un simulacro grupal
+   * nadie veía a nadie ponerse en verde, que es todo el sentido de hacerlo en
+   * grupo. Y como el rechazo no estaba en la lista de definitivos, la fila se
+   * quedaba en el outbox reintentando para siempre: «1 por enviar» pegado en la
+   * insignia después de terminar el simulacro.
+   *
+   * Va en el cuello de botella y no en quien llama porque **ya se olvidó tres
+   * veces**: la captura automática, la tarjeta de ubicación y el selector de
+   * estado de la Home. Lo que ata un reporte a un simulacro es `isDrill`, no el
+   * id — y si el id es sintético, el reporte ES de simulacro aunque quien llama
+   * diga lo contrario.
+   */
+  const deSimulacro = isDrillQuakeId(input.quakeEventId);
+
   const next: MyStatus = {
     status: input.status,
     message: input.message ?? null,
@@ -259,8 +305,8 @@ export async function reportMyStatus(input: {
     longitude: input.location?.longitude ?? previous?.longitude ?? null,
     locationAccuracyM: input.location?.accuracyM ?? previous?.locationAccuracyM ?? null,
     locationAt: input.location?.at ?? previous?.locationAt ?? null,
-    quakeEventId: input.quakeEventId ?? null,
-    isDrill: input.isDrill ?? false,
+    quakeEventId: deSimulacro ? null : (input.quakeEventId ?? null),
+    isDrill: deSimulacro || (input.isDrill ?? false),
     reportedAt,
   };
 

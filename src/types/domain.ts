@@ -145,7 +145,13 @@ export type MyStatus = {
 
 export type QuakeEvent = {
   id: string;
-  source: 'igp' | 'usgs';
+  /**
+   * `'simulacro'` es el sismo **sintético** del modo simulacro (0035): existe
+   * solo en el teléfono y nunca en `quake_events`. Está en la unión a propósito
+   * — así el compilador obliga a cada pantalla que mire el origen a decidir qué
+   * hace con él, en vez de que se cuele como si fuera del IGP.
+   */
+  source: 'igp' | 'usgs' | 'simulacro';
   magnitude: number;
   depthKm: number | null;
   latitude: number;
@@ -187,6 +193,52 @@ export type ContactMatch = {
 };
 
 export const FREE_DRILL_LIMIT = 3;
+
+/**
+ * El simulacro que está corriendo ahora mismo (migración 0035).
+ *
+ * Desde la 0035 el simulacro **no es una pantalla, es un modo**: mientras esto
+ * no sea `null` la app entera se comporta como si hubiera una alerta, con el
+ * banner amarillo fijo arriba. Sale de `get_active_drill()` y viaja en cada
+ * sincronización, que es lo que hace que un simulacro grupal encienda el
+ * teléfono del otro sin que nadie toque nada.
+ */
+export type ActiveDrill = {
+  id: string;
+  /** `null` en un simulacro individual, que es privado y no avisa a nadie. */
+  groupId: string | null;
+  groupName: string | null;
+  startedBy: string;
+  startedByName: string;
+  /** Quien lo convocó lo cierra **para todos**; el resto solo se va. */
+  isMine: boolean;
+  startedAt: string;
+  /** Caduca solo. Sin esto, un convocante sin batería dejaría a los demás dentro. */
+  endsAt: string;
+};
+
+/**
+ * El sismo del simulacro es **local y sintético**: nunca una fila en
+ * `quake_events`. Sembrar uno de verdad haría que `quake_ingested_fan_out` lo
+ * repartiera a usuarios reales.
+ *
+ * El id lleva el del simulacro adentro para que dos simulacros seguidos no
+ * compartan identidad y un reporte viejo cuente como nuevo.
+ */
+export function drillQuakeId(drillId: string): string {
+  return `simulacro:${drillId}`;
+}
+
+/**
+ * Si un id de sismo es el sintético de un simulacro.
+ *
+ * Existe porque ese id **no puede salir del teléfono**: `report_status` recibe
+ * `quake_id uuid` y `simulacro:<uuid>` no es un uuid, así que Postgres rechaza
+ * la escritura entera con `22P02`. Ver `reportMyStatus`, que es donde se filtra.
+ */
+export function isDrillQuakeId(quakeId: string | null | undefined): boolean {
+  return typeof quakeId === 'string' && quakeId.startsWith('simulacro:');
+}
 
 /**
  * Cuánto dura el modo alerta: **6 horas** desde la hora del sismo (spec §5.3).

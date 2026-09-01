@@ -94,11 +94,15 @@ function buildMessage(d: Delivery): { title: string; body: string } {
   const magnitude = Number(d.magnitude).toFixed(1).replace('.', ',');
   const lugar = d.place?.trim() || d.region?.trim() || null;
 
+  // «Tu red» y no «tu círculo»: desde la 0034 un círculo no existe en el
+  // producto. Hay **Mi red** —toda tu gente— y dentro, **grupos**. Era la última
+  // cadena de cara al usuario que había quedado con la palabra vieja: el aviso
+  // de sismo, o sea justo la que más gente lee.
   return {
     title: `Sismo de magnitud ${magnitude}`,
     body: lugar
-      ? `${lugar}. Avisa a tu círculo que estás bien.`
-      : 'Cerca de tu zona. Avisa a tu círculo que estás bien.',
+      ? `${lugar}. Avisa a tu red que estás bien.`
+      : 'Cerca de tu zona. Avisa a tu red que estás bien.',
   };
 }
 

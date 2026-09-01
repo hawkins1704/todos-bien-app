@@ -8,7 +8,14 @@ export const KV = {
   activeQuake: 'active_quake',
   lastCircleSync: 'last_circle_sync',
   lastQuakeCheck: 'last_quake_check',
-  activeDrillId: 'active_drill_id',
+  /**
+   * El simulacro activo entero (migración 0035), no solo su id.
+   *
+   * Se cachea por el mismo motivo que la alerta: es lo que decide si la app
+   * arranca en modo simulacro, y tiene que resolverse **sin esperar a la red**
+   * — si no, cada arranque parpadearía entre modo normal y modo simulacro.
+   */
+  activeDrill: 'active_drill',
   /**
    * Los grupos, con sus integrantes ya resueltos (migración 0034).
    *

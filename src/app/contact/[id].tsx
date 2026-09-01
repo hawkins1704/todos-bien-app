@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
-import { DrillBanner } from '@/components/drill-banner';
+import { DrillTag } from '@/components/drill-banner';
 import { LocationMap } from '@/components/location-map';
 import { StatusChip } from '@/components/status-chip';
 import { Button } from '@/components/ui/button';
@@ -261,7 +261,7 @@ export default function ContactDetailScreen() {
             </Text>
           ) : null}
 
-          {member.isDrill ? <DrillBanner compact /> : null}
+          {member.isDrill ? <DrillTag /> : null}
 
           {statusVisible !== null && member.reportedAt ? (
             <Text variant="footnote" tone="tertiary">
