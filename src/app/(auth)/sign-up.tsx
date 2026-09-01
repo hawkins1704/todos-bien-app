@@ -144,7 +144,7 @@ export default function SignUpScreen() {
 
       <Text variant="caption" tone="tertiary" style={styles.legal}>
         Tu correo se usa para entrar y para recuperar la cuenta. No se lo mostramos a nadie de
-        tu círculo.
+        tu red.
       </Text>
     </AuthScreen>
   );

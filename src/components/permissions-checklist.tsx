@@ -74,7 +74,7 @@ function describir(permissions: PermissionsState): Fila[] {
         location.grade === 'granted'
           ? null
           : location.grade === 'partial'
-            ? 'Si tiembla con la app cerrada, tu círculo no va a poder ver dónde estabas.'
+            ? 'Si tiembla con la app cerrada, tu red no va a poder ver dónde estabas.'
             : 'Solo te avisamos de sismos grandes en todo el país, no de los cercanos.',
     },
     {
@@ -84,7 +84,7 @@ function describir(permissions: PermissionsState): Fila[] {
       consecuencia:
         notifications.grade === 'granted'
           ? null
-          : 'No te llega nada: ni sismos, ni mensajes, ni si alguien de tu círculo necesita ayuda.',
+          : 'No te llega nada: ni sismos, ni mensajes, ni si alguien de tu red necesita ayuda.',
     },
     {
       key: 'contacts',
@@ -175,7 +175,7 @@ export function PermissionsChecklist() {
               // permisos en verde NO garantiza la captura automática, que
               // además necesita la actualización en segundo plano encendida y
               // el modo de bajo consumo apagado (QUE-PROMETE-LA-APP §4).
-              'Todo concedido. Ya podemos avisarte y decirle a tu círculo dónde estás.'
+              'Todo concedido. Ya podemos avisarte y decirle a tu red dónde estás.'
             : faltan === 1
               ? 'Falta 1 permiso. Toca para resolverlo.'
               : `Faltan ${faltan} permisos. Toca cada uno para resolverlo.`}

@@ -36,7 +36,7 @@ const NOTIFICATION_LABELS: { key: keyof NotificationPrefs; title: string; detail
   {
     key: 'connectionRequest',
     title: 'Solicitudes recibidas',
-    detail: 'Alguien quiere sumarte a su círculo.',
+    detail: 'Alguien quiere sumarte a su red.',
   },
   {
     key: 'connectionAccepted',
@@ -257,13 +257,12 @@ export default function SettingsScreen() {
           {/* Este texto ya mintió dos veces, así que conviene explicar por qué.
               Nació diciendo «no mandamos notificación cuando alguien marca que
               está bien», y Guardián (0022) lo volvió falso. Se corrigió a «fuera
-              de Guardián no avisamos», y la 0027 lo volvió falso otra vez: ahora
-              el reporte de un contacto también avisa a quien el mismo sismo
-              alcanzó, gratis. Regla para la próxima: la condición es *dónde
-              estabas vos*, no *qué plan tenés*. */}
+              de Guardián no avisamos», y la 0027 lo volvió falso otra vez.
+              Regla, ya estable desde la 0030: la condición es *dónde estabas
+              vos* —dentro o fuera del sismo—, no *qué plan tenés*. */}
           <Text variant="caption" tone="tertiary" style={styles.note}>
-            Si el sismo también te alcanzó a ti, te avisamos cuando alguien de tu círculo
-            reporta cómo está. Si no te alcanzó, ese aviso es parte de Guardián.
+            Estos avisos son gratis y llegan cuando el sismo también te alcanzó a ti. Para los
+            sismos que no te tocaron, el interruptor está más abajo.
           </Text>
         </Section>
 
@@ -274,11 +273,15 @@ export default function SettingsScreen() {
                 <Text
                   variant="callout"
                   tone={mySettings?.isPremium ? 'primary' : 'tertiary'}>
-                  Tembló cerca de mi gente
+                  Sismos que a mí no me tocaron
                 </Text>
+                {/* El texto describe el interruptor ENCENDIDO, que es lo que la
+                    persona necesita saber para decidir. Nombra los dos avisos
+                    porque son un par: quien puede apagar solo el silencio se
+                    queda con la mitad ansiosa (misma razón que 0022 §2). */}
                 <Text variant="caption" tone="tertiary">
                   {mySettings?.isPremium
-                    ? 'Te avisamos apenas tiembla cerca de un contacto tuyo, estés donde estés, y otra vez cuando reporta que está bien.'
+                    ? 'Te avisamos qué pasó con tu gente aunque el sismo no te haya alcanzado a ti: cuando reportan que están bien, y cuando no reportan.'
                     : 'Disponible con Premium.'}
                 </Text>
               </View>
@@ -290,11 +293,10 @@ export default function SettingsScreen() {
             </View>
           </Card>
 
-          {/* El límite se dice acá y no solo en el paywall: es la diferencia
-              entre una función que no cubre a alguien y una que parece rota. */}
           <Text variant="caption" tone="tertiary" style={styles.note}>
-            Solo alcanza a los contactos que tienen su ubicación activada. De quien no la dio no
-            sabemos si el sismo le tocó cerca, y preferimos no decirlo antes que inventarlo.
+            Cada uno de estos avisos dice de qué sismo se trata, porque si no te tocó no tienes
+            cómo saberlo. Si el sismo sí te alcanzó, los mismos avisos te llegan gratis y se
+            ajustan arriba.
           </Text>
         </Section>
 

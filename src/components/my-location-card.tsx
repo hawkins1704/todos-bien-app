@@ -71,7 +71,7 @@ export function MyLocationCard({
         if (level === 'none') {
           Alert.alert(
             'Necesitamos tu permiso de ubicación',
-            'Sin él no podemos decirle a tu círculo dónde estás. Se activa desde Ajustes.',
+            'Sin él no podemos decirle a tu red dónde estás. Se activa desde Ajustes.',
             [
               { text: 'Ahora no', style: 'cancel' },
               { text: 'Ir a Ajustes', onPress: () => router.push('/settings') },
@@ -95,6 +95,16 @@ export function MyLocationCard({
       });
 
       await onUpdated();
+    } catch {
+      // Este `catch` faltaba, igual que en el reporte de estado de la Home. Sin
+      // él, un fallo del GPS o del permiso escapaba como promesa no capturada:
+      // el botón dejaba de girar y no pasaba nada más, que se lee como «ya se
+      // actualizó». Los casos esperables de "no hubo ubicación" ya se avisan
+      // arriba con su propio texto; esto cubre lo que revienta antes de llegar.
+      Alert.alert(
+        'No pudimos actualizar tu ubicación',
+        'Intenta de nuevo en un momento. Tu estado reportado no cambió.',
+      );
     } finally {
       setUpdating(false);
     }
@@ -106,7 +116,7 @@ export function MyLocationCard({
       <Text variant="footnote" tone="secondary" style={styles.subline}>
         {hasLocation
           ? `Registrada ${timeAgo(myStatus?.locationAt)} ${formatAccuracy(myStatus?.locationAccuracyM ?? null)}`.trim()
-          : 'Tu círculo todavía no sabe dónde estás'}
+          : 'Tu red todavía no sabe dónde estás'}
       </Text>
 
       {hasLocation ? (
@@ -133,7 +143,7 @@ export function MyLocationCard({
 
       {hasLocation ? (
         <Text variant="caption" tone="tertiary" style={styles.nota}>
-          Si te moviste, tócalo para que tu círculo vea dónde estás ahora. Tu estado no
+          Si te moviste, tócalo para que tu red vea dónde estás ahora. Tu estado no
           cambia.
         </Text>
       ) : null}

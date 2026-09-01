@@ -94,7 +94,7 @@ export default function ReportScreen() {
               .catch(() =>
                 Alert.alert(
                   'La denuncia se envió, pero no pudimos bloquear',
-                  'Puedes bloquear a esta persona desde su perfil en tu círculo.',
+                  'Puedes bloquear a esta persona desde su perfil en tu red.',
                   [{ text: 'Listo', onPress: () => router.back() }],
                 ),
               );

@@ -5,6 +5,7 @@ import type {
   CircleMember,
   ConnectionStatus,
   ContactMatch,
+  Group,
   MyProfile,
   MySettings,
   MyStatus,
@@ -73,7 +74,14 @@ export function parseActionPlans(raw: unknown): ActionPlan[] {
     if (typeof item !== 'object' || item === null) return [];
     const { id, name, body, updatedAt } = item as Record<string, unknown>;
     if (typeof id !== 'string' || typeof name !== 'string' || typeof body !== 'string') return [];
-    return [{ id, name, body, updatedAt: typeof updatedAt === 'string' ? updatedAt : null }];
+    return [
+      {
+        id,
+        name,
+        body,
+        updatedAt: typeof updatedAt === 'string' ? updatedAt : null,
+      },
+    ];
   });
 }
 
@@ -155,6 +163,130 @@ export async function deleteActionPlan(planId: string): Promise<void> {
   if (error) throw error;
 }
 
+// ---------------------------------------------------------------------------
+// Grupos (migración 0034)
+//
+// Un grupo es gente + un chat, y **se comparte**: todos los integrantes lo ven.
+// Es de quien lo creó — solo el dueño suma, saca y renombra —, y por eso casi
+// todo lo de acá falla con `42501` si lo llama otro. Esa validación vive en la
+// RLS, no en estas funciones: un chequeo en el cliente no es un chequeo.
+//
+// Lo que NO se comparte es el estado y la ubicación de quien no es contacto
+// tuyo. `GroupMember.inMyNetwork` es el campo que lo dice, y no se puede
+// levantar sin volver transitivas las conexiones. Ver la cabecera de la 0034.
+//
+// El tope —2 gratis, ilimitados con Premium— lo hace cumplir un disparador y acá
+// solo se traduce el error, igual que con los planes de acción.
+// ---------------------------------------------------------------------------
+
+/** El disparador rechaza el grupo de más con este mensaje. */
+export const GROUP_LIMIT_REACHED = 'limite_grupos';
+
+export class GroupLimitError extends Error {
+  constructor() {
+    super(GROUP_LIMIT_REACHED);
+    this.name = 'GroupLimitError';
+  }
+}
+
+/** Dos grupos con el mismo nombre chocan contra `groups_owner_name_idx`. */
+export class DuplicateGroupNameError extends Error {
+  constructor() {
+    super('nombre_repetido');
+    this.name = 'DuplicateGroupNameError';
+  }
+}
+
+export async function fetchGroups(): Promise<Group[]> {
+  const { data, error } = await supabase.rpc('get_groups');
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    sortOrder: row.sort_order,
+    ownerId: row.owner_id,
+    isOwner: row.is_owner,
+    conversationId: row.conversation_id,
+    // `members` llega como jsonb, o sea ya parseado. El guard cubre una fila
+    // que llegara sin el `coalesce` del servidor.
+    members: Array.isArray(row.members)
+      ? (row.members as Record<string, unknown>[]).map((m) => ({
+          userId: String(m.user_id),
+          displayName: String(m.display_name),
+          isOwner: Boolean(m.is_owner),
+          inMyNetwork: Boolean(m.in_my_network),
+        }))
+      : [],
+  }));
+}
+
+/**
+ * Crea el grupo **y su chat**, en una sola transacción del servidor.
+ *
+ * Va por RPC y no por un INSERT directo porque son dos tablas: un grupo sin chat
+ * rompería la regla de que son una sola cosa, y no habría forma de repararlo
+ * desde el cliente.
+ */
+export async function createGroup(name: string, sortOrder: number): Promise<string> {
+  const { data, error } = await supabase.rpc('create_group', {
+    group_name: name.trim(),
+    sort_order: sortOrder,
+  });
+
+  if (error) {
+    if (error.message?.includes(GROUP_LIMIT_REACHED)) throw new GroupLimitError();
+    if (error.code === '23505') throw new DuplicateGroupNameError();
+    throw error;
+  }
+
+  return data;
+}
+
+/** Renombrar el grupo renombra su chat: lo espeja un disparador (0034). */
+export async function renameGroup(groupId: string, name: string): Promise<void> {
+  const { error } = await supabase.from('groups').update({ name: name.trim() }).eq('id', groupId);
+
+  if (error) {
+    if (error.code === '23505') throw new DuplicateGroupNameError();
+    throw error;
+  }
+}
+
+/**
+ * Borra el grupo. **Se lleva el chat y sus mensajes** por el `on delete cascade`
+ * de `conversations.group_id`, así que el diálogo tiene que decirlo.
+ */
+export async function deleteGroup(groupId: string): Promise<void> {
+  const { error } = await supabase.from('groups').delete().eq('id', groupId);
+  if (error) throw error;
+}
+
+/** Solo el dueño, y solo con gente de su propia red (política de la 0034). */
+export async function addGroupMember(groupId: string, memberId: string): Promise<void> {
+  const { error } = await supabase
+    .from('group_members')
+    .insert({ group_id: groupId, member_id: memberId });
+
+  // 23505 = ya estaba. Tocar dos veces el mismo contacto no es un error que
+  // valga la pena mostrarle a nadie: el estado final es el que pedía.
+  if (error && error.code !== '23505') throw error;
+}
+
+/**
+ * Saca a alguien del grupo. Sirve para las dos cosas, y la política decide:
+ * el dueño puede sacar a cualquiera, y cualquiera puede sacarse a sí mismo.
+ */
+export async function removeGroupMember(groupId: string, memberId: string): Promise<void> {
+  const { error } = await supabase
+    .from('group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('member_id', memberId);
+
+  if (error) throw error;
+}
+
 export async function fetchMyProfile(userId: string): Promise<MyProfile | null> {
   const { data, error } = await supabase
     .from('profiles')
@@ -208,7 +340,8 @@ export async function fetchMySettings(userId: string): Promise<MySettings | null
     alertMinMagnitude: Number(data.alert_min_magnitude),
     alertCountrywideMagnitude: Number(data.alert_countrywide_magnitude),
     alertWorldwideEnabled: data.alert_worldwide_enabled,
-    locationPermissionLevel: data.location_permission_level as MySettings['locationPermissionLevel'],
+    locationPermissionLevel:
+      data.location_permission_level as MySettings['locationPermissionLevel'],
     onboardingCompletedAt: data.onboarding_completed_at,
     isPremium: data.is_premium,
     drillsCompleted: data.drills_completed,
@@ -318,7 +451,9 @@ export async function reportStatusRemote(payload: {
 // ---------------------------------------------------------------------------
 
 export async function requestConnection(targetUserId: string): Promise<void> {
-  const { error } = await supabase.rpc('request_connection', { target_user_id: targetUserId });
+  const { error } = await supabase.rpc('request_connection', {
+    target_user_id: targetUserId,
+  });
   if (error) throw error;
 }
 
@@ -384,12 +519,16 @@ export async function removeConnection(connectionId: string): Promise<void> {
  * vínculo, así que antes se podía seguir escribiendo.
  */
 export async function blockConnection(otherUserId: string): Promise<void> {
-  const { error } = await supabase.rpc('block_connection', { other_user_id: otherUserId });
+  const { error } = await supabase.rpc('block_connection', {
+    other_user_id: otherUserId,
+  });
   if (error) throw error;
 }
 
 export async function unblockConnection(otherUserId: string): Promise<void> {
-  const { error } = await supabase.rpc('unblock_connection', { other_user_id: otherUserId });
+  const { error } = await supabase.rpc('unblock_connection', {
+    other_user_id: otherUserId,
+  });
   if (error) throw error;
 }
 
@@ -601,7 +740,9 @@ export async function fetchTips(): Promise<Tip[]> {
 // ---------------------------------------------------------------------------
 
 export async function startDrill(mode: 'silent' | 'notify'): Promise<{ id: string }> {
-  const { data, error } = await supabase.rpc('start_drill', { drill_mode: mode });
+  const { data, error } = await supabase.rpc('start_drill', {
+    drill_mode: mode,
+  });
   if (error) throw error;
   return { id: data.id };
 }
@@ -636,14 +777,17 @@ export type NotificationPrefs = {
   quakeNational: boolean;
   quakeWorldwide: boolean;
   /**
-   * Guardián (migración 0022): «tembló cerca de un contacto» **y** su cierre
-   * «ya reportó». Un solo interruptor para los dos a propósito — apagar el
-   * cierre sin apagar la mala noticia dejaría al usuario con la mitad ansiosa
-   * del par.
+   * Guardián (migración 0030): el estado de un contacto —«reportó» y «no
+   * reporta»— cuando el sismo **no** me alcanzó a mí. Solo con premium.
+   *
+   * Hasta la 0022 esto además incluía «tembló cerca de un contacto» al minuto
+   * 0; la 0030 quitó ese aviso por redundante con la noticia nacional, que
+   * ahora llega a todos. El interruptor conservó el nombre para no arrastrar
+   * un renombre de columna por los tipos y el cliente.
    */
   guardianAlerts: boolean;
   /**
-   * «X está bien» cuando el sismo también me alcanzó a MÍ (migración 0027).
+   * Lo mismo, pero cuando el sismo **sí** me alcanzó a mí (migración 0027).
    *
    * Va aparte de `guardianAlerts` y no colgado de él: este aviso es **gratis**
    * —dentro de tu propio sismo la app es completa— y el interruptor de Guardián
@@ -684,7 +828,8 @@ export async function updateNotificationPrefs(
   if (patch.contactNeedsHelp !== undefined) payload.contact_needs_help = patch.contactNeedsHelp;
   if (patch.contactMessage !== undefined) payload.contact_message = patch.contactMessage;
   if (patch.connectionRequest !== undefined) payload.connection_request = patch.connectionRequest;
-  if (patch.connectionAccepted !== undefined) payload.connection_accepted = patch.connectionAccepted;
+  if (patch.connectionAccepted !== undefined)
+    payload.connection_accepted = patch.connectionAccepted;
   if (patch.contactNotResponding !== undefined) {
     payload.contact_not_responding = patch.contactNotResponding;
   }

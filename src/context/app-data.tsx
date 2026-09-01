@@ -1,6 +1,14 @@
 import * as Notifications from 'expo-notifications';
 import * as Network from 'expo-network';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/context/auth';
@@ -12,7 +20,15 @@ import { syncPushToken } from '@/lib/notifications';
 import { onOutboxChange, pendingCount } from '@/lib/db/outbox';
 import { supabase } from '@/lib/supabase';
 import { flushOutbox, syncEverything } from '@/lib/sync';
-import type { CircleMember, MyProfile, MySettings, MyStatus, QuakeEvent, Tip } from '@/types/domain';
+import type {
+  Group,
+  CircleMember,
+  MyProfile,
+  MySettings,
+  MyStatus,
+  QuakeEvent,
+  Tip,
+} from '@/types/domain';
 
 type AppDataState = {
   circle: CircleMember[];
@@ -22,6 +38,11 @@ type AppDataState = {
   incomingRequests: CircleMember[];
   /** Solicitudes que yo mandé y siguen sin respuesta. */
   outgoingRequests: CircleMember[];
+  /**
+   * Los grupos (migración 0034): los que creaste y aquellos donde te metieron,
+   * con sus integrantes y su chat ya resueltos.
+   */
+  groups: Group[];
   myProfile: MyProfile | null;
   mySettings: MySettings | null;
   myStatus: MyStatus | null;
@@ -50,12 +71,14 @@ const AppDataContext = createContext<AppDataState | null>(null);
 
 /** Referencia estable: evita recrear el array vacío en cada render. */
 const EMPTY_CIRCLE: CircleMember[] = [];
+const EMPTY_GROUPS: Group[] = [];
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const { userId } = useAuth();
   const networkState = Network.useNetworkState();
 
   const [circle, setCircle] = useState<CircleMember[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [mySettings, setMySettings] = useState<MySettings | null>(null);
   const [myStatus, setMyStatus] = useState<MyStatus | null>(null);
@@ -72,29 +95,41 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     if (!userId) return;
 
     const db = await getDb();
-    const [members, profile, settings, status, quake, monitoring, circleSync, tipRows, pending] =
-      await Promise.all([
-        readCircle(),
-        kvGet<MyProfile>(KV.myProfile),
-        kvGet<MySettings>(KV.mySettings),
-        kvGet<MyStatus>(KV.myStatus),
-        kvGet<QuakeEvent>(KV.activeQuake),
-        kvGet<string>(KV.lastQuakeCheck),
-        kvGet<string>(KV.lastCircleSync),
-        db.getAllAsync<{
-          id: string;
-          title: string;
-          body: string;
-          long_body: string | null;
-          source_name: string;
-          source_url: string;
-          phase: string;
-          sort_order: number;
-        }>('SELECT * FROM tips_cache ORDER BY sort_order'),
-        pendingCount(),
-      ]);
+    const [
+      members,
+      gruposCacheados,
+      profile,
+      settings,
+      status,
+      quake,
+      monitoring,
+      circleSync,
+      tipRows,
+      pending,
+    ] = await Promise.all([
+      readCircle(),
+      kvGet<Group[]>(KV.groups),
+      kvGet<MyProfile>(KV.myProfile),
+      kvGet<MySettings>(KV.mySettings),
+      kvGet<MyStatus>(KV.myStatus),
+      kvGet<QuakeEvent>(KV.activeQuake),
+      kvGet<string>(KV.lastQuakeCheck),
+      kvGet<string>(KV.lastCircleSync),
+      db.getAllAsync<{
+        id: string;
+        title: string;
+        body: string;
+        long_body: string | null;
+        source_name: string;
+        source_url: string;
+        phase: string;
+        sort_order: number;
+      }>('SELECT * FROM tips_cache ORDER BY sort_order'),
+      pendingCount(),
+    ]);
 
     setCircle(members);
+    setGroups(gruposCacheados ?? EMPTY_GROUPS);
     setMyProfile(profile);
     setMySettings(settings);
     setMyStatus(status);
@@ -258,12 +293,18 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     [visibleCircle],
   );
 
+  const visibleGroups = useMemo(
+    () => (userId ? groups : EMPTY_GROUPS),
+    [userId, groups],
+  );
+
   const value = useMemo<AppDataState>(
     () => ({
       circle: visibleCircle,
       accepted,
       incomingRequests,
       outgoingRequests,
+      groups: visibleGroups,
       myProfile: userId ? myProfile : null,
       mySettings: userId ? mySettings : null,
       myStatus: userId ? myStatus : null,
@@ -282,6 +323,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       accepted,
       incomingRequests,
       outgoingRequests,
+      visibleGroups,
       myProfile,
       mySettings,
       myStatus,

@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -39,6 +39,7 @@ export default function HomeScreen() {
 
   const {
     accepted,
+    groups,
     incomingRequests,
     myProfile,
     mySettings,
@@ -63,6 +64,37 @@ export default function HomeScreen() {
   // con gente que no tenía nada que reportar (migración 0025).
   const enZona = membersInQuakeZone(accepted, alertActive ? (activeQuake?.id ?? null) : null);
 
+  /**
+   * El desglose por grupo, con el MISMO criterio que el contador de arriba: el
+   * denominador es quién de ese grupo recibió esta alerta, no cuánta gente tiene
+   * el grupo. Un grupo entero fuera del sismo no aparece (queda en 0 miembros en
+   * zona y se filtra), porque no tiene nada que confirmar.
+   */
+  const resumenGrupos = useMemo(() => {
+    const quakeId = alertActive ? (activeQuake?.id ?? null) : null;
+    if (!quakeId || enZona.length === 0) return [];
+
+    const enZonaPorId = new Map(enZona.map((m) => [m.userId, m]));
+
+    return groups
+      .map((grupo) => {
+        // Solo la gente del grupo que además está en TU red: de los demás no
+        // hay estado que mostrar, porque las conexiones son de a dos (0034).
+        // Por eso el detalle del grupo avisa cuántos quedan fuera de la cuenta.
+        const miembros = grupo.members
+          .map((m) => enZonaPorId.get(m.userId))
+          .filter((m): m is NonNullable<typeof m> => m !== undefined);
+
+        return {
+          id: grupo.id,
+          name: grupo.name,
+          total: miembros.length,
+          confirmados: confirmedForQuake(miembros, quakeId),
+        };
+      })
+      .filter((g) => g.total > 0);
+  }, [groups, enZona, activeQuake, alertActive]);
+
   // Con una alerta activa se guarda dónde está la persona sin esperar a que
   // toque nada: si abre la app tras un sismo y no reporta, igual queremos que su
   // círculo pueda ver dónde estaba. La función aplica el jitter de la spec §6 y
@@ -71,9 +103,19 @@ export default function HomeScreen() {
     if (!alertActive || !activeQuake) return;
 
     let cancelled = false;
-    void captureLocationForActiveAlert(activeQuake).then((captured) => {
-      if (captured && !cancelled) void reloadLocal();
-    });
+    void captureLocationForActiveAlert(activeQuake)
+      .then((captured) => {
+        if (captured && !cancelled) void reloadLocal();
+      })
+      // `captureLocationForActiveAlert` tiene su propio `try/finally` sin
+      // `catch`, así que un fallo del GPS sale por acá. Sin este `catch` era una
+      // promesa no capturada **en el camino central de la alerta**: no rompe la
+      // pantalla, pero ensucia la consola justo cuando se está diagnosticando un
+      // sismo real, que es el peor momento para tener ruido.
+      .catch(() => {
+        // La captura automática es un extra: si falla, la persona sigue
+        // pudiendo reportar a mano, que es lo que la pantalla ya ofrece.
+      });
 
     return () => {
       cancelled = true;
@@ -81,14 +123,28 @@ export default function HomeScreen() {
   }, [alertActive, activeQuake, reloadLocal]);
 
   const myEffectiveStatus: StatusKey | null =
-    alertActive && myStatus?.quakeEventId !== activeQuake?.id
-      ? null
-      : (myStatus?.status ?? null);
+    alertActive && myStatus?.quakeEventId !== activeQuake?.id ? null : (myStatus?.status ?? null);
 
   const report = async (status: StatusKey) => {
     setReporting(true);
     try {
-      const fix = await captureLocationOnce();
+      // La ubicación va en su propio try, y el orden importa: **decir cómo
+      // estás pesa más que dónde estás**.
+      //
+      // `captureLocationOnce` pide permisos y enciende el GPS, así que puede
+      // lanzar por su cuenta. Estaba dentro del mismo `try` que el reporte y sin
+      // `catch`: si el GPS fallaba, `reportMyStatus` no llegaba a correr nunca,
+      // el error escapaba como promesa no capturada, y la persona veía el botón
+      // dejar de girar sin ningún aviso. O sea que tocaba «estoy bien» durante
+      // un sismo y su círculo seguía sin saber de ella.
+      let fix = null;
+      try {
+        fix = await captureLocationOnce();
+      } catch {
+        // Sin ubicación se reporta igual. La app ya sabe mostrar «sin ubicación
+        // registrada»; lo que no puede es callarse el estado.
+      }
+
       await reportMyStatus({
         status,
         location: fix,
@@ -96,6 +152,13 @@ export default function HomeScreen() {
         isDrill: isDrilling,
       });
       await reloadLocal();
+    } catch {
+      // `reportMyStatus` escribe local y encola, así que no falla por red. Si
+      // igual falla, hay que decirlo: el silencio acá se lee como "ya avisé".
+      Alert.alert(
+        'No se pudo guardar tu estado',
+        'Intenta de nuevo. Si el problema sigue, cierra y vuelve a abrir la app.',
+      );
     } finally {
       setReporting(false);
     }
@@ -142,11 +205,7 @@ export default function HomeScreen() {
             hitSlop={8}
             onPress={() => router.push('/account')}
             style={({ pressed }) => (pressed ? styles.pressed : null)}>
-            <Avatar
-              displayName={myProfile?.displayName ?? '?'}
-              size={42}
-              status={null}
-            />
+            <Avatar displayName={myProfile?.displayName ?? '?'} size={42} status={null} />
           </Pressable>
         </View>
 
@@ -161,7 +220,7 @@ export default function HomeScreen() {
               <Text variant="footnote" tone="secondary" style={styles.subline}>
                 {myEffectiveStatus
                   ? `Reportado ${timeAgo(myStatus?.reportedAt)}`
-                  : 'Tu círculo todavía no sabe cómo estás'}
+                  : 'Tu red todavía no sabe cómo estás'}
               </Text>
 
               <View style={styles.picker}>
@@ -181,19 +240,19 @@ export default function HomeScreen() {
 
             {/*
               Durante una alerta la Home muestra SOLO a quienes les llegó el
-              sismo, no el círculo entero.
+              sismo, no la red entera.
 
               El resto no es que "falte": es que no tenía nada que reportar. En
               una pantalla que se mira con el pulso a 120 y en la que cada cara
               es una pregunta sin responder, mezclarlos obliga a hacer un
               descarte mental —"¿este está callado o simplemente no le tocó?"—
-              justo cuando nadie está en condiciones de hacerlo. El círculo
-              completo sigue a un toque de distancia, en la pestaña Círculo.
+              justo cuando nadie está en condiciones de hacerlo. La red
+              completa sigue a un toque de distancia, en la pestaña Red.
             */}
             <Card>
               <View style={styles.circleHeader}>
                 <Text variant="headline">
-                  {enZona.length > 0 ? 'Tu gente en la zona' : 'Tu círculo'}
+                  {enZona.length > 0 ? 'Tu gente en la zona' : 'Tu red'}
                 </Text>
                 {enZona.length > 0 ? (
                   <Text variant="footnote" tone="secondary" weight="600">
@@ -204,14 +263,44 @@ export default function HomeScreen() {
 
               {enZona.length === 0 && accepted.length > 0 ? (
                 <Text variant="footnote" tone="tertiary" style={styles.circleNote}>
-                  A nadie de tu círculo le llegó esta alerta. El sismo no llegó hasta donde
-                  están.
+                  A nadie de tu red le llegó esta alerta. El sismo no llegó hasta donde están.
                 </Text>
+              ) : null}
+
+              {/* El desglose por grupo (migraciones 0031 y 0034).
+                  Es la razón de ser de los grupos: «faltan 2 de Casa» y «faltan
+                  12 de Amigos» son dos situaciones opuestas, y una lista plana
+                  de 24 caras no las distingue en el minuto en que menos
+                  capacidad de procesar tienes.
+
+                  Solo se pintan los grupos con alguien EN ZONA: un grupo entero
+                  fuera del sismo no tiene nada que confirmar, y listarlo en
+                  0/0 sería ruido con forma de dato.
+
+                  Y solo cuenta a la gente del grupo que además está en TU red:
+                  del resto no hay estado que mostrar. El detalle del grupo lo
+                  avisa y ofrece agregarlos. */}
+              {resumenGrupos.length > 0 ? (
+                <View style={styles.grupos}>
+                  {resumenGrupos.map((g) => (
+                    <View key={g.id} style={styles.grupoFila}>
+                      <Text variant="footnote" numberOfLines={1} style={styles.flex}>
+                        {g.name}
+                      </Text>
+                      <Text
+                        variant="footnote"
+                        weight="600"
+                        tone={g.confirmados === g.total ? 'secondary' : 'primary'}>
+                        {g.confirmados}/{g.total}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               ) : null}
 
               <View style={styles.circleBody}>
                 {/*
-                  Sin nadie en zona se muestra igual el círculo entero, apagado.
+                  Sin nadie en zona se muestra igual la red entera, apagada.
                   Una tarjeta vacía en mitad de un sismo se lee como "no tengo a
                   nadie", que es lo contrario de lo que queremos decir: los
                   tienes, y están fuera del sismo.
@@ -226,18 +315,18 @@ export default function HomeScreen() {
             </Card>
 
             {/*
-              Va DESPUÉS del círculo, no antes.
+              Va DESPUÉS de la red, no antes.
 
-              El primer intento la puso entre "Mi estado" y el círculo, agrupando
+              El primer intento la puso entre "Mi estado" y la red, agrupando
               lo que la persona reporta sobre sí misma. Se lee ordenado y estaba
-              mal: la tarjeta mide ~326 pt y empujaba el círculo a y≈877 en un
+              mal: la tarjeta mide ~326 pt y empujaba la red a y≈877 en un
               iPhone de 852, o sea **completamente fuera de pantalla**. Ver a tu
               gente es el propósito de la app; que exija scroll durante un sismo
               es un error de prioridad, no de estética.
 
-              Comprimirla no alcanzaba: aun borrando el mapa entero el círculo
+              Comprimirla no alcanzaba: aun borrando el mapa entero la red
               seguía arrancando cerca del borde inferior. El orden era el
-              problema. Acá la ubicación asoma bajo el círculo, que es justo lo
+              problema. Acá la ubicación asoma bajo la red, que es justo lo
               que se quiere de una acción de seguimiento — la haces minutos
               después de mirar cómo está tu gente, no antes.
             */}
@@ -291,7 +380,7 @@ export default function HomeScreen() {
 
             <Card>
               <View style={styles.circleHeader}>
-                <Text variant="headline">Tu círculo</Text>
+                <Text variant="headline">Tu red</Text>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Agregar contactos"
@@ -345,11 +434,20 @@ function Reminder({
         href: '/settings' as const,
       }
     : !hasPlan
-      ? { text: 'Todavía no escribiste tu plan de acción.', href: '/action-plan' as const }
+      ? {
+          text: 'Todavía no escribiste tu plan de acción.',
+          href: '/action-plan' as const,
+        }
       : drillsCompleted === 0
-        ? { text: 'Nunca hiciste un simulacro. Toma menos de dos minutos.', href: '/drill' as const }
+        ? {
+            text: 'Nunca hiciste un simulacro. Toma menos de dos minutos.',
+            href: '/drill' as const,
+          }
         : planStale
-          ? { text: `Tu plan no se revisa desde hace ${timeAgo(actionPlanUpdatedAt)}.`, href: '/action-plan' as const }
+          ? {
+              text: `Tu plan no se revisa desde hace ${timeAgo(actionPlanUpdatedAt)}.`,
+              href: '/action-plan' as const,
+            }
           : null;
 
   if (!message) return null;
@@ -390,8 +488,14 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   subline: { marginTop: 2 },
   picker: { marginTop: Spacing.lg },
-  circleHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  circleHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   circleNote: { marginTop: Spacing.xs },
+  grupos: { gap: Spacing.xs, marginTop: Spacing.md },
+  grupoFila: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm },
   circleBody: { marginTop: Spacing.lg },
   requests: {
     alignItems: 'center',

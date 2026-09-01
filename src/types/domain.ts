@@ -21,6 +21,59 @@ export type ActionPlan = {
 export const FREE_ACTION_PLAN_LIMIT = 1;
 export const PREMIUM_ACTION_PLAN_LIMIT = 5;
 
+/**
+ * Un grupo: gente + un chat, una sola cosa (migración 0034).
+ *
+ * **Se comparte.** Todos los integrantes ven el nombre y a los demás. Es de
+ * quien lo creó: solo el dueño suma, saca y renombra; cualquiera puede irse.
+ *
+ * Reemplazó a los «círculos» privados de la 0031 y a las conversaciones
+ * grupales sueltas de la 0004, que eran dos objetos que la gente llamaba igual.
+ * Los integrantes del grupo **son** los del chat, siempre: lo garantiza un
+ * disparador, no el cliente.
+ */
+export type GroupMember = {
+  userId: string;
+  displayName: string;
+  /** Quien lo creó: el único que suma, saca y renombra. */
+  isOwner: boolean;
+  /**
+   * 🔴 Si es `false`, esta persona está en el grupo pero **no en tu red**, y por
+   * eso no vas a ver su estado ni su ubicación en un sismo. No es un bug que se
+   * pueda arreglar: las conexiones son de a dos y no se contagian (0034).
+   *
+   * La pantalla lo usa para ofrecer el atajo de agregarla. Ese atajo es lo que
+   * convierte el grupo en una presentación en vez de una etiqueta.
+   */
+  inMyNetwork: boolean;
+};
+
+export type Group = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  ownerId: string;
+  /** `true` si lo creaste tú. Decide qué se puede tocar en la pantalla. */
+  isOwner: boolean;
+  /**
+   * El chat del grupo. Un grupo tiene uno y solo uno, creado con él.
+   *
+   * Es `null` únicamente si algo falló a mitad de camino en el servidor: el
+   * `create_group` de la 0034 escribe las dos filas en la misma transacción.
+   */
+  conversationId: string | null;
+  /** Incluye al dueño, que no tiene fila en `group_members`. */
+  members: GroupMember[];
+};
+
+/**
+ * El tope cuenta los grupos que **creaste**, no en cuántos estás.
+ *
+ * Contar la pertenencia dejaría que un tercero te bloqueara la creación de los
+ * tuyos con solo sumarte a los suyos. Con Premium no hay tope.
+ */
+export const FREE_GROUP_LIMIT = 2;
+
 /** Fila de get_circle() ya normalizada a camelCase. */
 export type CircleMember = {
   userId: string;

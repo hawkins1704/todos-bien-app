@@ -86,7 +86,7 @@ returning id;
 > Se les subió `alert_min_magnitude` y `alert_countrywide_magnitude` a dos usuarios ajenos a
 > la prueba, y quedaron efectivamente fuera de todos los sismos sembrados. Después, al
 > reportar «necesito ayuda» desde una cuenta de prueba, **les llegó igual**: `contact_needs_help`
-> sale al **círculo entero sin mirar radio, magnitud ni plan** — es la señal que la app promete
+> sale al **red entera sin mirar radio, magnitud ni plan** — es la señal que la app promete
 > no cobrar nunca, y por eso no pasa por ninguno de esos filtros. Los umbrales protegen del
 > **sismo**; no protegen de nada de lo que pase después.
 >
@@ -160,7 +160,7 @@ Se verifica sobre un build **posterior** al cambio: esos textos viajan en el `In
 
 ---
 
-## 4 · Contactos y círculo (cambió el 2026-08-24 al quitar los códigos de invitación)
+## 4 · Contactos y red (cambió el 2026-08-24 al quitar los códigos de invitación)
 
 | # | Paso | Qué tiene que pasar |
 |---|---|---|
@@ -190,7 +190,7 @@ Necesita una alerta activa. Si no hay sismo, sirve un simulacro.
 
 | # | Paso | Qué tiene que pasar |
 |---|---|---|
-| 6.1 | Con la alerta activa, mirar la Home | El círculo entra **completo** sin desplazar. La tarjeta de ubicación asoma **debajo** |
+| 6.1 | Con la alerta activa, mirar la Home | La red entra **completo** sin desplazar. La tarjeta de ubicación asoma **debajo** |
 | 6.2 | Caminar unos metros y tocar «Actualizar mi ubicación» | El pin se mueve y `user_status` queda con las coordenadas nuevas |
 | 6.3 | Mirar el estado reportado | **No cambia.** Actualizar dónde estás no es decir cómo estás |
 | 6.4 | Sin permiso concedido | Ofrece ir a Ajustes; no falla en silencio |
@@ -249,8 +249,8 @@ sismo lejos de **tu** posición y cerca de la del contacto, editándole las coor
 | 7b.7 | Quitarle Premium a A y repetir 7b.4 | A **no** recibe nada |
 | 7b.8 | Con A premium, pero con la ubicación de B **borrada** (`latitude = null`) | A **no** recibe nada. Es la regla de honestidad: sin coordenadas no se sabe si le tocó cerca |
 | 7b.9 | Con B a 900 km del epicentro, sismo M6,5 en su país | A **no** recibe nada, aunque B sí reciba su alerta nacional. «Cerca» tiene que ser cierto |
-| 7b.10 | Con **A también dentro del radio** del sismo | A recibe su alerta normal y **no** el aviso de Guardián: ya está en modo emergencia y su círculo muestra lo mismo |
-| 7b.11 | Con 3 contactos de A en la zona | Un **solo** aviso: «Tembló cerca de 3 de tus contactos», y al tocarlo abre el círculo |
+| 7b.10 | Con **A también dentro del radio** del sismo | A recibe su alerta normal y **no** el aviso de Guardián: ya está en modo emergencia y su red muestra lo mismo |
+| 7b.11 | Con 3 contactos de A en la zona | Un **solo** aviso: «Tembló cerca de 3 de tus contactos», y al tocarlo abre la red |
 | 7b.12 | Correr el reparto del mismo sismo dos veces | No se duplica (`dedupe_key`) |
 | 7b.13 | Ajustes → GUARDIÁN, apagar el interruptor y repetir | No llega ninguno de los dos avisos |
 | 7b.14 | Con A y B **bloqueados** entre sí (0021) | No llega nada: `accepted_circle_of` deja fuera a los bloqueados |
@@ -264,7 +264,7 @@ arreglados; esto es para que no vuelvan.
 
 | # | Paso | Qué tiene que pasar |
 |---|---|---|
-| 7c.1 | Con alerta activa, mirar el círculo de la cuenta **que sí recibió** el sismo | 🔴 Un contacto al que la alerta **no** le llegó sale **apagado**, no «sin confirmar». Y el contador dice `confirmados/los-de-la-zona`, no sobre el círculo entero. Antes marcaba como callado a cualquiera que viviera en otra ciudad — el perfil exacto al que se le vende Guardián (migración 0025) |
+| 7c.1 | Con alerta activa, mirar la red de la cuenta **que sí recibió** el sismo | 🔴 Un contacto al que la alerta **no** le llegó sale **apagado**, no «sin confirmar». Y el contador dice `confirmados/los-de-la-zona`, no sobre la red entera. Antes marcaba como callado a cualquiera que viviera en otra ciudad — el perfil exacto al que se le vende Guardián (migración 0025) |
 | 7c.2 | Sin alerta propia, con un contacto dentro de un sismo vivo | 🔴 Ese contacto sale **con su aro de estado** en la Home. Antes llegaba el push de Guardián, abrías la app y no había nada distinto que mirar |
 | 7c.3 | Que ese contacto marque «necesito ayuda» y **después** «estoy bien» | 🔴 Llegan **los dos** avisos, y el segundo dice «**ya está bien**». La clave de dedup era una por sismo, así que el alivio posterior a una alarma se descartaba en silencio: te avisaba 4 veces que necesitaba ayuda y 0 que ya estaba bien (migración 0026) |
 | 7c.4 | Que cambie de «estoy bien» a «ayudando» | **No** llega nada. Es el mismo grupo: repetirlo a las 3 AM es el ruido que hace que se apaguen las notificaciones |
@@ -277,13 +277,54 @@ arreglados; esto es para que no vuelvan.
 
 | # | Paso | Qué tiene que pasar |
 |---|---|---|
-| 7d.1 | Con la app **abierta y a la vista**, disparar el sismo de prueba | 🔴 La pantalla se actualiza **sola** al llegar el aviso, sin tirar de la lista. Era el agujero: los cuatro disparadores de refresco —montar, recuperar red, volver al primer plano, pull— **ninguno ocurre si la persona ya está mirando la app**, que es exactamente lo que pasa en un sismo. Se veía como un bug del servidor: la Home decía «Nadie de tu círculo en la zona» con el dato correcto en la base |
-| 7d.2 | Lo mismo, pero con un **reporte de estado** del otro teléfono | Igual: el círculo se mueve solo. El fallo era el mismo y más silencioso, porque nadie espera un push visible de eso |
+| 7d.1 | Con la app **abierta y a la vista**, disparar el sismo de prueba | 🔴 La pantalla se actualiza **sola** al llegar el aviso, sin tirar de la lista. Era el agujero: los cuatro disparadores de refresco —montar, recuperar red, volver al primer plano, pull— **ninguno ocurre si la persona ya está mirando la app**, que es exactamente lo que pasa en un sismo. Se veía como un bug del servidor: la Home decía «Nadie de tu red en la zona» con el dato correcto en la base |
+| 7d.2 | Lo mismo, pero con un **reporte de estado** del otro teléfono | Igual: la red se mueve solo. El fallo era el mismo y más silencioso, porque nadie espera un push visible de eso |
 | 7d.3 | Home con alerta activa y **un contacto en zona de tres** | El título dice «**Tu gente en la zona**» y la grilla muestra **solo a ese**, con el contador `N/1`. Los otros dos no están «faltando»: no tenían nada que reportar |
-| 7d.4 | Home con alerta activa y **nadie** del círculo en zona | Título «Tu círculo», la explicación de que a nadie le llegó, y **el círculo completo apagado**. Una tarjeta vacía en mitad de un sismo se lee como «no tengo a nadie» |
-| 7d.5 | Pestaña Círculo **con** alerta activa | Selector triple arriba con los conteos: **En la zona · Fuera · Todos** |
-| 7d.6 | Pestaña Círculo **sin** alerta activa | El selector **no está**. Fuera de una alerta no hay «zona» de la que hablar |
+| 7d.4 | Home con alerta activa y **nadie** de la red en zona | Título «Tu red», la explicación de que a nadie le llegó, y **la red completa apagado**. Una tarjeta vacía en mitad de un sismo se lee como «no tengo a nadie» |
+| 7d.5 | Pestaña Red **con** alerta activa | Selector triple arriba con los conteos: **En la zona · Fuera · Todos** |
+| 7d.6 | Pestaña Red **sin** alerta activa | El selector **no está**. Fuera de una alerta no hay «zona» de la que hablar |
 | 7d.7 | Filtrar por «En la zona» sin nadie adentro | Dice que a nadie le llegó la alerta, no una lista vacía |
+
+---
+
+## 8.c · El teclado en Android (nuevo el 2026-08-28)
+
+Se corre **en Android**, en las nueve pantallas con campos de texto. En iOS nunca
+falló y no cambió nada, pero conviene mirar el chat de todas formas: es la única
+que usa `iosOffset`.
+
+> **Por qué es una sección y no una línea.** El fallo no era de una pantalla: era
+> del patrón que usaban las nueve. Con `edgeToEdgeEnabled=true` la ventana no se
+> encoge y `KeyboardAvoidingView` no acierta. La corrección vive en
+> `KeyboardAvoider` y se calcula con **el alto del teclado más el inset
+> inferior**, los dos informados por el sistema. Si alguien alguna vez sustituye
+> eso por una constante, esto vuelve — y vuelve solo en algunos teléfonos.
+
+| # | Pantalla | Qué tiene que pasar |
+|---|---|---|
+| 8c.1 | **Iniciar sesión / registrarse** | 🔴 El campo y el botón quedan **por encima** del teclado. Es lo primero que ve un usuario nuevo de Android |
+| 8c.2 | **Denunciar** | 🔴 Igual. Es el recorrido que mira App Review por la guía 1.2 |
+| 8c.3 | Chat | El compositor queda pegado al teclado, sin franja muerta ni recorte |
+| 8c.4 | Onboarding: perfil y plan de acción | Se puede escribir y llegar al botón |
+| 8c.5 | Mi cuenta · cambiar contraseña · borrar cuenta · editar plan | Igual |
+| 8c.6 | Cualquiera de ellas, con **navegación por gestos** en vez de tres botones | Igual de bien. El inset baja de ~47 a ~16 y la fórmula tiene que absorberlo sola |
+
+---
+
+## 8.d · Lo que el bloqueo tiene que impedir de verdad
+
+Sale de un bug real encontrado el 2026-08-28: el bloqueo **posponía** el mensaje
+en vez de descartarlo.
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 8d.1 | Con A bloqueando a B, que **B escriba** en el chat | Falla, y B ve «Ya no están conectados, así que esta conversación está cerrada» |
+| 8d.2 | El texto del aviso | 🔴 **No dice «te bloquearon».** Quitar de la red y bloquear dejan el mismo estado, y nombrarlo sería avisarle a quien no debe enterarse |
+| 8d.3 | La fila del chat en la lista de B | Desaparece sola tras el intento, sin tener que tirar de la lista |
+| 8d.4 | **A desbloquea, y vuelven a conectarse** | 🔴 El mensaje que B escribió estando bloqueado **NO llega**. Antes se quedaba en el outbox reintentándose y entraba al levantar el bloqueo: el bloqueo no impedía nada, solo posponía |
+| 8d.5 | B → agregar contactos, estando bloqueado | Ve a A en «ya conectados o con solicitud enviada», **sin ninguna pista** del bloqueo |
+| 8d.6 | A → agregar contactos, habiendo bloqueado | Ve a B con **«Lo bloqueaste»**, ícono de bloqueo y avatar apagado |
+| 8d.7 | Aceptar una solicitud **tocando dos veces rápido** | Se acepta y la lista se actualiza. No aparece ningún error en consola: el `42501` de la segunda llamada significa «ya no está pendiente» y se trata como benigno |
 
 ---
 
@@ -295,18 +336,19 @@ Es lo que mira App Review por la guía 1.2, así que conviene recorrerlo entero.
 |---|---|---|
 | 8b.1 | En el chat, mantener apretado un mensaje **de la otra persona** | Aparece el diálogo de denuncia |
 | 8b.2 | Mantener apretado un mensaje **propio** | **No** pasa nada: denunciarse a uno mismo no significa nada |
-| 8b.3 | Denunciar: elegir motivo y enviar | Confirma, y ofrece quitar del círculo en el mismo diálogo |
+| 8b.3 | Denunciar: elegir motivo y enviar | Confirma, y ofrece quitar de la red en el mismo diálogo |
 | 8b.4 | Elegir «Solo denunciar» | Vuelve al chat y la conexión sigue |
 | 8b.5 | Denunciar el **mismo** mensaje otra vez | No falla ni se duplica en la base |
 | 8b.6 | Contacto → «Denunciar a esta persona» | Igual, pero sin mensaje citado |
 | 8b.7 | En la base | `select reason, message_body from content_reports order by created_at desc` — el texto denunciado está copiado |
+| 8b.7b | Denunciar a la **misma persona** dos veces desde su ficha | No se duplica la fila (migración 0029). El índice viejo solo cubría el caso del mensaje |
 | 8b.8 | Sin red | Muestra el error y no pierde lo escrito |
-| 8b.9 | Elegir «Bloquear» al terminar la denuncia | Desaparece del círculo |
+| 8b.9 | Elegir «Bloquear» al terminar la denuncia | Desaparece de la red |
 | 8b.10 | **Desde el otro teléfono**, escribir en ese chat | **Falla.** Es el agujero que cerró 0021: quitar el vínculo no cerraba la conversación que ya existía |
 | 8b.11 | Desde el otro teléfono, volver a mandar solicitud | No se puede |
 | 8b.12 | Ajustes → Personas bloqueadas | Aparece, con cuándo se bloqueó |
 | 8b.13 | Desbloquear | Vuelve a «sin relación»: no se reconectan solos, hay que mandar solicitud de nuevo |
-| 8b.14 | Contacto → «Quitar de mi círculo» (el camino amable) | Sigue funcionando como antes, y **sí** deja volver a agregarse |
+| 8b.14 | Contacto → «Quitar de mi red» (el camino amable) | Sigue funcionando como antes, y **sí** deja volver a agregarse |
 
 ---
 
@@ -339,14 +381,14 @@ Premium. Si algo de acá difiere entre las dos cuentas, **es un bug**, no una fu
 | # | Con las dos cuentas | Tiene que pasar |
 |---|---|---|
 | 9b.1 | Sembrar un sismo que alcance a las dos | 🔴 Las dos reciben la alerta, **al mismo tiempo y con el mismo texto**. «Al mismo tiempo» es **hasta 30 s de diferencia**: `fan_out_quake` reparte con `now() + random() * interval '30 seconds'` a propósito, para no golpear APNs de golpe. Una llegando medio minuto después de la otra es la prueba pasando, no fallando |
-| 9b.2 | Las dos pantallas en modo alerta | Iguales: los 4 estados, el círculo, el contador |
+| 9b.2 | Las dos pantallas en modo alerta | Iguales: los 4 estados, la red, el contador |
 | 9b.2b | Que uno de los dos reporte **«estoy bien»** | 🔴 Al otro le llega **«\<nombre\> está bien»**, en las dos cuentas por igual. Antes de la migración 0027 no llegaba **nunca** estando dentro del mismo sismo, ni pagando: el aviso colgaba de haber recibido la apertura de Guardián, que solo reciben los que están **fuera** de la zona |
 | 9b.2c | Que reporte «necesita ayuda» y **después** «estoy bien» | Llegan los dos, y el segundo dice «**ya** está bien». Ese «ya» distingue el cierre de una alarma de un reporte limpio (0026 + 0027) |
 | 9b.3 | Captura automática de ubicación | Ocurre en las dos |
 | 9b.4 | Que un contacto marque «necesito ayuda» | Las dos reciben el aviso |
 | 9b.5 | Que un contacto se quede callado 20 min, **con el sismo alcanzando a las dos cuentas** | 🔴 Las dos reciben **«X no responde»**. Este es el corte que hace legítimo cobrar Guardián: entre quienes compartieron el sismo, la señal de que algo salió mal nunca se cobra |
 | 9b.5b | Lo mismo, pero con **la cuenta observadora fuera** del alcance del sismo | **No recibe nada**, ni gratis ni premium, porque `notify_silent_contacts` solo escribe a quien tiene entrega de ESE sismo (0020). No es un bug: es lo que hace que Guardián sea el **único** canal para un sismo que no te tocó. Lo que sí sería un bug es prometer lo contrario en la landing — ver `QUE-PROMETE-LA-APP.md` §7 |
-| 9b.6 | Chat, círculo ilimitado, plan de acción, tips | Iguales |
+| 9b.6 | Chat, red ilimitada, plan de acción, tips | Iguales |
 | 9b.7 | Noticias → pestaña **Perú** | Igual en las dos |
 
 ### La mitad que tiene que DIFERIR
@@ -391,10 +433,82 @@ Premium. Si algo de acá difiere entre las dos cuentas, **es un bug**, no una fu
 | 9c.8 | Poner el teléfono en **modo avión** y abrir la ficha del contacto | 🔴 Los planes **siguen ahí**. Salen de la caché local, que es lo que se lee después de un sismo cuando no hay red |
 | 9c.9 | Borrar un plan | Desaparece de tu lista y de la ficha del otro teléfono |
 | 9c.10 | Borrar **todos** | La ficha del otro dice «Todavía no escribió su plan» |
-| 9c.11 | Volver la cuenta a **gratis** teniendo 5 planes | 🔴 **Los 5 siguen visibles** para vos y para tu círculo. Solo desaparece el botón de agregar |
+| 9c.11 | Volver la cuenta a **gratis** teniendo 5 planes | 🔴 **Los 5 siguen visibles** para vos y para tu red. Solo desaparece el botón de agregar |
 | 9c.12 | Una solicitud **pendiente**, sin aceptar | **No** ve ningún plan. Es más estricto que antes a propósito: quien no aceptaste no tiene por qué saber adónde vas |
 | 9c.13 | Alta nueva: onboarding paso 4, escribir el plan | Queda guardado y aparece en la lista como «Mi plan» |
 | 9c.14 | Alta nueva **saltando** el paso | La lista queda vacía, con el texto que invita a escribir uno |
+
+---
+
+## 9.d · Grupos (reescrita el 2026-09-01 · migración 0034)
+
+> **Lo que cambió respecto de la corrida anterior:** el «círculo» privado y la «conversación
+> grupal» se fusionaron en un solo objeto. Un grupo es **gente + un chat**, se comparte con todos
+> los que están adentro, y es de quien lo creó. Los pasos de la versión vieja ya no aplican.
+
+**Hacen falta dos teléfonos** para casi todo lo importante de esta sección: lo que hay que
+verificar es justamente que el otro lado vea lo mismo.
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9d.1 | Mi red → conmutador **Toda mi red / Mis grupos** | Está **siempre**, con o sin alerta. El de «En la zona / Fuera / Todos» sigue apareciendo solo durante una alerta, y **debajo** |
+| 9d.2 | Sin contactos aceptados → «Mis grupos» | Dice «Primero, tu red» y no ofrece crear |
+| 9d.3 | Crear un grupo «Casa» | Al guardar entra directo a su detalle. 🔴 Antes de crear, el campo avisa que **el nombre lo van a ver todos** |
+| 9d.4 | Crear otro con el mismo nombre | Lo rechaza. ⚠️ iOS capitaliza sola la primera letra: para probarlo de verdad hay que borrar la mayúscula a mano |
+| 9d.5 | Cuenta **gratis**, crear un **tercero** | El botón «Nuevo grupo» sigue a la vista y abre el **paywall**. Si la compra sale bien, el formulario se abre solo |
+| 9d.6 | Detalle → «AGREGAR DE TU RED», tocar a alguien | Pasa arriba en el acto, con reloj de carga y sin botón de guardar |
+| 9d.7 | 🔴 **Desde el otro teléfono**, Mi red → Mis grupos | **El grupo APARECE**, con su nombre y la lista completa. Dice «lo creó otra persona». Es lo contrario de lo que pasaba con los círculos, y es el corazón de la 0034 |
+| 9d.8 | Desde el otro teléfono, abrir ese grupo | 🔴 **No hay lápiz en el nombre, no hay ⊖ en nadie, no hay «AGREGAR DE TU RED»**. Abajo dice «Salir del grupo», no «Borrar». Si aparece cualquier cosa de esas, la RLS de la 0034 está mal |
+| 9d.9 | Chats → Grupales, en los dos teléfonos | 🔴 **El chat del grupo ya existe en los dos**, con el nombre del grupo. Nadie tuvo que crearlo |
+| 9d.10 | Escribir en ese chat desde el otro teléfono | Llega el mensaje y el aviso |
+| 9d.11 | El dueño renombra el grupo | 🔴 **Desde el otro teléfono cambian el nombre del grupo Y el del chat.** Son el mismo nombre |
+| 9d.12 | El dueño saca a alguien (⊖) | 🔴 **En el teléfono del sacado, el grupo desaparece de Mi red, el chat desaparece de Chats, y sus mensajes se borran del teléfono** |
+| 9d.13 | El sacado vuelve a ser sumado | Vuelve a ver el grupo y el chat, **con todo el historial** — incluido lo que se habló mientras no estaba. Es la decisión documentada en QUE-PROMETE §7, y la pantalla lo avisa antes de sumar |
+| 9d.14 | Un integrante toca «Salir del grupo» | Sale de la lista para todos. El dueño lo ve al refrescar |
+| 9d.15 | El dueño toca «Borrar grupo» | 🔴 **Desaparece para todos, con su chat y sus mensajes.** El diálogo lo dice antes. Nadie sale de la red de nadie |
+| 9d.16 | Volver la cuenta a **gratis** teniendo 5 grupos | 🔴 **Los 5 siguen ahí.** Solo el botón de crear abre el paywall |
+| 9d.17 | **Modo avión** → Mi red → Mis grupos | 🔴 Siguen ahí con sus integrantes: salen de la caché (KV local) |
+
+### 9.d.bis · 🔴 El atajo, que es la mitad del valor del cambio
+
+Esto necesita **tres cuentas**: A (dueño), B y C, donde **B y C no están conectados entre sí**.
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9d.18 | A arma un grupo con B y C | — |
+| 9d.19 | En el teléfono de **B**, abrir el grupo | 🔴 Junto a **C** dice **«No está en tu red · no vas a ver cómo está»**, con un botón **Agregar** |
+| 9d.20 | Mi red → Mis grupos, desde B | La fila del grupo avisa «1 persona no está en tu red» **sin entrar** |
+| 9d.21 | B toca «Agregar» sobre C | Sale «Le mandamos la solicitud a C». El botón queda en «Enviada» |
+| 9d.22 | C acepta la solicitud | Ahora se ven entre sí. 🔴 En el grupo, el aviso de B sobre C **desaparece** |
+| 9d.23 | Con una **alerta activa** | La Home cuenta **solo a los integrantes que están en tu red**. Antes de que C aceptara, B veía a C fuera de la cuenta — y el detalle del grupo lo explicaba abajo |
+| 9d.24 | A quita a B de su red (Mi red → ficha → Quitar) | 🔴 **B sale del grupo de A y de su chat**, en los dos teléfonos. Ya no se filtra al leer como en la 0031: la fila se borra, porque un estado compartido no puede depender de quién mira |
+
+## 9.e · Chats (actualizada el 2026-09-01)
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9e.1 | Chats, sin haberle escrito a nadie | «Todavía no has hablado con nadie». **No** lista tu red entera |
+| 9e.2 | Botón **+** en «Individuales» | Abre la lista de tu red. 🔴 **Ya no hay fila de «nueva conversación grupal»**; en su lugar, un pie que dice dónde se arma un grupo |
+| 9e.3 | Botón **+** en «Grupales» | 🔴 Cambia de ícono y **lleva a Mi red**. Es la única forma de armar un grupo |
+| 9e.4 | Tocar a alguien en el selector | Abre el chat directo. Al cerrarlo se vuelve a **Chats**, no al selector |
+| 9e.5 | Escribirle y volver a Chats | Ahora sí aparece en «Individuales» |
+| 9e.6 | Grupales sin ningún grupo | «Todavía no tienes grupos», con un botón que lleva a armarlo |
+| 9e.7 | Recién creado el grupo | 🔴 Su chat aparece **arriba** en Grupales aunque no tenga mensajes |
+| 9e.8 | Abrir el chat del grupo | El encabezado muestra **el nombre del grupo**, no «Chat» |
+| 9e.9 | Mantener presionada una **individual** con varios mensajes | Ofrece **«Eliminar chat»**. El aviso dice las dos mitades: se borran los mensajes **de este teléfono**, y en el del otro siguen ahí |
+| 9e.10 | Eliminarla y **tirar de la lista** | 🔴 **Sigue eliminada y los mensajes no vuelven.** Dos mecanismos distintos: el UPSERT impide que la conversación resucite, y el corte de `hidden_at` impide que los mensajes se vuelvan a bajar |
+| 9e.11 | Volver a abrir ese chat desde la ficha del contacto | 🔴 Se abre **vacío**. Todavía no aparece en la lista — como WhatsApp, vuelve cuando hay un mensaje |
+| 9e.12 | **Desde el otro teléfono**, escribirle a esa conversación eliminada | 🔴 Llega el aviso **y la conversación reaparece sola**, con el mensaje nuevo y **solo** ese |
+| 9e.13 | Mantener presionado el chat de un **grupo** | 🔴 Ofrece **«Ver el grupo»** y «Eliminar chat». **No** ofrece cambiar el nombre ni salir: eso se hace en el grupo, y tener dos lugares para lo mismo era el problema que la 0034 resolvió |
+| 9e.14 | «Ver el grupo» | Abre el detalle del grupo. Volver regresa a Chats |
+| 9e.15 | Eliminar el chat de un grupo | El aviso aclara que **no es lo mismo que salir**: sigues en el grupo y el chat vuelve si alguien escribe |
+| 9e.16 | Una conversación grupal **vieja**, creada con la build anterior | Si existe alguna: mantener presionado ofrece «Eliminar chat» **y «Salir de la conversación»**, porque no hay grupo al que ir. Sin eso serían inabandonables |
+
+> **Lo que NO tiene que existir por ningún lado: «salir» de un chat individual.** Está prohibido
+> en la base a propósito (política `conversation_members_leave_group`, migración 0032). Sin fila
+> de miembro, `on_message_sent` deja de incluirte y `get_or_create_direct_conversation` **no te
+> vuelve a agregar** — quedarías en silencio permanente con ese contacto, sin saberlo y sin forma
+> de volver.
 
 ---
 

@@ -64,10 +64,10 @@ Todos Bien no es una alarma sísmica. Es la app para los minutos después del si
 El aviso llega unos minutos después de que tiembla, cuando el Instituto Geofísico del Perú publica el evento. No te avisa antes de que tiemble: para eso está el SASPe, con sirenas. Lo que hace esta app es lo que hace falta cuando ya tembló y las líneas están saturadas.
 
 CON UN TOQUE, TU GENTE SABE QUE ESTÁS BIEN
-Después de un sismo todos llaman a la vez y la red se cae. Un toque en la app pesa unos bytes y pasa cuando una llamada no pasa. Eliges entre estoy bien, necesito ayuda o estoy en camino, y tu círculo lo ve.
+Después de un sismo todos llaman a la vez y la red se cae. Un toque en la app pesa unos bytes y pasa cuando una llamada no pasa. Eliges entre estoy bien, necesito ayuda o estoy en camino, y tu red lo ve.
 
 VES QUIÉN RESPONDIÓ Y QUIÉN NO
-Tu círculo aparece en una sola pantalla con el estado de cada persona. Quien todavía no contestó se ve distinto de quien dijo que está bien: es la diferencia entre quedarte tranquilo y saber a quién llamar primero.
+Tu red aparece en una sola pantalla con el estado de cada persona. Quien todavía no contestó se ve distinto de quien dijo que está bien: es la diferencia entre quedarte tranquilo y saber a quién llamar primero.
 
 TU UBICACIÓN, SOLO CUANDO IMPORTA
 La app toma tu ubicación una vez al configurarla y otra vez después de cada sismo que te afecta, aunque esté cerrada. Nada más. No registra tu recorrido, no guarda un historial y no te sigue el resto del tiempo. La ven únicamente los contactos que aceptaste, y si no la tenemos, lo decimos: nunca mostramos una posición vieja como si fuera de ahora.
@@ -75,7 +75,7 @@ La app toma tu ubicación una vez al configurarla y otra vez después de cada si
 AVISOS SEGÚN TU ZONA
 Eliges el radio y la magnitud mínima. Seguimos el catálogo del IGP y del USGS todo el día, y te avisamos cuando un sismo entra en tus criterios, con la app cerrada.
 
-CHAT CON TU CÍRCULO
+CHAT CON TU RED
 Para lo que no cabe en un estado: dónde estás, qué necesitas, dónde se ven.
 
 SIMULACROS
@@ -85,9 +85,9 @@ TIPS DE PREPARACIÓN
 Con la fuente citada en cada uno: INDECI, Cruz Roja Peruana e Instituto Geofísico del Perú.
 
 PREMIUM (opcional)
-Cuando el sismo te toca a ti, la app funciona completa sin pagar: tu alerta, tu círculo y el aviso de que alguien no respondió nunca dependen de que pagues.
+Cuando el sismo te toca a ti, la app funciona completa sin pagar: tu alerta, tu red y el aviso de que alguien no respondió nunca dependen de que pagues.
 
-Premium sirve para lo contrario: los sismos que NO te tocan a ti. Te avisa apenas tiembla cerca de alguien de tu círculo —estés donde estés, con su nombre y a cuántos kilómetros le pasó— y otra vez cuando esa persona reporta que está bien. Agrega además avisos de sismos fuertes en cualquier parte del mundo, simulacros ilimitados y hasta cinco planes de acción con nombre, uno por situación: casa, trabajo, colegio.
+Premium sirve para lo contrario: los sismos que NO te tocan a ti. Te avisa apenas tiembla cerca de alguien de tu red —estés donde estés, con su nombre y a cuántos kilómetros le pasó— y otra vez cuando esa persona reporta que está bien. Agrega además avisos de sismos fuertes en cualquier parte del mundo, simulacros ilimitados y hasta cinco planes de acción con nombre, uno por situación: casa, trabajo, colegio.
 
 Tu familia no necesita pagar nada ni enterarse: Premium es tuyo, y sirve para saber de ellos.
 
@@ -97,7 +97,7 @@ LO QUE NO HACE, DICHO ANTES DE QUE LO PREGUNTES
 - Sin internet no llega ningún aviso.
 - No garantiza la entrega: Apple entrega las notificaciones con el mejor esfuerzo.
 - No reemplaza llamar a emergencias. No contacta bomberos, PNP ni INDECI.
-- No comparte tu ubicación con nadie fuera de tu círculo, ni la usa para publicidad.
+- No comparte tu ubicación con nadie fuera de tu red, ni la usa para publicidad.
 
 Privacidad: https://todosbien.app/privacidad
 Términos: https://todosbien.app/terminos
@@ -160,8 +160,8 @@ Las siete, en orden, y qué tiene que verse en cada una:
 
 | # | Pantalla | Qué demuestra | Texto sugerido encima |
 |---|---|---|---|
-| 1 | Home en modo alerta, con el sismo arriba y el círculo debajo | El producto en el momento para el que existe | «Tembló. ¿Están todos bien?» |
-| 2 | Círculo con estados mezclados: dos en verde, uno en ámbar, uno sin confirmar | El valor real: ver quién falta | «Ves quién respondió y quién no» |
+| 1 | Home en modo alerta, con el sismo arriba y la red debajo | El producto en el momento para el que existe | «Tembló. ¿Están todos bien?» |
+| 2 | Red con estados mezclados: dos en verde, uno en ámbar, uno sin confirmar | El valor real: ver quién falta | «Ves quién respondió y quién no» |
 | 3 | Los cuatro estados / «Estoy bien» | Lo que hace el usuario | «Un toque, y tu gente lo sabe» |
 | 4 | Detalle de contacto con el mini mapa | La ubicación, con su límite | «Su ubicación después del sismo. No antes, no siempre» |
 | 5 | Ajustes de radio y magnitud | Control del usuario | «Tú eliges qué te despierta» |

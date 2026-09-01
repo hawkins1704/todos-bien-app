@@ -24,7 +24,7 @@ const SLIDES: Slide[] = [
     icon: 'diversity-3',
     title: 'Un toque, y tu gente sabe que estás bien',
     body:
-      'Después de un sismo, las llamadas se saturan. Acá reportas tu estado una vez y queda ahí para todo tu círculo, sin que nadie tenga que llamar a nadie.',
+      'Después de un sismo, las llamadas se saturan. Acá reportas tu estado una vez y queda ahí para toda tu red, sin que nadie tenga que llamar a nadie.',
   },
   {
     key: 'dashboard',
@@ -38,7 +38,7 @@ const SLIDES: Slide[] = [
     icon: 'cloud-off',
     title: 'Funciona aunque la red esté mal',
     body:
-      'La información de tu círculo se guarda en tu teléfono. Si te quedas sin señal, sigues viendo la última copia, y lo que reportes se envía solo cuando vuelva la conexión.',
+      'La información de tu red se guarda en tu teléfono. Si te quedas sin señal, sigues viendo la última copia, y lo que reportes se envía solo cuando vuelva la conexión.',
   },
 ];
 

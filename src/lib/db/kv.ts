@@ -9,6 +9,15 @@ export const KV = {
   lastCircleSync: 'last_circle_sync',
   lastQuakeCheck: 'last_quake_check',
   activeDrillId: 'active_drill_id',
+  /**
+   * Los grupos, con sus integrantes ya resueltos (migración 0034).
+   *
+   * Van en el KV y no en una tabla propia de SQLite porque son como mucho diez
+   * filas con una lista corta de gente: una tabla sería más código para el mismo
+   * resultado. Y van en caché local y no se piden a demanda porque la Home los
+   * usa **durante una alerta**, que es exactamente cuando la red puede no estar.
+   */
+  groups: 'groups',
   /** Último token de push que se escribió en el servidor (ver `syncPushToken`). */
   pushToken: 'push_token',
   /**

@@ -38,7 +38,7 @@ type Consecuencia = {
 const CONSECUENCIAS: Consecuencia[] = [
   {
     icon: 'group-off',
-    texto: 'Desapareces del círculo de tus contactos. Dejan de ver tu estado y tu ubicación.',
+    texto: 'Desapareces de la red de tus contactos. Dejan de ver tu estado y tu ubicación.',
   },
   {
     icon: 'chat-bubble-outline',

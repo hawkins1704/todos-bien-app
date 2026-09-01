@@ -20,6 +20,7 @@ import { useDrill } from '@/context/drill';
 import { useKeyboardHeight } from '@/hooks/use-keyboard';
 import {
   markConversationRead,
+  readCachedConversations,
   readCachedMessages,
   sendMessage,
   syncMessages,
@@ -43,6 +44,18 @@ export default function ChatScreen() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
+  const [tituloGrupal, setTituloGrupal] = useState<string | null>(null);
+
+  // Sale de la caché local, así que el título aparece sin red y sin esperar.
+  useEffect(() => {
+    if (!conversationId) return;
+    void readCachedConversations()
+      .then((todas) => {
+        const esta = todas.find((c) => c.id === conversationId);
+        setTituloGrupal(esta?.kind === 'group' ? esta.title : null);
+      })
+      .catch(() => null);
+  }, [conversationId]);
 
   const load = useCallback(async () => {
     if (!conversationId) return;
@@ -150,7 +163,12 @@ export default function ChatScreen() {
 
   return (
     <Screen tone="plain">
-      <Stack.Screen options={{ title: 'Chat' }} />
+      {/* En una conversación grupal el título es lo único que dice en cuál
+          estás: sin él, tres conversaciones distintas se ven idénticas. Las
+          individuales se quedan con «Chat» — su nombre exigiría cruzar el
+          `otherUserId` contra la red, y ahí ya se ve con quién estás hablando
+          por las burbujas. */}
+      <Stack.Screen options={{ title: tituloGrupal ?? 'Chat' }} />
       {isDrilling ? <DrillBanner /> : null}
 
       {/*

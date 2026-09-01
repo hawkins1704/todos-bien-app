@@ -162,6 +162,22 @@ function RootNavigator() {
         name="blocked"
         options={{ presentation: 'modal', headerShown: true, title: 'Personas bloqueadas' }}
       />
+      {/* Apilado y no modal: se llega desde «Mis grupos», desde la ficha de un
+          contacto y desde la lista de Chats, y en los tres casos «volver» tiene
+          que regresar ahí.
+
+          Y con `headerBackButtonDisplayMode: 'minimal'` por lo mismo que el chat
+          de arriba: sin eso iOS rotula la flecha con el título de la pantalla
+          anterior, que al venir de los tabs es literalmente "(tabs)". Ningún
+          rótulo fijo serviría, justamente porque se entra desde tres lados. */}
+      <Stack.Screen
+        name="group/[id]"
+        options={{ headerShown: true, title: 'Grupo', headerBackButtonDisplayMode: 'minimal' }}
+      />
+      <Stack.Screen
+        name="new-chat"
+        options={{ presentation: 'modal', headerShown: true, title: 'Nueva conversación' }}
+      />
       <Stack.Screen name="drill" options={{ presentation: 'fullScreenModal' }} />
     </Stack>
   );

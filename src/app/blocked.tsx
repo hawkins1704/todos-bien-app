@@ -90,7 +90,7 @@ export default function BlockedScreen() {
           <Card>
             <Text variant="headline">No bloqueaste a nadie</Text>
             <Text variant="subhead" tone="secondary" style={styles.gapTop}>
-              Si alguna vez lo necesitas, está en el perfil de la persona dentro de tu círculo, y
+              Si alguna vez lo necesitas, está en el perfil de la persona dentro de tu red, y
               también al terminar de enviar una denuncia.
             </Text>
           </Card>

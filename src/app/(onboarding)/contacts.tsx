@@ -28,7 +28,7 @@ export default function OnboardingContactsScreen() {
         ]}>
         <OnboardingStep
           step={3}
-          title="Arma tu círculo"
+          title="Arma tu red"
           subtitle="Cada persona arma el suyo por separado. Agregar a alguien no comparte tus otros contactos con esa persona."
         />
 

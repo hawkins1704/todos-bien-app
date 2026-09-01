@@ -94,7 +94,7 @@ export default function OnboardingProfileScreen() {
           <OnboardingStep
             step={1}
             title="¿Cómo te van a ver?"
-            subtitle="Tu círculo te va a reconocer por este nombre."
+            subtitle="Tu red te va a reconocer por este nombre."
           />
 
           <View style={styles.avatarPreview}>

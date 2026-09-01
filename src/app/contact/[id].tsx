@@ -1,8 +1,9 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -23,7 +24,12 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { useAppData } from '@/context/app-data';
 import { usePullToRefresh } from '@/hooks/use-pull-to-refresh';
-import { blockConnection, removeConnection } from '@/lib/api';
+import {
+  addGroupMember,
+  blockConnection,
+  removeConnection,
+  removeGroupMember,
+} from '@/lib/api';
 import { openDirectConversation } from '@/lib/chat';
 import { readCircleMember } from '@/lib/db/circle';
 import { formatAccuracy, formatCoords, isOlderThan, timeAgo } from '@/lib/format';
@@ -38,12 +44,45 @@ export default function ContactDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { activeQuake, refresh, lastCircleSync } = useAppData();
+  const { activeQuake, groups, refresh, lastCircleSync } = useAppData();
+
+  /** Solo los grupos que creaste: son los únicos donde puedes tocar la lista. */
+  const misGrupos = useMemo(() => groups.filter((g) => g.isOwner), [groups]);
   const { refreshing, onRefresh } = usePullToRefresh(refresh);
 
   const [member, setMember] = useState<CircleMember | null>(null);
   const [buscado, setBuscado] = useState(false);
   const [opening, setOpening] = useState(false);
+  const [grupoOcupado, setGrupoOcupado] = useState<string | null>(null);
+  const [saliendo, setSaliendo] = useState(false);
+
+  /**
+   * Poner o sacar a esta persona de un grupo tuyo, sin salir de su ficha.
+   *
+   * Escribe y refresca, sin botón de guardar: las dos operaciones son
+   * idempotentes (agregar dos veces no duplica por la clave primaria compuesta,
+   * quitar dos veces no falla), así que un toque repetido deja el mismo estado.
+   *
+   * Ojo con lo que esto significa desde la 0034: el grupo es compartido, así que
+   * meter a alguien acá **lo mete en un chat donde los demás lo van a ver**. No
+   * es la etiqueta privada que era antes.
+   */
+  const alternarGrupo = useCallback(
+    async (groupId: string, dentro: boolean) => {
+      if (!id) return;
+      setGrupoOcupado(groupId);
+      try {
+        if (dentro) await removeGroupMember(groupId, id);
+        else await addGroupMember(groupId, id);
+      } catch {
+        Alert.alert('No se pudo guardar', 'Revisa tu conexión e intenta de nuevo.');
+      } finally {
+        await refresh();
+        setGrupoOcupado(null);
+      }
+    },
+    [id, refresh],
+  );
 
   // `lastCircleSync` en las dependencias es lo que arregla la ficha congelada:
   // antes esto leía la caché UNA vez al montar y no se volvía a enterar de
@@ -79,7 +118,7 @@ export default function ContactDetailScreen() {
         <Stack.Screen options={{ title: '' }} />
         <View style={styles.loading}>
           <Text variant="callout" tone="tertiary" center>
-            {buscado ? 'Esta persona ya no está en tu círculo.' : 'Cargando…'}
+            {buscado ? 'Esta persona ya no está en tu red.' : 'Cargando…'}
           </Text>
         </View>
       </Screen>
@@ -109,8 +148,7 @@ export default function ContactDetailScreen() {
     member.locationAt != null && !isOlderThan(member.locationAt, ACTIVE_ALERT_WINDOW_MS);
 
   const statusVisible = alertActive ? status : liveQuakeStatus(member);
-  const hasLocation =
-    member.latitude != null && member.longitude != null && ubicacionVigente;
+  const hasLocation = member.latitude != null && member.longitude != null && ubicacionVigente;
 
   const openChat = async () => {
     setOpening(true);
@@ -136,10 +174,22 @@ export default function ContactDetailScreen() {
           onPress: () => {
             // Mismo orden que en `confirmBlock`: salir primero (ver el porqué
             // ahí), sincronizar después.
-            void removeConnection(member.connectionId).then(() => {
-              router.back();
-              void refresh();
-            });
+            //
+            // El `saliendo` es lo que llena el hueco entre el toque y el
+            // `router.back()`: sin él la ficha se queda igual mientras espera al
+            // servidor y parece que el «Quitar» no hizo nada. Y el `catch` es lo
+            // que faltaba: sin red la promesa se rompía en silencio y la persona
+            // se quedaba mirando una pantalla que no cambiaba nunca.
+            setSaliendo(true);
+            void removeConnection(member.connectionId)
+              .then(() => {
+                router.back();
+                void refresh();
+              })
+              .catch(() => {
+                setSaliendo(false);
+                Alert.alert('No se pudo quitar', 'Revisa tu conexión e intenta de nuevo.');
+              });
           },
         },
       ],
@@ -282,9 +332,7 @@ export default function ContactDetailScreen() {
                 />
                 <Pressable
                   onPress={() =>
-                    void Clipboard.setStringAsync(
-                      `${member.latitude},${member.longitude}`,
-                    )
+                    void Clipboard.setStringAsync(`${member.latitude},${member.longitude}`)
                   }
                   accessibilityRole="button"
                   accessibilityLabel="Copiar coordenadas"
@@ -332,7 +380,11 @@ export default function ContactDetailScreen() {
                 style={[
                   styles.gapTop,
                   index > 0
-                    ? { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.md }
+                    ? {
+                        borderTopColor: colors.border,
+                        borderTopWidth: StyleSheet.hairlineWidth,
+                        paddingTop: Spacing.md,
+                      }
                     : null,
                 ]}>
                 {member.actionPlans.length > 1 ? (
@@ -364,6 +416,75 @@ export default function ContactDetailScreen() {
           )}
         </Card>
 
+        {/* Los grupos, desde acá.
+            Se puede llegar al mismo resultado desde «Mis grupos», pero este es
+            el camino natural cuando ya estás mirando a la persona: acabas de
+            aceptar a alguien y lo ubicas sin salir de su ficha.
+
+            🔴 Solo los que CREASTE. En un grupo ajeno no puedes tocar la lista
+            —solo su dueño puede (0034)—, y un chip que no responde al toque es
+            peor que no mostrarlo. Ese grupo aparece igual, en Mi red. */}
+        {misGrupos.length > 0 ? (
+          <Card>
+            <Text variant="footnote" tone="secondary" weight="600">
+              SUS GRUPOS
+            </Text>
+
+            <View style={styles.gruposFila}>
+              {misGrupos.map((grupo) => {
+                const dentro = grupo.members.some((m) => m.userId === member.userId);
+                const ocupado = grupoOcupado === grupo.id;
+
+                return (
+                  <Pressable
+                    key={grupo.id}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: dentro, busy: ocupado }}
+                    accessibilityLabel={grupo.name}
+                    disabled={ocupado}
+                    onPress={() => void alternarGrupo(grupo.id, dentro)}
+                    style={({ pressed }) => [
+                      styles.grupoChip,
+                      {
+                        // `accent` sobre `accentSoft` es la combinación de chip
+                        // del sistema de color, medida en 4.57:1 (tokens.ts).
+                        backgroundColor: dentro ? colors.accentSoft : colors.surfaceSunken,
+                        borderColor: dentro ? colors.accentSoft : colors.border,
+                      },
+                      pressed || ocupado ? { opacity: 0.6 } : null,
+                    ]}>
+                    {/* Mismo criterio que en el detalle del grupo: el toque
+                        escribe en el servidor y refresca, así que sin señal el
+                        segundo de espera se lee como que no pasó nada. */}
+                    {ocupado ? (
+                      <ActivityIndicator size="small" color={colors.textSecondary} />
+                    ) : (
+                      <MaterialIcons
+                        name={dentro ? 'check' : 'add'}
+                        size={14}
+                        color={dentro ? colors.accent : colors.textSecondary}
+                      />
+                    )}
+                    <Text
+                      variant="footnote"
+                      weight={dentro ? '600' : '400'}
+                      style={dentro ? { color: colors.accent } : null}>
+                      {grupo.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Esta línea decía lo contrario hasta la 0034 —«solo tú los ves»—
+                y ahora sería mentira. Un grupo se comparte, y meter a alguien es
+                una acción que se nota. */}
+            <Text variant="caption" tone="tertiary" style={styles.gapTop}>
+              {member.displayName} va a ver el grupo, a los demás integrantes y su chat.
+            </Text>
+          </Card>
+        ) : null}
+
         <Button title="Abrir chat" icon="chat" onPress={() => void openChat()} loading={opening} />
 
         {/* Denunciar y quitar, juntos y en ese orden: quien llega hasta acá
@@ -385,10 +506,15 @@ export default function ContactDetailScreen() {
 
         <Pressable
           onPress={confirmRemove}
+          disabled={saliendo}
           accessibilityRole="button"
-          style={({ pressed }) => [styles.remove, pressed ? styles.pressed : null]}>
+          accessibilityState={{ busy: saliendo }}
+          style={({ pressed }) => [
+            styles.remove,
+            pressed || saliendo ? styles.pressed : null,
+          ]}>
           <Text variant="footnote" tone="danger" center weight="600">
-            Quitar de mi círculo
+            {saliendo ? 'Quitando…' : 'Quitar de mi red'}
           </Text>
         </Pressable>
 
@@ -406,11 +532,34 @@ export default function ContactDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { gap: Spacing.lg, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
+  content: {
+    gap: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+  },
   loading: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   hero: { alignItems: 'center', gap: Spacing.sm },
   gapTop: { marginTop: Spacing.xs },
-  locationActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg },
+  gruposFila: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  grupoChip: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  locationActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
   flex: { flex: 1 },
   copyButton: {
     alignItems: 'center',

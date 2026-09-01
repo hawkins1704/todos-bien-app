@@ -298,28 +298,28 @@ mapas queda en cero por diseño y no por vigilancia.
 Dos cosas que salieron juntas el 2026-08-20.
 
 **1. La ubicación se puede actualizar a mano durante la alerta.**
-`src/components/my-location-card.tsx`, montada en la Home **después del círculo**.
+`src/components/my-location-card.tsx`, montada en la Home **después de la red**.
 
 El hueco que cierra: la captura automática ocurre **una sola vez**, al dispararse la
 alerta, y responde "dónde estaba cuando ocurrió". Pero un sismo no termina en el instante
 del sismo — la persona evacúa, va al punto de encuentro, sale a buscar a alguien— y hasta
-ahora su círculo se quedaba hasta 6 horas mirando una posición que había dejado de ser
+ahora su red se quedaba hasta 6 horas mirando una posición que había dejado de ser
 cierta a los diez minutos, **sin ninguna señal de que estaba vieja**.
 
 Card aparte y no dentro de "Mi estado" porque son dos acciones distintas: cómo estoy y
 dónde estoy, y una se actualiza sin tocar la otra.
 
 **Dónde va, y el error que costó descubrirlo.** El primer intento la puso entre "Mi
-estado" y el círculo, agrupando lo que la persona reporta sobre sí misma. Se lee ordenado
+estado" y la red, agrupando lo que la persona reporta sobre sí misma. Se lee ordenado
 y estaba mal. Medido bloque por bloque en un iPhone de 852 pt: la tarjeta ocupa ~326 pt
-(mapa 150 + botón + nota + padding) y empujaba el arranque del círculo de y≈535 a **y≈877,
+(mapa 150 + botón + nota + padding) y empujaba el arranque de la red de y≈535 a **y≈877,
 o sea completamente fuera de pantalla**. Ver cómo está tu gente es el propósito de la app;
 que exija scroll durante un sismo no es un detalle de estética.
 
 **Comprimir no alcanzaba, y eso se midió antes de decidir:** borrar el mapa entero —lo más
-agresivo posible sin eliminar la funcionalidad— dejaba el círculo arrancando en y≈711,
+agresivo posible sin eliminar la funcionalidad— dejaba la red arrancando en y≈711,
 todavía pegado al borde inferior. El problema no era el tamaño de nada sino el **orden**.
-Movida detrás del círculo, este vuelve a y≈535 y entra completo, y la ubicación **asoma**
+Movida detrás de la red, este vuelve a y≈535 y entra completo, y la ubicación **asoma**
 abajo — que es exactamente lo que se quiere de una acción de seguimiento: se hace minutos
 después de mirar cómo está tu gente, no antes. Eso último es explícito en la UI
 ("Tu estado no cambia") y en el código: el estado que se reescribe es
@@ -422,10 +422,10 @@ pantallas con pull-to-refresh. Cambiar de pestaña y volver lo enderezaba, porqu
 fuerza un layout nuevo — el arreglo por accidente que confirma dónde estaba el problema.
 
 **La causa no era de estilos.** `RefreshControl.refreshing` no es un indicador de "hay una
-sincronización en curso": es la respuesta visual a un gesto. La Home y Círculo lo ataban a
+sincronización en curso": es la respuesta visual a un gesto. La Home y Red lo ataban a
 `syncing`, una bandera global de `AppDataProvider`, y Sismos lo prendía dentro de `load()`.
 Con eso, **cualquier** refresco automático lo encendía: arrancar la app, volver del segundo
-plano (`AppState` → `active`), recuperar la red, o incluso aceptar una solicitud en Círculo.
+plano (`AppState` → `active`), recuperar la red, o incluso aceptar una solicitud en Red.
 
 Prenderlo por código hace que iOS empuje el contenido hacia abajo con una animación. Si eso
 ocurre mientras la vista no está en pantalla —la app volviendo del segundo plano, o una
@@ -437,7 +437,7 @@ final, y al apagarse `refreshing` el scroll se queda corrido con el spinner a la
 promesa de la acción termina, falle o no. Los refrescos automáticos pasaron a ser
 silenciosos: la lista se reemplaza sola cuando llegan los datos, que es exactamente lo que
 se espera de una caché que se revalida sola (§1.6.4.1). Lo usan las cuatro pantallas —
-Home, Círculo, Chats y Sismos.
+Home, Red, Chats y Sismos.
 
 De paso se **borró `syncing` del contexto**, que quedaba sin un solo consumidor. No es
 limpieza cosmética: era la trampa a la vista para que el próximo `RefreshControl` la
@@ -534,7 +534,7 @@ Detalles que importan:
 
 - Se guarda con estado `unconfirmed` a propósito. El contador "X/Y confirmados" exige
   `status <> 'unconfirmed'`, así que la persona sigue figurando como no confirmada, pero
-  su círculo ya ve dónde estaba.
+  su red ya ve dónde estaba.
 - Aplica el **jitter** de la spec §6 (`ALERT_WRITE_JITTER_MS`), que hasta ahora estaba
   declarado pero sin usar en ningún lado.
 - Vuelve a chequear el estado **justo antes de escribir**. Entre el jitter y el fix del
@@ -868,6 +868,31 @@ Global de Sismos, el simulacro sin cupo y Mi cuenta) y ninguno sabe nada de Reve
 > seguridad es gratis, así que una integración de cobro a medio configurar no puede
 > impedir que alguien use la app.
 
+#### 1.9.1.0 El botón que se queda: `usePaywall` (2026-09-01)
+
+`PremiumCta` sirve donde lo que corresponde mostrar **es** un botón de venta. Pero hay
+pantallas donde el botón correcto es el de siempre —«Nuevo grupo», «Agregar un plan»— y
+lo que estaba pasando era esto: **al llegar al tope, el botón desaparecía** y en su lugar
+salía una tarjeta explicando el límite.
+
+Quien lo probó lo señaló como un problema de la app, no de la venta: *«quisiera que me
+aparezca el botón de crear normal, pero que al darle clic me abra el paywall»*. Tiene
+razón por dos motivos distintos. Uno, una función que no se ve no la compra nadie. Dos, y
+más importante: un botón que desaparece **no se lee como un límite, se lee como un bug**.
+
+Por eso la mecánica del paywall salió de `premium-cta.tsx` y vive en
+**`src/hooks/use-paywall.ts`**. El botón se queda donde estaba, y al tocarlo con el tope
+lleno:
+
+- **sin Premium** → se abre el paywall, y si la compra sale bien se abre en el acto lo que
+  la persona estaba intentando hacer (el formulario de crear, el editor del plan);
+- **con Premium y en el máximo** → no hay nada que vender, y se dice: «llegaste a 10, borra
+  uno para crear otro»;
+- **sin clave de tienda configurada** → el aviso de siempre, sin abrir nada.
+
+Es el mismo patrón que la pestaña Global de Noticias, que se muestra con candado en vez de
+esconderse.
+
 ### 1.9.1.1 Quién decide quién es Premium
 
 **La app no.** `is_premium` está fuera del grant de UPDATE de `authenticated` desde 0001
@@ -916,7 +941,7 @@ Todos los avatares de la app son las iniciales sobre el azul de marca.
 del teléfono**, así que la foto se veía en el propio dispositivo y en ningún otro. Para que
 funcionara de verdad hacía falta Supabase Storage, o sea almacenamiento y ancho de banda
 pagos, por una función que no aporta nada al núcleo —saber que tu gente está bien— en un
-círculo de personas que ya se conocen por su nombre.
+red de personas que ya se conocen por su nombre.
 
 De paso se van dos cosas que sí tenían costo real:
 
@@ -1119,7 +1144,7 @@ Cuatro decisiones que no son obvias:
   momento del envío porque `quake_events` sigue igual; el de una persona depende de un
   nombre y del cuerpo de un mensaje, y esos **cambian o se borran**. Si se resolviera al
   enviar, un mensaje borrado un segundo después llegaría vacío, y alguien recién sacado
-  del círculo seguiría nombrado en un push.
+  de la red seguiría nombrado en un push.
 - **Las preferencias se comprueban en un solo lugar**, `private.enqueue_notifications()`.
   Cualquier disparador nuevo pasa por ahí, así que no se puede olvidar el chequeo — que es
   exactamente el error que dejó los interruptores inertes.
@@ -1134,14 +1159,14 @@ encolado, en vez de esperar al cron. Medido en producción: **0,6 s** entre enco
 enviar. El cron queda de red de seguridad cada 5 minutos.
 
 > Detalle que importa para la cuenta de Supabase: el disparador es **por sentencia**, no
-> por fila, y encolar hace un solo `INSERT ... SELECT`. Avisar a un círculo de diez
+> por fila, y encolar hace un solo `INSERT ... SELECT`. Avisar a una red de diez
 > personas dispara un HTTP, no diez. Y como el camino rápido es el disparador, el cron
 > puede ir cada 5 minutos en vez de cada minuto: 288 invocaciones al día en vez de 1.440.
 
 #### 1.13.2 El simulacro silencioso tenía que seguir siendo silencioso
 
 La pantalla de simulacro promete dos cosas por escrito: *«Modo silencioso — nadie de tu
-círculo se entera ni recibe nada»* y *«Avisar a mi círculo — les llega un aviso que dice
+red se entera ni recibe nada»* y *«Avisar a mi red — les llega un aviso que dice
 claramente que es un simulacro, nunca el texto de una alerta real»*. Las dos frases
 estaban en la app desde antes de que existiera nada que las cumpliera.
 
@@ -1154,7 +1179,7 @@ La prueba de esto encontró un bug propio, corregido en 0016: el simulacro se el
 por `started_at desc`, y **dentro de una transacción `now()` devuelve la hora de la
 transacción**, así que dos simulacros insertados en el mismo bloque empataban al
 microsegundo y ganaba cualquiera. En producción es improbable, pero "improbable" acá
-significa mandarle a todo un círculo un «necesita ayuda» que la persona pidió que fuera
+significa mandarle a todo una red un «necesita ayuda» que la persona pidió que fuera
 silencioso. Ahora gana el que está en curso.
 
 #### 1.13.3 Verificación
@@ -1178,7 +1203,7 @@ function sin secreto y con secreto falso.
 
 **Y una verificación que no se buscó:** el cron de «contacto sin responder» se disparó
 solo, en producción, mientras se escribía esto. Detectó que a Renzo le había llegado una
-alerta y no había reportado, y encoló el aviso para su círculo con la clave de
+alerta y no había reportado, y encoló el aviso para su red con la clave de
 deduplicación correcta — una sola vez, pese a correr cada 5 minutos.
 
 #### 1.13.4 Latencia del aviso de sismo: qué se recortó y qué no
@@ -1241,7 +1266,7 @@ catálogo»**.
 
 **Fallo 2 · «Contacto no responde» se mandaba a gente que no sabía del sismo.**
 
-`notify_silent_contacts()` avisaba a **todo** el círculo de quien no había reportado, sin
+`notify_silent_contacts()` avisaba a **todo** la red de quien no había reportado, sin
 comprobar que ese sismo también les aplicara. Con un premium con avisos mundiales eso filtra:
 él recibe el aviso de un sismo en la Antártida, no reporta —razonablemente, no le pasó nada—
 y sus contactos reciben «no responde… desde el sismo» sin haber recibido ningún aviso. **La
@@ -1265,7 +1290,7 @@ Al decidir qué hacer con el umbral mundial apareció que el problema no era el 
 | Pone la app en modo emergencia | ✅ | ❌ |
 | Dispara el push silencioso y la captura de ubicación | ✅ | ❌ |
 | Activa el contador «X/Y confirmados» | ✅ | ❌ |
-| Si no reportás, avisa a tu círculo | ✅ | ❌ |
+| Si no reportás, avisa a tu red | ✅ | ❌ |
 | Se puede apagar | ❌ | ✅ |
 
 Un sismo a 5.887 km entraba por la vía de la alerta y **arrastraba las cuatro consecuencias**.
@@ -1299,6 +1324,31 @@ dado 10), **mundial ≥ 6,0** → 3 por semana.
 Scotia le llega **solo al premium**, como `quake_worldwide` por el canal `quakes`; un M7,2 en
 Perú no le llega como noticia a quien ya recibió la alerta.
 
+#### 1.13.7 Guardián se achicó a la mitad que se explicaba sola (migración 0030)
+
+Guardián mandaba dos cosas: una **apertura** («tembló cerca de María») y un **cierre** («María
+está bien» / «María no se ha reportado»). Se quitó la apertura y quedó solo el cierre.
+
+El motivo no fue técnico. Quien lo vende lo dijo cinco veces con distintas palabras hasta que
+quedó claro: *«siento que el modo guardián es difícil de explicar y justificar»*. Y tenía
+razón, porque la apertura competía consigo misma — a un peruano, la noticia nacional gratis ya
+le avisa de un M4,5 en cualquier parte del país. Lo que **no** le llega gratis es qué pasó con
+su gente cuando el sismo no lo alcanzó a él. Eso es una frase, no un párrafo, y es lo que
+quedó.
+
+Dos consecuencias que no se ven en el diff:
+
+- **El cierre dependía de la apertura para elegir a quién avisar.** `on_status_safe` leía quién
+  había recibido la apertura de Guardián. Sin ella, esa consulta devuelve vacío y «María está
+  bien» habría dejado de llegar **en silencio**. Ahora los destinatarios se recalculan directo:
+  tu red, menos quienes tienen entrega de alerta de ese mismo sismo.
+- **Cada mensaje fuera de zona nombra el sismo** (`private.quake_reference`: «Hubo un sismo de
+  magnitud 5,4 en Lima»). Sin la apertura que lo precedía, un «María está bien» a secas le
+  llega a alguien que no sabía que había temblado: eso es un susto, no un alivio.
+
+> **La build que está en revisión tiene la copia vieja de Guardián en Ajustes, y ahora es
+> falsa.** Hace falta una build nueva.
+
 ### 1.14 Permisos: una lista de tareas, no tres tarjetas
 
 **El problema era de arquitectura de producto, no de UI.** Los tres permisos —ubicación,
@@ -1315,7 +1365,7 @@ le llegó nada — ni le habría llegado aunque los avisos de §1.13 hubieran ex
 > de avisos del mundo y no cambia nada si el teléfono nunca pidió permiso para mostrarlos.
 
 **La forma elegida.** Una sola tarjeta con los tres, con la **misma forma que el checklist
-de preparación de la Home**: círculo de estado, nombre, y una línea que dice cómo está.
+de preparación de la Home**: red de estado, nombre, y una línea que dice cómo está.
 La pregunta que responde es la misma —«¿qué me falta?»— y contestarla dos veces con dos
 diseños distintos obligaría a aprender dos cosas.
 
@@ -1335,7 +1385,7 @@ Cuatro decisiones que no son obvias:
   ayuda» en toda la app (§1.4.1). Un permiso sin conceder no es una emergencia, y teñirlo
   igual le gastaría el significado al que sí lo es. En su lugar cada fila que falta dice
   **qué se pierde** — «No te llega nada: ni sismos, ni mensajes, ni si alguien de tu
-  círculo necesita ayuda»—, que informa mucho más que un color.
+  red necesita ayuda»—, que informa mucho más que un color.
 - **Conceder notificaciones registra el token en el acto.** Sin ese paso, conceder el
   permiso no sirve de nada: el token es lo que el servidor necesita para poder mandar
   algo. Es exactamente lo que faltaba cuando el permiso solo se pedía en el onboarding.
@@ -1462,10 +1512,10 @@ sirven de verdad— el lado del servidor ya está y probado.
 
 **Consecuencia que hay que asumir:** sin número de teléfono, una persona **no aparece para
 nadie**. El campo es opcional en el onboarding y ahora es la única llave. Vale la pena
-mirarlo cuando haya usuarios reales: si mucha gente lo salta, el círculo vacío no va a tener
+mirarlo cuando haya usuarios reales: si mucha gente lo salta, la red vacía no va a tener
 ninguna explicación visible.
 
-### 1.17 🔴 «Quitar de mi círculo» no era un bloqueo, y el chat quedaba abierto
+### 1.17 🔴 «Quitar de mi red» no era un bloqueo, y el chat quedaba abierto
 
 **Migración 0021, 2026-08-24.** Salió de una pregunta sobre el flujo de moderación —qué pasa
 después de una denuncia— y lo que apareció fue peor que lo preguntado.
@@ -1506,7 +1556,7 @@ que es donde de verdad se necesita.
 
 **Verificado contra la base real, 10/10 aserciones**, con la secuencia completa: se escribe
 antes de bloquear, se bloquea, deja de poder escribir en la conversación existente, tampoco
-puede el que bloqueó, no puede pedir conexión, no puede desbloquearse solo, sale del círculo,
+puede el que bloqueó, no puede pedir conexión, no puede desbloquearse solo, sale de la red,
 aparece en la lista de bloqueados con su nombre, se desbloquea, y el chat vuelve a abrirse.
 
 **Y una pantalla nueva, `Ajustes → Personas bloqueadas`.** Un bloqueo que no se puede deshacer
@@ -1521,7 +1571,7 @@ podría desbloquear a quien no puede ver.
 **Migración 0020, 2026-08-24.** La guía **1.2 de App Store Review** pide cuatro cosas en
 cualquier app donde una persona vea texto escrito por otra: poder **denunciar**, poder
 **bloquear**, un **canal de contacto publicado** y **actuar en 24 horas**. La app tenía tres:
-bloquear es «Quitar de mi círculo», el contacto está en `/soporte`, y el compromiso se
+bloquear es «Quitar de mi red», el contacto está en `/soporte`, y el compromiso se
 escribió en los términos §5.1. Faltaba denunciar.
 
 **El matiz que no cambia la conclusión:** acá el chat es 1 a 1 entre dos personas que
@@ -1546,7 +1596,7 @@ ese gesto — es lo que hace todo el mundo en Mensajes y en WhatsApp.
   que borrar los datos de esa persona (§1.1.3). Una denuncia no es un dato *del* denunciado
   sino un registro de moderación: si se borrara con la cuenta, **bastaría con borrarse para
   limpiar el historial**. Mismo criterio que `revenuecat_events`.
-- **Denunciar y quitar del círculo se ofrecen juntos, en ese orden.** Quitar es lo único con
+- **Denunciar y quitar de la red se ofrecen juntos, en ese orden.** Quitar es lo único con
   efecto inmediato; denunciar deja el registro. Quien denuncia normalmente quiere las dos, y
   mandarlo a buscar la segunda a otra pantalla es pedirle un trámite en el peor momento.
 
@@ -1560,6 +1610,212 @@ tabla que nadie abre sería la cuarta aparición del patrón que este proyecto y
 veces (§1.13, §1.6.3.1, §1.15): la pieza existe, se ve completa, y le falta el lado que la
 lee. Por eso la consulta de denuncias pendientes entró en el chequeo diario del runbook. Con
 volumen bajo alcanza; el día de la primera denuncia real hay que automatizar el aviso.
+
+---
+
+### 1.18 Grupos: gente + un chat, una sola cosa (migraciones 0031 y 0034)
+
+**El problema que resuelven no es de comodidad.** En un sismo real con 24 contactos, un tablero
+plano de 24 caras es ilegible justo en el minuto en que menos capacidad de procesar tienes: no
+distingue «faltan 2 de mi casa» de «faltan 12 amigos que ni viven acá», que son situaciones
+opuestas.
+
+    Casa 4/5 · Familia 8/11 · Amigos 15/24
+
+#### 1.18.1 🔴 La versión que duró un día: los círculos privados (0031)
+
+La primera versión los hizo **privados de quien los crea**, con cuatro argumentos que en su
+momento parecían buenos: no contagiar las conexiones, evitar el costo social de que alguien
+descubra que está en «Amigos» y no en «Casa», permitir que la relación tenga dos nombres
+distintos en cada dirección, y coordinación cero.
+
+Duraron del 31 de agosto al 1 de septiembre. **Lo que los mató no fue ninguno de esos
+argumentos: fue que había dos objetos y la gente los llamaba igual.** Convivían un «círculo»
+privado y una «conversación grupal» compartida, y hubo que inventar vocabulario para que las
+pantallas no se contradijeran. La prueba de que el modelo no cerraba está en la propia bitácora
+de esta sesión: se renombró tres veces —grupos, círculos, red— buscando palabras que no
+chocaran.
+
+> **La lección, que es la que vale más que el código:** cuando hace falta inventar vocabulario
+> para que dos conceptos no se pisen, casi siempre es que debería haber uno. El renombrado es un
+> síntoma, no la cura.
+
+Y había un segundo problema, más práctico. Un círculo podía **precargar** una conversación, y
+después las dos quedaban independientes: sumabas a alguien al círculo y no entraba al chat. Eso
+no es una sutileza, es lo contrario de lo que cualquiera espera.
+
+#### 1.18.2 El modelo que quedó (0034), en cuatro reglas
+
+1. **Un grupo es gente + un chat.** Una sola cosa.
+2. **Se comparte.** Todos los integrantes ven el nombre y a los demás.
+3. **Es de quien lo creó.** Solo él suma, saca y renombra. Cualquiera se va.
+4. **Los integrantes del grupo SON los del chat, siempre.** Lo garantiza un disparador, no el
+   cliente, así que no hay forma de que se desincronicen.
+
+| Acción | Quién | Por qué |
+|---|---|---|
+| ver, y ver a los demás | cualquier integrante | — |
+| renombrar | **solo el dueño** | el nombre es compartido; que lo cambie cualquiera sería una fuente de conflictos sin árbitro |
+| sumar | **solo el dueño**, y solo de **su** red | es la regla que impide que un tercero meta a alguien que vos no conocés |
+| sacar | **solo el dueño** | sin dueño, cualquiera podría vaciar de golpe el grupo donde una familia se está coordinando después de un sismo |
+| salir | cualquiera, sobre sí mismo | — |
+
+`created_by` / `owner_id` ya existían: no hizo falta inventar un concepto de administrador.
+
+#### 1.18.3 🔴 Lo único que NO se comparte, y no se puede levantar
+
+**El estado y la ubicación siguen siendo de a dos.** Renzo arma FAMILIA con Mamá, Ana y Abuela;
+Mamá solo está conectada con Renzo:
+
+| | Mamá |
+|---|---|
+| ve el grupo y los tres nombres | ✅ |
+| les escribe en el chat | ✅ |
+| ve el estado y la ubicación de Ana y Abuela en un sismo | ❌ |
+
+Hacerlo de otro modo exigiría que las conexiones fueran transitivas, y es exactamente lo que la
+app promete no hacer: alguien podría meterte en un grupo y darle tu ubicación a un desconocido
+sin que aceptaras nada.
+
+**Y esa asimetría es lo mejor que tiene el cambio.** `get_groups()` devuelve `in_my_network` por
+integrante, y la pantalla lo convierte en un atajo:
+
+> **Ana no está en tu red · no vas a ver cómo está** — `Agregar`
+
+Un toque, sin buscar en la agenda. El grupo deja de ser una etiqueta y pasa a ser una
+**presentación**: es lo que hace que la red se teja sola en vez de quedar toda colgando de quien
+instaló la app. La Home cuenta solo a los integrantes que además son contactos tuyos, y el
+detalle del grupo dice cuántos quedaron fuera de esa cuenta.
+
+#### 1.18.4 Detalles que conviene tener a mano
+
+- **El tope cuenta lo que CREÁS, no dónde estás.** 2 gratis, ilimitados con Premium. Contar la
+  pertenencia dejaría que un tercero te bloqueara la creación de los tuyos con solo sumarte a
+  los suyos. Va en un **disparador** y no en una RPC: el cliente escribe la tabla directo por
+  PostgREST y un chequeo en el cliente no es un chequeo (lección de la 0009).
+- **Salir de tu red es salir de mis grupos.** En la 0031 la fila del miembro sobrevivía a una
+  conexión rota y se filtraba al leer, para que al volver a aceptar reapareciera donde estaba.
+  Con el grupo compartido eso daría **una lista distinta por persona** —yo dejo de ver a Ana,
+  Mamá la sigue viendo—, y un estado compartido no puede depender de quién mira. Ahora se borra
+  la fila, y con ella la del chat.
+- **`get_groups()` es `security definer`** porque en un grupo puede haber gente que no es
+  contacto tuyo y `profiles_select_visible` (0006) no te deja leer su perfil. Devuelve **el
+  nombre y nada más**: ni estado, ni ubicación, ni plan de acción.
+- **Se cachean en el KV local**, no en una tabla propia, porque la Home los usa **durante una
+  alerta**, que es exactamente cuando puede no haber red.
+- **El nombre es único por dueño**, comparando en minúsculas y sin espacios de borde. Dos «Casa»
+  no son un caso de uso, son un dedazo.
+- **La build en revisión de App Store todavía llama a `create_group_conversation`.** Por eso esa
+  función **no se tocó**, aunque el cliente nuevo ya no la usa: romperla desde el servidor haría
+  fallar una app que Apple está mirando. Las tres RPC de la 0033, en cambio, se borraron — no
+  llegaron a ninguna build.
+
+### 1.19 Chats: el cerrojo de la 0032 y qué significa «eliminar»
+
+Se completó el chat grupal, que existía en la base (`create_group_conversation`) **sin ninguna
+pantalla que lo usara**, y se agregó renombrar y salir (migración 0032).
+
+> Desde la 0034 la conversación grupal ya no es un objeto propio: nace y muere con su grupo
+> (§1.18). Lo que sigue en esta sección vale igual, porque es sobre los chats **directos** y
+> sobre qué significa borrar un chat — dos cosas que la 0034 no tocó.
+
+#### 1.19.1 🔴 El silencio permanente que casi se construye
+
+Al implementar «eliminar un chat» apareció esto, y es de la clase de fallo que **no se ve
+leyendo el código** porque cada pieza por separado se comporta bien:
+
+`get_or_create_direct_conversation` busca por `direct_key` y, **si la encuentra, devuelve sin
+tocar los miembros** — solo los inserta cuando la crea. Entonces, si alguien borrara su fila de
+`conversation_members` en un chat directo:
+
+1. `messages_select_member` deja de devolverle los mensajes.
+2. `messages_insert_member` deja de dejarlo escribir.
+3. `on_message_sent` arma los destinatarios desde esa misma tabla: **nunca más le llega un
+   aviso de esa persona**.
+4. Y volver a tocarla no lo arregla: la RPC encuentra la conversación vieja y no lo reincorpora.
+
+Un silencio permanente e invisible con un contacto, en una app cuyo propósito es que la gente
+se entere. **La política de DELETE de la 0032 lo prohíbe en la base** (`and c.kind = 'group'`),
+así que no se puede provocar venga la llamada de donde venga.
+
+**Consecuencia de diseño:** «eliminar» un chat directo es **local** (esquema local v4, columna
+`hidden_at`). La conversación sigue viva, los avisos siguen llegando, y reaparece sola con el
+próximo mensaje. Es lo único honesto que se puede ofrecer sobre un objeto que es de dos, y el
+diálogo lo dice con todas las letras.
+
+> Esto obligó a un cambio que parece menor y no lo es: `writeConversations` pasó de
+> `DELETE + INSERT` a **UPSERT**. Recrear la fila en cada sincronización habría borrado
+> `hidden_at`, y el chat que la persona eliminó habría reaparecido solo al siguiente refresco.
+
+#### 1.19.1.b `hidden_at` no es «ocultar»: es un corte (2026-09-01)
+
+La primera versión solo escondía la fila y dejaba los mensajes en `messages_cache`. Quien lo
+probó lo dijo en una línea: *«quiero que al haber eliminado un chat, el chat no preserve los
+mensajes sino que los elimine por completo, similar a WhatsApp»*. Tenía razón, y el nombre viejo
+del menú —«Sacar de mi lista»— era parte del problema: **nadie sabe qué es «la lista»**. Ahora
+dice «Eliminar chat» y hace lo que esas dos palabras prometen.
+
+Borrar `messages_cache` no alcanza, porque los mensajes siguen en el servidor y la siguiente
+sincronización los baja de vuelta. Por eso `hidden_at` pasó a ser un **corte**: `syncMessages`
+lee la marca antes de pedir nada y filtra con `.gt('created_at', hidden_at)`. Lo anterior al
+borrado no se vuelve a bajar **nunca**, ni siquiera cuando la conversación reaparece.
+
+Dos detalles que parecen paranoia y no lo son:
+
+- **El corte es `max(reloj local, último mensaje conocido)`.** Con el reloj del teléfono
+  atrasado, `now()` podría caer *antes* del último mensaje: se borraría localmente y volvería a
+  bajarse enseguida. El chat recién eliminado reaparecería con contenido viejo.
+- **`writeConversations` conserva las filas con `pending = 1`.** Al limpiar los mensajes de
+  conversaciones que el servidor ya no devuelve, un parpadeo de red se llevaría puesto texto que
+  la persona escribió y todavía no salió del outbox.
+
+#### 1.19.1.c Salir de un grupo también limpia el teléfono
+
+`writeConversations` borra los mensajes de toda conversación que el servidor dejó de devolver.
+Cubre dos casos: saliste de un grupo, o **te sacaron**. Si el servidor ya no te deja leer esos
+mensajes, dejarlos cacheados sería guardar en el teléfono lo único que queda de una sala a la
+que no perteneces.
+
+#### 1.19.2 ⚰️ «Dos cosas que se llaman grupo y no lo son»
+
+Esta sección explicaba con una tabla la diferencia entre el círculo privado y la conversación
+grupal, y daba reglas para que no se confundieran: el nombre propuesto en un campo editable, la
+advertencia pegada al campo, la aclaración de que después quedaban independientes.
+
+**Todo eso se borró el 2026-09-01 con la migración 0034, y la sección se deja acá vacía a
+propósito**, porque el error que documenta es más útil que la solución que proponía. Ver §1.18.1:
+la respuesta correcta no era explicar mejor la diferencia entre dos objetos, era que hubiera uno.
+
+#### 1.19.3 Por qué el nombre se edita en una pantalla y no en un diálogo
+
+`Alert.prompt` **solo existe en iOS**: en Android no muestra nada y la opción quedaría muerta.
+El proyecto tampoco usa `Modal` de React Native en ningún lado — las pantallas modales son de
+expo-router —, así que el nombre se edita en una pantalla propia, como todo lo demás. Desde la
+0034 esa pantalla es el detalle del grupo.
+
+> El permiso de la 0032 es **por columna** (`grant update (title)`), y eso sigue importando: una
+> política de UPDATE sin eso dejaría reescribir `direct_key`, y con eso se podría colisionar la
+> conversación directa de otras dos personas. La 0034 cambió quién puede renombrar —ahora solo
+> el dueño del grupo, y a través de `groups.name`, que un disparador espeja en el título— pero
+> el grant acotado se queda: es la red de seguridad de todo lo demás que toque esa tabla.
+
+#### 1.19.4 Qué hay ahora en la lista de Chats
+
+Dos clases de conversación grupal conviven, y la lista las distingue por `conversations.group_id`
+(espejado en el esquema local v5):
+
+| | De dónde sale | Qué ofrece al mantener presionado |
+|---|---|---|
+| **Con grupo** | la 0034: nace con el grupo | «Ver el grupo» + «Eliminar chat» |
+| **Suelta** | creada antes de la 0034 | «Eliminar chat» + «Salir de la conversación» |
+
+Las sueltas conservan su «Salir» porque no hay grupo al que ir: sin eso serían inabandonables. Y
+van a seguir apareciendo mientras la build vieja siga en la tienda, así que el caso no es
+histórico todavía.
+
+**Y lo que la lista NO ofrece: crear una conversación grupal.** El `+` de Chats abre un chat con
+alguien de tu red; en la pestaña Grupales lleva a Mi red, que es donde se arma un grupo. Es la
+mitad visible de la 0034: una sola forma de hacer una sola cosa.
 
 ---
 
@@ -1594,15 +1850,23 @@ volumen bajo alcanza; el día de la primera denuncia real hay que automatizar el
 | `0026_guardian_relief` | El cierre de Guardián deja de ser uno por sismo. La clave `guardian_safe:<sismo>:<persona>` hacía que el «ya estoy bien» **posterior a una alarma** se descartara en silencio: 4 avisos de «necesita ayuda» y 0 de que ya estaba bien. Ahora se avisa al **entrar** al grupo «está bien» desde fuera de él, con el `reported_at` en la clave |
 | `0027_reportes_en_zona` | `on_status_safe` pasa de una audiencia a dos. Elegía destinatarios leyendo quién había recibido la **apertura** de Guardián, y `notify_guardians` excluye a propósito a quien el sismo también alcanzó: encadenadas, las dos reglas hacían que **dentro de tu propio sismo no llegara nunca una buena noticia**, con Premium o sin él. Ahora hay un segundo camino, **gratis y sin condición de plan**, para quien tiene entrega de alerta de ese mismo sismo. Los dos caminos son mutuamente excluyentes por construcción. Preferencia propia `contact_reported`, no colgada de `guardian_alerts`, que está bloqueado en cuentas gratis |
 | `0028_kind_check_contact_reported` | Arregla a la 0027 el mismo día: faltaba `contact_reported` en el CHECK de `notification_deliveries.kind`. **No falló la notificación, falló el reporte**: la violación del CHECK subía por el trigger AFTER UPDATE y revertía el `update` de `user_status` entero, o sea que reportar «estoy bien» dejó de funcionar para quien estuviera en un sismo junto a un contacto suyo |
+| `0029_denuncias_de_persona_unicas` | El índice único de denuncias cubría `(reporter_id, message_id)`, así que protegía el caso del mensaje pero no el de denunciar a la misma **persona** desde su ficha, que va sin `message_id`. Ahí el `on conflict do nothing` no tenía con qué chocar y cada toque escribía una fila. El límite es **por denunciante**, así que sigue contando cuando varias personas distintas denuncian a la misma |
+| `0030_guardian_solo_estado` | Se quita `notify_guardians` —la apertura «tembló cerca de María»— y queda **solo el cierre**: el aviso de que alguien de tu red reportó, o de que no reportó, extendido a quien el sismo **no** alcanzó. Como ya no hay apertura, `on_status_safe` no puede elegir destinatarios mirando quién la recibió: los recalcula como «tu red menos los que tienen entrega de alerta». Y cada mensaje fuera de zona **nombra el sismo** (`private.quake_reference`), porque sin la apertura un «María está bien» a secas sería un susto, no un alivio (§1.13.7) |
+| `0031_grupos_de_red` | `circle_groups` + `circle_group_members`: subconjuntos **privados** de la red. ⚰️ **Reemplazada por la 0034 al día siguiente** — las tablas siguen, renombradas y compartidas; lo que se cayó fue la privacidad y el modelo de dos objetos (§1.18.1) |
+| `0032_conversaciones_renombrar_y_salir` | `grant update (title)` **por columna** para renombrar una grupal, y DELETE de la fila propia de `conversation_members` **solo si `kind = 'group'`**. Ese `and` es el cerrojo que impide el silencio permanente en un chat directo (§1.19.1) |
+| `0033_integrantes_de_conversacion` | Ver, sumar y sacar integrantes de una grupal, que hasta acá nacía cerrada. ⚰️ **Sus tres RPC se borraron en la 0034**, un día después: existían para editar los integrantes de una conversación suelta, que dejó de ser un objeto propio. No llegaron a ninguna build |
+| `0034_el_grupo_se_comparte` | 🔴 **La fusión.** `circle_groups` → `groups` (compartida, con dueño), `conversations.group_id` con `unique` y `on delete cascade`, y un disparador que mantiene los integrantes del grupo y los del chat como una sola lista. `create_group()` escribe las dos tablas en una transacción; `get_groups()` es security definer y devuelve `in_my_network` por integrante, que es lo que habilita el atajo de «Agregar a Ana». Deshacer una conexión ahora **borra** la pertenencia en vez de filtrarla al leer, porque un estado compartido no puede depender de quién mira (§1.18) |
 
 **Separación de privacidad clave:** `profiles` guarda lo compartible (nombre, avatar,
 plan de acción) y es legible por las conexiones. `user_settings` guarda lo privado
 (teléfono, hash, umbrales de alerta, premium) y **solo lo lee su dueño**.
 
-**Advisors:** sin hallazgos de `anon`. Quedan 6 warnings de
-`authenticated_security_definer_function_executable`, que son **esperados**: esos RPC
-están hechos para ser llamados por usuarios autenticados y cada uno valida `auth.uid()`
-en su cuerpo. El sexto, `delete_my_account`, además valida la contraseña (§1.1.3).
+**Advisors:** sin hallazgos de `anon`. Los warnings de
+`authenticated_security_definer_function_executable` —13 al 2026-09-01, uno por RPC— son
+**esperados**: esos RPC están hechos para ser llamados por usuarios autenticados y cada uno
+valida `auth.uid()` en su cuerpo. `delete_my_account` además valida la contraseña (§1.1.3).
+El número sube con cada RPC nueva; lo que hay que revisar al revisarlos no es cuántos son,
+sino que **cada uno valide quién llama en su primera línea**.
 
 > 🟡 **Advisor nuevo desde el paso a contraseña: `auth_leaked_password_protection`.**
 > Supabase puede contrastar cada contraseña contra HaveIBeenPwned y rechazar las que ya
@@ -1702,11 +1966,21 @@ más, y el endpoint rechaza con 401 cualquier llamada sin el secreto correcto (p
 |---|---|
 | Acceso | intro de valor (3 slides), entrar, crear cuenta, confirmar correo, olvidé mi contraseña, contraseña nueva |
 | Onboarding | perfil + teléfono, permisos con contexto, contactos, plan de acción, listo |
-| Tabs | Inicio, Círculo, **Sismos** (Noticias Sísmicas, §1.6.4), Chats, Ajustes |
-| Modales | detalle de contacto, chat, plan de acción, agregar contactos, invitar, simulacro, Mi cuenta, cambiar contraseña, borrar cuenta |
+| Tabs | Inicio, **Mi red** (con el conmutador *Toda mi red / Mis grupos*, §1.18), **Sismos** (Noticias Sísmicas, §1.6.4), **Chats** (con el conmutador *Individuales / Grupales*, §1.19), Ajustes |
+| Modales | detalle de contacto, chat, plan de acción, agregar contactos, invitar, simulacro, Mi cuenta, cambiar contraseña, borrar cuenta, nueva conversación |
+| Apiladas | `group/[id]` — el **detalle del grupo**: nombre, integrantes, sumar, sacar, salir o borrar, y el atajo de agregar a tu red a quien no está (§1.18) |
+
+> `group/[id]` va apilada y no como modal a propósito: se llega desde tres lados —Mis grupos, la
+> ficha de un contacto y la lista de Chats— y «volver» tiene que regresar al que se usó. Lleva
+> `headerBackButtonDisplayMode: 'minimal'`, porque sin eso iOS rotula la flecha con el título de
+> la pantalla anterior y, al venir de los tabs, el rótulo era literalmente «(tabs)».
+>
+> **Tres pantallas desaparecieron con la 0034**, y las tres por el mismo motivo — eran caminos
+> alternativos para armar o editar lo mismo: `new-group-chat`, `conversation/[id]` (que había
+> nacido el día anterior) y `rename-conversation/[id]`.
 
 **Home en sus dos modos** (spec §5): con alerta activa muestra banner de magnitud/zona/
-tiempo, selector de estado, grilla del círculo con anillos de color y contador
+tiempo, selector de estado, grilla de la red con anillos de color y contador
 `X/Y confirmados`. Sin alerta muestra barra tranquila, checklist de preparación (sin
 gamificación), recordatorio discreto y el tip con más desarrollo.
 
@@ -1967,7 +2241,7 @@ está quieto y nadie cerró nada a mano.
 > negocio.
 
 **Sobre el copy de la alerta.** Se evaluó agregar "abre la app para que se actualice tu
-ubicación" y se decidió **no hacerlo**. El texto actual —*"Avisa a tu círculo que estás
+ubicación" y se decidió **no hacerlo**. El texto actual —*"Avisa a tu red que estás
 bien"*— ya consigue que la persona abra la app, y por un motivo mejor: le habla de su
 gente, no de nuestra plomería. En una emergencia cada palabra de más cuesta atención que
 no sobra, y pedirle que entienda un detalle interno de iOS para hacer bien su parte es
@@ -2207,7 +2481,7 @@ seguía sin existir.
   perfil** (§1.9.2.1). El avatar es de iniciales y no hay nada que subir.
 - **Chat grupal.** El backend ya lo soporta (`create_group_conversation`, con validación
   de que cada integrante sea contacto aceptado); falta la UI para crearlo.
-- ~~**Simulacro en modo "avisar al círculo".**~~ Hecho el 2026-08-20 (§1.13.2). El
+- ~~**Simulacro en modo "avisar a la red".**~~ Hecho el 2026-08-20 (§1.13.2). El
   disparador de «necesita ayuda» lee `drills.mode` y se calla si el simulacro es
   silencioso; si es con aviso, el texto dice **«Simulacro ·»** y «NO es una emergencia
   real», que es literalmente lo que la pantalla promete. Ante la duda —un reporte marcado
@@ -2278,20 +2552,24 @@ tier B2B · donaciones.
 
 | Fecha | Qué pasó |
 |---|---|
-| 2026-08-28 | ⭐ **Segunda corrida con dos teléfonos: §9.b y el hueco más grande que tenía Guardián** (migraciones 0027 y 0028). El sismo sembrado alcanzó a las dos cuentas y **9b.1 pasó** —las dos notificaciones, mismo texto, 0,6 s de diferencia— y de paso quedó verificado **7b.10**: la cuenta premium **no** recibió aviso de Guardián por un contacto que estaba en el mismo sismo que ella, que es lo correcto. Lo que apareció: **(1)** con la cuenta premium **dentro** del sismo, el reporte «estoy bien» de un contacto **no llegaba nunca**. No era el interruptor ni el plan: `on_status_safe` elegía destinatarios leyendo quién había recibido la **apertura** de Guardián, y `notify_guardians` excluye a propósito a quien el sismo también alcanzó. Encadenadas, las dos reglas producían el resultado al revés — *alguien en Madrid con Premium recibe «Paolo está bien»; vos, en el mismo terremoto que Paolo, no recibís nada, nunca*. Adentro de tu propio sismo la app solo mandaba malas noticias, porque «necesita ayuda» sí es gratis e incondicional. **El arreglo va gratis y no en Premium**, y no por generosidad: la frase «cuando el sismo te toca a ti, todo es gratis» está publicada en el paywall, la landing, la ficha y la FAQ desde el 27, y ponerlo detrás del muro la volvería falsa. **(2)** Los avisos que llegaban **con la app abierta no refrescaban nada**: los cuatro disparadores de refresco eran montar, recuperar red, volver al primer plano y tirar de la lista, y ninguno ocurre si la persona ya está mirando la app — que es exactamente lo que pasa en un sismo. Se veía como un bug del servidor: la Home decía «Nadie de tu círculo en la zona» con el dato correcto en la base. **(3) Error propio, del mismo día:** la 0027 agregó el tipo de notificación en tres lugares y se olvidó del CHECK de `kind`; la excepción subía por el trigger y **revertía el reporte de estado entero**. Son cuatro lugares y no hay compilador que avise en ninguno — anotado en la cabecera de 0028. **Y una lección de método que costó una alerta falsa a dos usuarios reales:** blindar las cuentas ajenas por umbral de magnitud **no alcanza**, porque `contact_needs_help` sale al círculo entero sin mirar radio, magnitud ni plan. El blindaje que sirve son las **preferencias de notificación**. |
-| 2026-08-28 | 🎨 **La Home deja de mostrar el círculo entero durante una alerta.** Muestra solo a quienes les llegó el sismo, bajo el título «Tu gente en la zona» y con el contador sobre ese subconjunto. El resto no es que «falte»: es que no tenía nada que reportar, y mezclarlos obliga a un descarte mental —*¿este está callado o simplemente no le tocó?*— justo cuando nadie está en condiciones de hacerlo. Sin nadie en zona se sigue mostrando el círculo completo apagado con la explicación, porque una tarjeta vacía en mitad de un sismo se lee como «no tengo a nadie». La pestaña Círculo gana un **selector triple con conteos** —En la zona · Fuera · Todos— que aparece **solo con alerta activa**: fuera de ella la distinción no existe y el control sobraría. |
+| 2026-08-28 | ⭐ **Segunda corrida con dos teléfonos: §9.b y el hueco más grande que tenía Guardián** (migraciones 0027 y 0028). El sismo sembrado alcanzó a las dos cuentas y **9b.1 pasó** —las dos notificaciones, mismo texto, 0,6 s de diferencia— y de paso quedó verificado **7b.10**: la cuenta premium **no** recibió aviso de Guardián por un contacto que estaba en el mismo sismo que ella, que es lo correcto. Lo que apareció: **(1)** con la cuenta premium **dentro** del sismo, el reporte «estoy bien» de un contacto **no llegaba nunca**. No era el interruptor ni el plan: `on_status_safe` elegía destinatarios leyendo quién había recibido la **apertura** de Guardián, y `notify_guardians` excluye a propósito a quien el sismo también alcanzó. Encadenadas, las dos reglas producían el resultado al revés — *alguien en Madrid con Premium recibe «Paolo está bien»; vos, en el mismo terremoto que Paolo, no recibís nada, nunca*. Adentro de tu propio sismo la app solo mandaba malas noticias, porque «necesita ayuda» sí es gratis e incondicional. **El arreglo va gratis y no en Premium**, y no por generosidad: la frase «cuando el sismo te toca a ti, todo es gratis» está publicada en el paywall, la landing, la ficha y la FAQ desde el 27, y ponerlo detrás del muro la volvería falsa. **(2)** Los avisos que llegaban **con la app abierta no refrescaban nada**: los cuatro disparadores de refresco eran montar, recuperar red, volver al primer plano y tirar de la lista, y ninguno ocurre si la persona ya está mirando la app — que es exactamente lo que pasa en un sismo. Se veía como un bug del servidor: la Home decía «Nadie de tu red en la zona» con el dato correcto en la base. **(3) Error propio, del mismo día:** la 0027 agregó el tipo de notificación en tres lugares y se olvidó del CHECK de `kind`; la excepción subía por el trigger y **revertía el reporte de estado entero**. Son cuatro lugares y no hay compilador que avise en ninguno — anotado en la cabecera de 0028. **Y una lección de método que costó una alerta falsa a dos usuarios reales:** blindar las cuentas ajenas por umbral de magnitud **no alcanza**, porque `contact_needs_help` sale a la red entera sin mirar radio, magnitud ni plan. El blindaje que sirve son las **preferencias de notificación**. |
+| 2026-08-28 | 🔴 **El bloqueo no impedía entregar el mensaje, solo lo posponía.** Encontrado por el dueño recorriendo §8.b: escribió desde la cuenta bloqueada, la RLS lo rechazó, y al **desbloquear** el mensaje llegó igual. La causa está en `flushOutbox`, que trataba todos los fallos por igual —`markFailed`, sin tope de reintentos— cuando un rechazo de RLS no es un fallo de red sino un **no** definitivo. La cola lo guardaba y lo reintentaba en cada sincronización hasta que el bloqueo se levantara. Ahora los códigos `42501`, `23503`, `23514`, `22023` y `28000` se descartan (`discard`) **y se borra la burbuja local**: un reloj de «pendiente» que no se apaga nunca es la app prometiendo un envío que no va a ocurrir. Es el tipo de bug que no aparece leyendo código, porque cada pieza por separado se comporta bien. |
+| 2026-08-28 | 🔴 **Reportar el estado podía fallar en silencio, que es lo peor que puede hacer esta app.** Salió de barrer el patrón de la fila de abajo en vez de darlo por cerrado con los tres primeros. `captureLocationOnce()` —que pide permisos y enciende el GPS, o sea que puede lanzar— estaba dentro del mismo `try` que `reportMyStatus()`, y sin `catch`. Si el GPS fallaba, **el reporte no llegaba a ejecutarse nunca**: la persona tocaba «estoy bien» durante un sismo, veía el botón dejar de girar, y su red seguía sin saber de ella. Ahora la ubicación va en su propio `try` y el estado se reporta igual sin ella —decir cómo estás pesa más que decir dónde—, y un fallo del reporte se avisa en vez de callarse. El mismo arreglo en «Actualizar mi ubicación» y un `.catch()` en la captura automática de la alerta. **De siete casos del patrón, cinco quedaron cerrados**; los tres restantes están anotados en `QUE-FALTA.md` 1.13. |
+| 2026-08-28 | 🔴 **Tres `try/finally` sin `catch`, el mismo descuido en tres pantallas.** El error escapaba como promesa no capturada **y se llevaba puesto lo que venía después**, así que cada uno daba dos síntomas que parecían no tener relación. **(1)** Aceptar una solicitud tiraba `42501` en consola y la lista no se actualizaba — el `42501` de `respond_to_connection` significa «ya no está pendiente», que tras un toque doble es benigno y no merece diálogo, solo refrescar. **(2)** Abrir el chat de alguien que te bloqueó no navegaba ni decía nada, y la fila seguía invitando a tocarla: el RPC valida `is_connected` y lanza. **(3)** La ficha del contacto quedaba en «Cargando…» al bloquear, porque `router.back()` esperaba a un `refresh()` completo mientras ese mismo refresco borraba a la persona de la caché. La regla que queda: **salir primero, sincronizar después**, y `catch` siempre que haya un `finally`. |
+| 2026-08-28 | 🔧 **El teclado tapaba los campos en Android, en las nueve pantallas con texto** — incluidas iniciar sesión y denunciar, que son las dos que más miran un usuario nuevo y App Review. El patrón que recomienda la documentación de Expo (`behavior={undefined}`) delegaba en que el sistema encogiera la ventana con `adjustResize`, y **con `edgeToEdgeEnabled=true` —el valor por defecto desde SDK 54— eso ya no ocurre**: la app dibuja por detrás del teclado. Poner `behavior="padding"` tampoco alcanzó, porque el componente compara su propio marco *medido en la ventana* contra la posición del teclado *informada en la pantalla*, y con edge-to-edge esas referencias no coinciden. **Se resolvió midiendo, no razonando:** dos hipótesis plausibles fallaron y el número apareció al poner los cinco valores en pantalla — `kb=211`, `insets.bottom=47`, ventana=873, pantalla=873. El evento informa el alto del teclado desde **arriba** de la barra de navegación, pero el teclado se dibuja **encima** de ella; faltaban esos 47. La fórmula vive en un solo lugar, `KeyboardAvoider`, y usa los valores del sistema y nunca una constante: la barra mide ~16 con gestos y ~47 con botones. Verificado con los dos modos de navegación en el mismo teléfono. |
+| 2026-08-28 | 🎨 **La Home deja de mostrar la red entera durante una alerta.** Muestra solo a quienes les llegó el sismo, bajo el título «Tu gente en la zona» y con el contador sobre ese subconjunto. El resto no es que «falte»: es que no tenía nada que reportar, y mezclarlos obliga a un descarte mental —*¿este está callado o simplemente no le tocó?*— justo cuando nadie está en condiciones de hacerlo. Sin nadie en zona se sigue mostrando la red completa apagado con la explicación, porque una tarjeta vacía en mitad de un sismo se lee como «no tengo a nadie». La pestaña Red gana un **selector triple con conteos** —En la zona · Fuera · Todos— que aparece **solo con alerta activa**: fuera de ella la distinción no existe y el control sobraría. |
 | 2026-08-27 | ⭐ **Guardián probado con dos teléfonos, y la prueba destapó tres huecos** (migraciones 0025 y 0026). Lo que funcionó a la primera: apertura enviada **0,7 s** después del insert del sismo, cierre al reportar, y nadie fuera del alcance recibió nada. Lo que no: **(1)** la Home marcaba «sin confirmar» a los contactos a los que la alerta **nunca les llegó**, e inflaba el contador con ellos — no es un caso raro, pasa con cualquiera que viva en otra ciudad, o sea **el perfil exacto al que se le vende Guardián**. El servidor ya pensaba bien —`notify_silent_contacts` los excluye desde 0020— y la pantalla no se había enterado; el cliente ni siquiera podía saberlo, porque `alert_deliveries` tiene RLS con cero políticas. **(2)** El cierre de Guardián tenía una clave de dedup por sismo, así que el «ya estoy bien» **posterior** a una alarma se descartaba sin dejar rastro: en la prueba llegaron **4 avisos de «necesita ayuda» y 0 de que ya estaba bien**, que es exactamente el fallo contra el que advierte la cabecera de 0022. **(3)** La ficha del contacto leía la caché una sola vez al montar y se quedaba congelada. **Y una lección de método:** falsear la ubicación de un teléfono encendido no sirve — la app la pisó **un segundo** después del push, capturando la real. Parecía un bug y era el §7.2 funcionando; la prueba se rehízo subiendo el radio en vez de mentir la posición. |
 | 2026-08-27 | 🔴 **El corte gratis/Premium que estaba escrito no era el que ejecuta el código.** Tres documentos afirmaban que «X no responde» a los 20 minutos llega siempre. No: desde 0020 se manda **solo a quien tiene entrega de alerta de ese mismo sismo**, así que quien está en Madrid —el escenario que abre `MONETIZACION.md` §3.1— **no recibe nada** por el canal gratuito. Va en dos direcciones: **a favor del precio**, porque convierte a Guardián en el único canal que existe para un sismo que no te tocó, y **en contra de la promesa pública**, porque la frase «la señal de que algo salió mal siempre es gratis» hay que decirla completa: lo es **entre quienes compartieron el sismo**. Corregido en `QUE-PROMETE-LA-APP.md` §7, `MONETIZACION.md` §2 y `VERIFICACION-EN-DISPOSITIVO.md` 9b.5. De paso se resolvió la pregunta de si el aro de estado de un contacto en un sismo vivo debía ser de pago: **no**, y no por generosidad — el estado ya se veía entrando a su ficha, así que cobrar el aro sería cobrar una comodidad visual de un dato regalado. Lo que se cobra es **la interrupción**. |
 | 2026-08-27 | 🔧 **Cuatro bugs de interfaz encontrados en dispositivo, tres de ellos solo en Android.** **(1)** El splash se ocultaba antes del `router.replace`, y como este tarda un frame, la Home asomaba un instante antes del onboarding. **(2)** Los ejemplos del paso 4 del alta eran tocables y reemplazaban de un toque todo lo escrito, sin deshacer. **(3)** El vacío del chat salía **cabeza abajo en Android**: `inverted` se implementa con `scaleY: -1` en iOS —por eso el bloque llevaba su propio `scaleY: -1` para enderezarse— y de forma nativa en Android, donde no hay nada que compensar. Se sacó de la lista en vez de parchearlo con un `Platform.select` que volvería a romperse. **(4)** El hueco enorme al final de todas las listas: `TabBarExtraInset` sumaba **80dp «de Material 3» que nunca se verificaron en un teléfono**, cuando NativeTabs ya envuelve el contenido en un `SafeAreaView` que aplica el inset de la tab bar. Se contaba dos o tres veces. Reemplazado por `tabScreenBottomInset()`, que en Android devuelve 0 y lo explica. |
-| 2026-08-24 | 🔴 **«Quitar de mi círculo» no era un bloqueo** (§1.17, migración 0021). Salió de preguntar qué pasa después de una denuncia. Dos agujeros: quien era removido podía **volver a mandar solicitud** —y cada intento le llegaba como aviso a quien lo sacó—, y sobre todo **podía seguir escribiendo en el chat que ya existía**, porque la política de `messages` comprueba membresía de la conversación y esa no se borra al quitar el vínculo. Para acoso, que es el caso para el que se acababa de construir denunciar, «bloquear» era una etiqueta sin efecto. **El estado `'blocked'` estaba en el esquema desde 0002 y nada lo escribía**: cuarta aparición del patrón. Ahora quitar y bloquear son dos acciones distintas —la amable y la hostil—, el bloqueo cierra el chat **en las dos direcciones** (un bloqueo de una sola deja al que bloqueó escribiéndole a alguien que no le puede contestar), leer el historial sigue permitido porque esconderlo borraría la evidencia de lo denunciado, y hay pantalla de **Personas bloqueadas** para deshacerlo. 10/10 aserciones contra la base real, incluida la secuencia completa de bloquear, comprobar el chat cerrado, desbloquear y verlo reabrirse. |
+| 2026-08-24 | 🔴 **«Quitar de mi red» no era un bloqueo** (§1.17, migración 0021). Salió de preguntar qué pasa después de una denuncia. Dos agujeros: quien era removido podía **volver a mandar solicitud** —y cada intento le llegaba como aviso a quien lo sacó—, y sobre todo **podía seguir escribiendo en el chat que ya existía**, porque la política de `messages` comprueba membresía de la conversación y esa no se borra al quitar el vínculo. Para acoso, que es el caso para el que se acababa de construir denunciar, «bloquear» era una etiqueta sin efecto. **El estado `'blocked'` estaba en el esquema desde 0002 y nada lo escribía**: cuarta aparición del patrón. Ahora quitar y bloquear son dos acciones distintas —la amable y la hostil—, el bloqueo cierra el chat **en las dos direcciones** (un bloqueo de una sola deja al que bloqueó escribiéndole a alguien que no le puede contestar), leer el historial sigue permitido porque esconderlo borraría la evidencia de lo denunciado, y hay pantalla de **Personas bloqueadas** para deshacerlo. 10/10 aserciones contra la base real, incluida la secuencia completa de bloquear, comprobar el chat cerrado, desbloquear y verlo reabrirse. |
 | 2026-08-24 | **Denunciar contenido** (§1.16, migración 0020): el último ítem de código que separaba a la app de la revisión. Tres decisiones que no son obvias: la denuncia **guarda una copia del mensaje**, porque una llave foránea a un mensaje que se borra deja la denuncia sin objeto justo cuando hay que revisarla; las llaves van con **`on delete set null` y no `cascade`**, al revés que todo el resto del esquema, porque si borrar la cuenta borrara las denuncias bastaría con borrarse para limpiar el historial; y el gesto es **mantener apretado** y no un botón en cada burbuja, porque un ícono de denuncia permanente en un chat entre familiares es ruido para un caso rarísimo. **6/6 aserciones contra la base real**, incluida la que importa: alguien que no está en la conversación no puede denunciar un mensaje de ella —si no, la copia del texto sería una forma de leer conversaciones ajenas—. Se cerró además la mitad que no es código: cláusula de tolerancia cero en los términos §5.1, y una consulta diaria en el runbook, porque prometer 24 horas y dejar las denuncias en una tabla que nadie abre sería la cuarta repetición del patrón que este proyecto ya encontró tres veces. |
 | 2026-08-24 | 🔴 **Los textos de permiso del `Info.plist` habían quedado fuera de la auditoría, y son los que más pesan.** `app.json` seguía diciendo *«dónde estabas cuando ocurre un sismo»* y *«toma tu ubicación una sola vez, en el momento en que ocurre un sismo»*: las dos frases exactas que la auditoría del 21/08 retiró de las pantallas —la primera por vender humo (`QUE-PROMETE` §6), la segunda por omitir la lectura inicial que la propia pantalla dispara—. Sobrevivieron porque **el inventario de §10 de ese documento no incluía `app.json`**, y ahí es donde más importan: es el texto del diálogo del sistema, lo que lee el revisor y lo que declara el Nutrition Label. Corregidos, y `app.json` sumado al inventario **en primer lugar**, con la razón que lo hace urgente: viaja dentro del binario, así que corregirlo tarde obliga a un build nuevo. |
 | 2026-08-24 | **Fuera los códigos de invitación** (§1.15), y al sacarlos apareció que el «auto-vínculo por teléfono» que se citaba como mitigación **nunca funcionó**: el trigger estaba bien, pero los dos llamadores del cliente creaban la invitación con `invitee_phone_hash` en `null`, así que no tenía nunca qué resolver. Tercera aparición del mismo patrón —la pieza existe, se ve completa y le falta el lado que la alimenta— después de los interruptores que no mandaban nada (§1.13) y del permiso que no guardaba coordenadas (§1.6.3.1). La tabla y las RPC se dejaron en la base para cuando vuelvan con los planes familiares. **Consecuencia asumida:** sin teléfono, una persona no aparece para nadie. |
 | 2026-08-24 | **Seis documentos nuevos, y el trabajo que faltaba era escribir, no programar.** `ALCANCE-Y-IDIOMAS.md` (se publica en LatAm, EE. UU. y Asia, en español e inglés — pero el primer envío va **solo a Perú**, porque la regla «sismo fuerte en tu país» no se evalúa fuera del Perú: el USGS trae `country_code` en NULL, y el onboarding normaliza todo teléfono como peruano, lo que rompe en silencio la única vía de conexión que queda), `FICHA-APP-STORE.md` (texto contado, sin la keyword «alerta sísmica», que es la más buscada y la única prohibida), `PRIVACIDAD-APP-STORE.md`, `REVISION-APPLE.md`, `VERIFICACION-EN-DISPOSITIVO.md` —que le da un lugar dónde tacharse a las cuatro deudas de «sin verificar en pantalla», que eran una sola tarea escrita cuatro veces— y `RUNBOOK-OPERACION.md`. **Encontrado de paso:** el sitio ya está desplegado en Hostinger, donde `vercel.json` y `_redirects` no se aplican; y la política de privacidad todavía decía «una sola posición tomada en el momento del evento», la promesa retirada, ahora corregida junto con el titular del banco de datos que la Ley 29733 exige. |
 | 2026-08-22 | 🔴 **El chat duplicaba cada mensaje propio, solo en la caché local** (§1.15). Reportado como «sale un relojito, y al volver al chat ya no está pero el mensaje se envió doble» — dos fallos con la misma raíz. **Lo primero fue descartar lo peor**, que el duplicado estuviera en el servidor y el contacto también viera dos: no lo estaba, cero duplicados en `public.messages` y el índice único `(conversation_id, sender_id, client_id)` funcionando, así que la idempotencia del reintento nunca estuvo comprometida. La raíz: el envío optimista guarda la fila local con `id = client_id` porque el id del servidor todavía no existe, y `syncMessages()` insertaba después la copia del servidor **como un mensaje nuevo** — dos filas, mismo texto, distinta clave. Eso explica también por qué el reloj desaparecía: el outbox apagaba `pending` en la provisional y la copia del servidor nacía sin reloj, así que ninguna de las dos quedaba marcada. Arreglado trayendo `client_id` y borrando la provisional antes de insertar la definitiva, lo que además **limpia los duplicados ya guardados** en cada sincronización: los teléfonos afectados se arreglan solos al abrir la conversación. **El reloj era un segundo fallo:** `sendMessage()` hacía `void flushOutbox()` por dentro y nadie sabía cuándo terminaba, así que el reloj quedaba puesto hasta que algo ajeno forzara una relectura —normalmente el eco de Realtime—; con el socket caído el mensaje ya estaba entregado y la burbuja seguía diciendo que no. Ahora la subida la dispara la pantalla, que es la única que puede refrescar al terminar. |
-| 2026-08-22 | ⭐ **La ALERTA y la NOTICIA dejan de ser la misma cosa** (§1.13.6, migración 0021). Salió de decidir qué umbral ponerle a los avisos mundiales, y la respuesta fue que el umbral no era el problema: un sismo a 5.887 km entraba por la vía de la **alerta** y arrastraba sus cuatro consecuencias —modo emergencia, push silencioso, contador «X/Y confirmados» y aviso al círculo si no reportabas—. Subir el umbral habría hecho que pasara menos seguido, no que dejara de pasar. Ahora **la alerta no mira si sos premium**: `quake_applies()` perdió la rama `p_is_premium and p_worldwide_enabled` y dispara solo por cercanía o magnitud nacional, **idéntica para gratis y premium** — el premium no compra seguridad, que es además un mejor argumento de venta que el anterior. Lo mundial pasó a ser **noticia**, con dos interruptores (`quake_national` para todos, `quake_worldwide` solo con premium) y **canal `quakes` propio**, que en Android es una categoría silenciable desde el sistema sin tocar las alertas. Ninguna de las dos ramas avisa a quien ya recibió la alerta de ese sismo: a quien le tembló cerca no se le cuenta como noticia lo que ya vivió. Umbrales medidos sobre la propia base: nacional ≥ 4,5 y mundial ≥ 6,0, 3 por semana cada uno. **Un `NULL` que casi pasa:** la primera versión devolvía NULL en vez de `false` para un sismo en mar abierto —`country_code` es NULL y `NULL = 'PE'` es NULL—; en un `WHERE` se comporta como falso y no rompía nada hoy, pero un futuro `not quake_applies(...)` habría perdido el filtro en silencio. Blindado con `coalesce`. Verificado con la función real dentro de una transacción revertida. |
-| 2026-08-22 | 🔴 **Un M6,7 en la Antártida destapó dos fallos de notificaciones** (§1.13.5, migración 0020). Un sismo en el mar de Scotia, a **5.887 km de Lima**, llegó **dos veces** al único usuario premium con avisos mundiales; sus dos contactos, que no recibieron ningún aviso, recibieron en cambio *«no responde… desde el sismo»*, también dos veces. **Lo primero fue descartar que el disparo fuera el bug**: no lo era, la regla mundial de premium es magnitud ≥ 6,0 y el sismo era 6,7. (1) La **deduplicación** exigía `q.source <> new.source`, escrita cuando el único duplicado imaginado era IGP-contra-USGS — pero **el USGS publica el mismo sismo bajo varios ids propios**, una solución automática y la revisada de su catálogo: `attk5wls` (M6,7) y `us6000tmrw` (M6,2), a 2,3 segundos y 26 km, entraron como sismos distintos con un fan-out cada uno. Se quitó la condición. (2) **«Contacto no responde» se mandaba a todo el círculo** sin comprobar que el sismo también les aplicara, así que los avisos mundiales de un premium se filtran a sus contactos no premium como una frase sin antecedente: *«el sismo»* no existe para quien la lee. Y viaja por el canal `alerts`, el mismo del aviso de sismo — el que menos puede acostumbrar a nadie a ignorarlo. Ahora se manda solo a quienes tienen entrega para ese mismo sismo. **Queda abierto lo de producto:** el umbral mundial reutiliza `alert_countrywide_magnitude`, sin ajuste propio, así que querer M6 en Perú obliga a recibir M6 en todo el planeta — medido: **0,6 por día**. |
-| 2026-08-21 | 🔴 **Auditoría de los textos de la app contra `QUE-PROMETE-LA-APP.md`: 7 prometían de más.** El más grave **no era de marketing sino de privacidad**: la pantalla de permisos del onboarding decía que la ubicación se toma *"una sola vez, en el momento en que ocurre un sismo en tu zona"*, y **omitía la lectura inicial que esa misma pantalla dispara** —`ensureInitialLocation()`, unas líneas más arriba en el mismo handler—. O sea que la persona concedía el permiso creyendo que no se tomaba ninguna posición todavía, cuando sí. Eso es lo que declara el Nutrition Label, así que era además un riesgo de revisión. La misma frase estaba repetida en Ajustes. Los otros cinco: *"dónde estaba cuando ocurrió el sismo"* en la primera diapositiva que ve un usuario nuevo; *"se capturará al ocurrir un sismo"*; la tarjeta de notificaciones que enumeraba qué se avisa y **se olvidaba del sismo**, que es la función principal —y decía *"solo"*, o sea que era una afirmación falsa sobre el alcance, además inconsistente con la lista de permisos de Ajustes, que sí lo nombra—; *"tu círculo lo ve al instante"* en dos lugares, cuando un *"estoy bien"* no manda push y el círculo lo ve al refrescar; y *"la app puede hacer lo que promete"* con los tres permisos en verde, que ya no es cierto porque la captura depende además de la actualización en segundo plano y del modo de bajo consumo. **De paso se corrigió el documento nuevo**, que decía *"no funciona sin internet"* de forma demasiado absoluta: hay outbox y caché local, y el texto de la app era el correcto. Queda en §10 de ese archivo el **inventario de dónde vive cada afirmación**, para que la próxima auditoría no exija barrer el código entero. |
+| 2026-08-22 | ⭐ **La ALERTA y la NOTICIA dejan de ser la misma cosa** (§1.13.6, migración 0021). Salió de decidir qué umbral ponerle a los avisos mundiales, y la respuesta fue que el umbral no era el problema: un sismo a 5.887 km entraba por la vía de la **alerta** y arrastraba sus cuatro consecuencias —modo emergencia, push silencioso, contador «X/Y confirmados» y aviso a la red si no reportabas—. Subir el umbral habría hecho que pasara menos seguido, no que dejara de pasar. Ahora **la alerta no mira si sos premium**: `quake_applies()` perdió la rama `p_is_premium and p_worldwide_enabled` y dispara solo por cercanía o magnitud nacional, **idéntica para gratis y premium** — el premium no compra seguridad, que es además un mejor argumento de venta que el anterior. Lo mundial pasó a ser **noticia**, con dos interruptores (`quake_national` para todos, `quake_worldwide` solo con premium) y **canal `quakes` propio**, que en Android es una categoría silenciable desde el sistema sin tocar las alertas. Ninguna de las dos ramas avisa a quien ya recibió la alerta de ese sismo: a quien le tembló cerca no se le cuenta como noticia lo que ya vivió. Umbrales medidos sobre la propia base: nacional ≥ 4,5 y mundial ≥ 6,0, 3 por semana cada uno. **Un `NULL` que casi pasa:** la primera versión devolvía NULL en vez de `false` para un sismo en mar abierto —`country_code` es NULL y `NULL = 'PE'` es NULL—; en un `WHERE` se comporta como falso y no rompía nada hoy, pero un futuro `not quake_applies(...)` habría perdido el filtro en silencio. Blindado con `coalesce`. Verificado con la función real dentro de una transacción revertida. |
+| 2026-08-22 | 🔴 **Un M6,7 en la Antártida destapó dos fallos de notificaciones** (§1.13.5, migración 0020). Un sismo en el mar de Scotia, a **5.887 km de Lima**, llegó **dos veces** al único usuario premium con avisos mundiales; sus dos contactos, que no recibieron ningún aviso, recibieron en cambio *«no responde… desde el sismo»*, también dos veces. **Lo primero fue descartar que el disparo fuera el bug**: no lo era, la regla mundial de premium es magnitud ≥ 6,0 y el sismo era 6,7. (1) La **deduplicación** exigía `q.source <> new.source`, escrita cuando el único duplicado imaginado era IGP-contra-USGS — pero **el USGS publica el mismo sismo bajo varios ids propios**, una solución automática y la revisada de su catálogo: `attk5wls` (M6,7) y `us6000tmrw` (M6,2), a 2,3 segundos y 26 km, entraron como sismos distintos con un fan-out cada uno. Se quitó la condición. (2) **«Contacto no responde» se mandaba a toda la red** sin comprobar que el sismo también les aplicara, así que los avisos mundiales de un premium se filtran a sus contactos no premium como una frase sin antecedente: *«el sismo»* no existe para quien la lee. Y viaja por el canal `alerts`, el mismo del aviso de sismo — el que menos puede acostumbrar a nadie a ignorarlo. Ahora se manda solo a quienes tienen entrega para ese mismo sismo. **Queda abierto lo de producto:** el umbral mundial reutiliza `alert_countrywide_magnitude`, sin ajuste propio, así que querer M6 en Perú obliga a recibir M6 en todo el planeta — medido: **0,6 por día**. |
+| 2026-08-21 | 🔴 **Auditoría de los textos de la app contra `QUE-PROMETE-LA-APP.md`: 7 prometían de más.** El más grave **no era de marketing sino de privacidad**: la pantalla de permisos del onboarding decía que la ubicación se toma *"una sola vez, en el momento en que ocurre un sismo en tu zona"*, y **omitía la lectura inicial que esa misma pantalla dispara** —`ensureInitialLocation()`, unas líneas más arriba en el mismo handler—. O sea que la persona concedía el permiso creyendo que no se tomaba ninguna posición todavía, cuando sí. Eso es lo que declara el Nutrition Label, así que era además un riesgo de revisión. La misma frase estaba repetida en Ajustes. Los otros cinco: *"dónde estaba cuando ocurrió el sismo"* en la primera diapositiva que ve un usuario nuevo; *"se capturará al ocurrir un sismo"*; la tarjeta de notificaciones que enumeraba qué se avisa y **se olvidaba del sismo**, que es la función principal —y decía *"solo"*, o sea que era una afirmación falsa sobre el alcance, además inconsistente con la lista de permisos de Ajustes, que sí lo nombra—; *"tu red lo ve al instante"* en dos lugares, cuando un *"estoy bien"* no manda push y la red lo ve al refrescar; y *"la app puede hacer lo que promete"* con los tres permisos en verde, que ya no es cierto porque la captura depende además de la actualización en segundo plano y del modo de bajo consumo. **De paso se corrigió el documento nuevo**, que decía *"no funciona sin internet"* de forma demasiado absoluta: hay outbox y caché local, y el texto de la app era el correcto. Queda en §10 de ese archivo el **inventario de dónde vive cada afirmación**, para que la próxima auditoría no exija barrer el código entero. |
 | 2026-08-21 | 📄 **`QUE-PROMETE-LA-APP.md`, y el retiro de una promesa que era humo.** La app decía guardar *"dónde estabas cuando tembló"*, y no es cierto: el aviso llega ~8 minutos después —de los cuales **7 m 45 s son del IGP**—, así que lo que se guarda es dónde estás **minutos después**. Se retiró esa frase y todas sus variantes. **El reencuadre no debilita el producto, lo mejora:** nadie necesita una reconstrucción forense de hace ocho minutos; una madre necesita saber dónde estás **ahora** para ir a buscarte, y si evacuaste a la calle, la ubicación de la calle es la útil. También se separó lo que se promete **sin asterisco** (el aviso llega en los cuatro estados de la app, incluida cerrada a mano) de lo que se promete **con letra chica** (la captura automática, que depende de permisos, actualización en segundo plano, modo de bajo consumo y de que la app se haya abierto una vez desde el último reinicio). El archivo es la **fuente única** de las afirmaciones públicas: landing, ficha de tienda y textos de la app salen de ahí — la misma disciplina que ya rige para las páginas legales, que se desactualizan en silencio y rompen revisiones de tienda. De paso quedó escrito el argumento que sí se sostiene con 8 minutos de retraso: **las líneas se saturan durante horas, y un toque en una app pasa cuando una llamada no pasa.** |
 | 2026-08-21 | 🔴 **Reiniciar el teléfono no simula "app cerrada hace semanas" — error de diseño de la prueba** (§3.8.2). Se propuso reiniciar para ejercitar el arranque en frío; dos intentos, dos negativos, sin una sola petición de la app. **Los receipts vinieron `ok` las dos veces**, o sea que APNs entregó el push silencioso y **iOS eligió no levantar la app**: no fue entrega ni estrangulamiento. La causa es el método — tras un reinicio iOS trata a la app como si el usuario la hubiera cerrado a mano, y no la relanza hasta que se abre una vez. Dicho con la honestidad que corresponde: **la documentación de Apple es ambigua justo acá**, porque su texto sobre el cierre manual dice que reiniciar el dispositivo *restaura* la elegibilidad, lo contrario de lo observado; dos negativos son evidencia, no prueba. **Lo que queda sin medir** es el caso realista: teléfono encendido hace semanas, app desalojada por memoria, que **no** cae en esta regla y no hay forma cómoda de forzar. Se cerró la ambigüedad de raíz con **migajas** (§3.8.3, migración 0019): la tarea anota local en su primera línea, y se suben en el próximo refresco. Local y no red, porque una escritura de red al arrancar en headless podría fallar por lo mismo que se investiga, y la migaja tendría el mismo punto ciego que el problema. **Ya no hace falta armar pruebas: contesta el uso real.** Apareció además una propiedad que sirve al producto — el aviso visible llega igual, y tocarlo captura la ubicación **y** le devuelve a la app el permiso de despertarse sola, así que quien responde a la alerta se auto-repara. |
 | 2026-08-21 | ✅ **La promesa central de la app quedó probada en un dispositivo real** (§3.8.1). Con el build nuevo en TestFlight se repitió la prueba controlada: M5,0 simulado a 5 km, entrega dirigida a una sola cuenta, **un solo push**, teléfono en segundo plano y sin tocar desde hacía hora y media. **La app se despertó sola y escribió la ubicación 1,2 segundos después de que saliera el aviso** — 0,7 s hasta que el teléfono preguntó `get_active_alert` y 0,4 s más hasta el `report_status`. Cuatro señales del `edge_logs` descartan que lo haya hecho la persona abriendo la app: (1) 0,7 s es más rápido de lo que nadie reacciona a un banner; (2) **no hubo jitter** — el camino de la Home espera de 0 a 8 s antes de escribir y acá pasaron 415 ms, y el único llamador con `jitter: false` es la tarea de fondo; (3) **no hubo refresco previo** — el primer `syncMe` completo aparece *después* de que la ubicación ya estaba escrita, y lo que precede a la escritura es una consulta suelta; (4) el teléfono no hizo **ni una petición** en todo el minuto anterior. Los dos seguros funcionaron: una sola fila de entrega, y ni Tracy ni Fabrizio recibieron nada. **Lo que la prueba no cubre**, dicho sin adornos: esos 0,7 s delatan una app **suspendida en memoria**, no terminada — un arranque headless en frío tarda de 1 a 3 s solo en cargar el bundle. O sea que esto confirma el arreglo del mensaje único (§3.2) en el caso común; el arreglo del `index.js`, que cubre la app terminada por el sistema, **sigue sin ejercitarse**. Se prueba reiniciando el teléfono, no abriendo la app, y repitiendo. |
@@ -2299,7 +2577,7 @@ tier B2B · donaciones.
 | 2026-08-21 | **Qué pasa cuando la app no está corriendo, contestado con la documentación de Apple** (§3.7). La duda de fondo era si el push silencioso sirve de algo en una app-seguro que nadie abre en semanas. La distinción que lo salva no es "abierta o cerrada" sino **quién la cerró**: iOS relanza las apps que él mismo terminó por memoria —el estado normal de una app olvidada— y no relanza las que el usuario deslizó fuera del multitarea. El aviso **visible llega en los cuatro estados**; lo que se degrada es solo la captura automática, con la apertura manual como red. Se descartó a propósito la única salida técnica que cubriría también el cierre manual —suscribirse a cambios significativos de ubicación, que iOS sí relanza— porque significa recibir ubicación continua, exactamente lo que la app promete no hacer. También se decidió **no** agregar "abre la app para actualizar tu ubicación" al texto de la alerta. |
 | 2026-08-21 | 🔴 **El push silencioso no podía funcionar, y el comentario que lo explicaba decía que sí** (§3.2). El aviso de sismo mandaba título, cuerpo y `contentAvailable` en **un solo mensaje**, con un comentario que argumentaba que era lo correcto —"no hay motivo para gastar dos envíos"—. La documentación de expo-notifications dice lo contrario: para disparar una tarea de fondo el push tiene que contener *"only the `data` key (no `title`, `body`)"*. O sea que el trabajo que sostiene la promesa central del producto —capturar **dónde estabas cuando tembló**— no se hacía nunca, y estaba documentado como resuelto. Ahora van dos mensajes: el visible con prioridad alta y el silencioso solo con `data` y prioridad normal (APNs 5, que es lo que Apple exige para un background update). **De paso se cerró la deuda que impedía saberlo**: se guarda el `ticket_id` de cada mensaje y un barrido cada 15 min le pide a Expo el veredicto real de APNs (§3.6, migración 0018). Verificado con sondas invisibles a los 3 dispositivos —receipt `ok` en el dev y en los dos de TestFlight, o sea que la key de APNs está bien en los dos entornos— y con un sismo de prueba M0,1 dirigido a una sola cuenta, que produjo los dos tickets esperados y ambos `ok`. |
 | 2026-08-21 | **Corrección de un diagnóstico propio.** El día anterior se afirmó, a partir de dos capturas de ubicación tardías tras el M7,2, que "la promesa central no se cumplió". Al revisar quién era quién: una de las dos personas **no tenía token** cuando tembló —lo creó dos horas después—, así que su captura tardía no probaba nada, y la otra corría con `expo start`, donde las tareas de fondo son poco fiables de por sí. La conclusión era más fuerte que la evidencia. El bug del mensaje único es real y está confirmado contra la documentación, pero **cuánto explica de lo observado sigue sin medirse**: hace falta un sismo real con la app instalada desde TestFlight. |
-| 2026-08-20 | **"Mi ubicación" en la Home de alerta, y la ventana de 6 horas por fin escrita** (§1.2.3). La captura automática ocurre una sola vez, al dispararse la alerta, así que responde "dónde estaba cuando ocurrió" — pero la persona evacúa, va al punto de encuentro o sale a buscar a alguien, y su círculo se quedaba **hasta 6 horas mirando una posición vieja sin ninguna señal de que lo era**. Ahora hay una tarjeta con el mapa de la posición propia y un botón para volver a tomarla. **Va después del círculo, y el primer intento la puso antes**: medido en un iPhone de 852 pt, esos ~326 pt de tarjeta empujaban el arranque del círculo a y≈877 —fuera de pantalla— y ver cómo está tu gente es el propósito de la app. Comprimir no alcanzaba (sin mapa, el círculo seguía arrancando en y≈711): el problema era el orden, no el tamaño. **No es tracking**: la dispara la persona, no la app, y la tarjeta solo se monta en la rama de alerta — fuera de una alerta no hay nada que avisar y ese botón sería el seguimiento que prometemos no hacer. Detalle que no era obvio: actualizar la ubicación reescribe el estado como `effectiveStatus ?? 'unconfirmed'` y **no** como `myStatus.status`, porque copiar el estado crudo daría por confirmado en este sismo a quien reportó "estoy bien" en el anterior, y el contador "X/Y confirmados" mentiría. **Segundo hallazgo, de la pregunta que lo originó:** cuánto dura el modo alerta no estaba definido en ninguna parte salvo el código —6 h en `ACTIVE_ALERT_WINDOW_MS` y 6 h en el `interval` de `get_active_alert()`— y encima el comentario de la constante citaba "spec §5.2", una sección que nunca habló del plazo. Se escribió como **spec §5.3** con el porqué, y quedó advertida la duplicación TypeScript/SQL, que no tiene arreglo posible: no hay forma de compartir una constante entre los dos y separarlos rompe en ambas direcciones. La migración 0010 no se tocó, porque reescribir una migración ya aplicada es peor que la duplicación. |
+| 2026-08-20 | **"Mi ubicación" en la Home de alerta, y la ventana de 6 horas por fin escrita** (§1.2.3). La captura automática ocurre una sola vez, al dispararse la alerta, así que responde "dónde estaba cuando ocurrió" — pero la persona evacúa, va al punto de encuentro o sale a buscar a alguien, y su red se quedaba **hasta 6 horas mirando una posición vieja sin ninguna señal de que lo era**. Ahora hay una tarjeta con el mapa de la posición propia y un botón para volver a tomarla. **Va después de la red, y el primer intento la puso antes**: medido en un iPhone de 852 pt, esos ~326 pt de tarjeta empujaban el arranque de la red a y≈877 —fuera de pantalla— y ver cómo está tu gente es el propósito de la app. Comprimir no alcanzaba (sin mapa, la red seguía arrancando en y≈711): el problema era el orden, no el tamaño. **No es tracking**: la dispara la persona, no la app, y la tarjeta solo se monta en la rama de alerta — fuera de una alerta no hay nada que avisar y ese botón sería el seguimiento que prometemos no hacer. Detalle que no era obvio: actualizar la ubicación reescribe el estado como `effectiveStatus ?? 'unconfirmed'` y **no** como `myStatus.status`, porque copiar el estado crudo daría por confirmado en este sismo a quien reportó "estoy bien" en el anterior, y el contador "X/Y confirmados" mentiría. **Segundo hallazgo, de la pregunta que lo originó:** cuánto dura el modo alerta no estaba definido en ninguna parte salvo el código —6 h en `ACTIVE_ALERT_WINDOW_MS` y 6 h en el `interval` de `get_active_alert()`— y encima el comentario de la constante citaba "spec §5.2", una sección que nunca habló del plazo. Se escribió como **spec §5.3** con el porqué, y quedó advertida la duplicación TypeScript/SQL, que no tiene arreglo posible: no hay forma de compartir una constante entre los dos y separarlos rompe en ambas direcciones. La migración 0010 no se tocó, porque reescribir una migración ya aplicada es peor que la duplicación. |
 | 2026-08-20 | **El punto de encuentro en mapa queda descartado, no pospuesto** (§1.2.2). Salió de revisar §1.2.1: al documentar que Places API y Geocoding API son las dos que sí se pagan, quedó a la vista que la única funcionalidad que las iba a necesitar era el selector de punto de encuentro en mapa — y esa funcionalidad no convence por producto, no por costo. **Un lugar de reunión tiene que poder decirse en voz alta y recordarse de memoria, incluidos los niños; una coordenada no cumple ninguna de las dos**, y falla justo en el escenario para el que existe: sin batería, sin señal, o con alguien que no es el dueño del teléfono. Se reescribieron los dos lugares de la spec que lo prometían (§8 "fase futura" y §13 beneficio Premium) en vez de dejarlos como pendientes, y se sacó de "Fuera de alcance del MVP", que significa "todavía no" y acá corresponde "no". **Lo que sobrevive del beneficio Premium** son los múltiples planes de acción —casa, trabajo, colegio—, cada uno en texto. **Lo que no cambia** es el tip "Acuerda un punto de encuentro" (0005, Cruz Roja Peruana): se descartó mapear la práctica, no la práctica. Efecto lateral que vale la pena: sin ninguna pantalla donde alguien *elija* un punto, la app nunca va a tocar Places ni Geocoding, así que el costo de mapas queda en cero por diseño y no por vigilancia. |
 | 2026-08-20 | **Mapas embebidos, revirtiendo la decisión del MVP** (§1.2.1). El detalle del sismo y el del contacto muestran ahora un mini mapa con `react-native-maps` 1.27.2. La decisión anterior —solo deep link, sin mapa— se había tomado para evitar el costo y la API key de Google, y **el costo resultó no existir**: verificado contra la tabla de precios, el mapa nativo **sin Map ID** cae en el SKU `Maps SDK`, con tope "Unlimited" y precio "—". Lo que sí cobra es pedir un Map ID (SKU `Dynamic Maps`, 10.000/mes y luego $7 por millar), y eso lo exigen el *cloud styling*, los *Advanced Markers* y el *data-driven styling* — **por eso el tema oscuro se resuelve con `userInterfaceStyle` y no con `customMapStyle`**, que obligaría a Map ID y pondría a facturar la app. Descartados MapLibre (obliga a mantener un tile server a cambio de nada visible para dos pines de solo lectura) y `expo-maps` (su propia doc de SDK 57 lo declara **alpha** con "frequent breaking changes"). El mapa **no es interactivo a propósito**: vive dentro de un `ScrollView` y un mapa arrastrable le pelea el gesto al scroll, así que va con `cacheEnabled` —se renderiza una vez y se muestra como imagen— y el toque completo abre la app de mapas. En **Android no renderiza** mientras no exista la API key, porque sin ella Google pinta un rectángulo gris con su logo: se detecta leyendo el config plugin de `app.json`, para no tener una constante que se desincronice. **De paso**, `mapsUrl()` dejó de forzar Google: devolvía siempre `google.com/maps`, así que en un iPhone sin Google Maps instalada terminaba en el navegador; ahora usa `maps.apple.com` en iOS y `geo:` en Android, que respeta la app de mapas elegida por defecto. Typecheck, lint y bundle de iOS en verde; **sin verificar en pantalla todavía** (ver Deudas). |
 | 2026-08-20 | **Los permisos, como lista de tareas** (§1.14). Se cerró la deuda que hacía invisibles a todas las demás: los tres permisos se pedían **solo en el onboarding**, así que un toque apurado en «No permitir» dejaba a alguien sin esa capacidad para siempre, sin pista dentro de la app ni forma de arreglarlo. El caso concreto: de las tres cuentas del proyecto **solo una tenía token de push**, y por eso al amigo que probó las conexiones no le llegó nada — ni le habría llegado aunque los avisos de §1.13 hubieran existido antes. Ahora los tres viven en una tarjeta con la misma forma que el checklist de la Home, en verde / ámbar / plomo, y cada fila que falta dice **qué se pierde** en vez de solo pintarse de un color. Conceder notificaciones **registra el token en el acto**, que es el paso sin el cual conceder no sirve de nada. El rojo se dejó fuera a propósito: en esta app significa «necesito ayuda» (§1.4.1) y gastarlo en un permiso le quitaría el significado al que sí lo es. **Encontrado y corregido de paso** (§1.14.1): `app.json` declaraba `RECORD_AUDIO` y `WRITE_CONTACTS` y **nada en `src/` los usaba** — pedir el micrófono en una app de sismos es lo que un revisor de Play marca. Quitar el segundo del array **no alcanzaba**, porque el config plugin de `expo-contacts` lo agrega él mismo siempre; hizo falta `android.blockedPermissions`. Verificado corriendo `prebuild` y leyendo el manifiesto generado, que es la única forma de saberlo: los plugins escriben ahí, no en `app.json`. |
@@ -2307,13 +2585,13 @@ tier B2B · donaciones.
 | 2026-08-20 | **Un sismo real (M7,2 en Coracora) sirvió de prueba de campo y destapó seis cosas.** La grande: **los cinco avisos entre personas no existían** (§1.13). No era un bug — nunca hubo nada que los mandara, pero Ajustes **ya ofrecía cuatro interruptores** que guardaban prolijamente un booleano que nadie leía. Eso es peor que no tener la función: quien apaga «Mensajes» cree que decidió algo. Se construyó el equivalente de 0010+0014 para eventos entre personas, con las preferencias comprobadas en un solo lugar para que un disparador nuevo no se pueda olvidar del chequeo. Llega en **0,6 s medidos**, porque un disparador despierta al cartero en vez de esperar al cron — y como ese es el camino rápido, el cron bajó de cada minuto a cada 5, así que la función **consume menos** invocaciones que antes. Se honró por fin la promesa escrita del simulacro silencioso, y la prueba de eso encontró un bug propio (0016): `now()` es la hora de la **transacción**, así que dos simulacros del mismo bloque empataban y ganaba cualquiera. 9/9 aserciones dentro de una transacción revertida, para que ninguna notificación de prueba le llegara a nadie. **Verificación no buscada:** el cron de «contacto sin responder» se disparó solo en producción mientras se escribía esto, con la clave de deduplicación correcta. |
 | 2026-08-20 | **Latencia del aviso de sismo: la mitad era espera nuestra** (§1.13.4). Medido con el M7,2: de los 9 m 45 s entre el sismo y el push, **7 m 45 s son del IGP** (79 %) y 1 m 59 s eran nuestros. De esos, 59 s era el sismo esperando sentado en la tabla a que pasara el cron de fan-out. Ahora un disparador lo encola en la misma transacción que lo inserta: SQL dentro de la ingesta, cero invocaciones nuevas. El jitter y el cron de envío se quedan a propósito. De paso se confirmó, contra `quake_applies`, que un aviso sospechoso por un M3,1 en **Alaska** no era un fallo de la regla de disparo sino una fila insertada a mano en QA: la regla decía `false` a 9.517 km, y su jitter de 608 s es imposible para `random() * 30 s`. |
 | 2026-08-20 | **Tres arreglos de detalle del mismo sismo.** (1) La tarjeta de alerta decía «Sismo en Coracora» y nada más; el IGP mandaba «Parinacochas - Ayacucho» y el parser lo tiraba (§1.6.4.2). Ahora sale debajo, descartando las partes repetidas —«Lurín, Lima - Lima» se muestra como **Lima**, no «Lima, Lima»—; verificado contra los 24 `place` del IGP. (2) La flecha de retroceso del chat decía literalmente **«(tabs)»**: iOS rotula el botón con el título de la pantalla anterior, y los tabs son un grupo de expo-router sin título. Se dejó solo la flecha, porque al chat también se entra desde el detalle de un contacto. (3) El chip de estado se iba a la izquierda en el detalle de un contacto: tenía `alignSelf: 'flex-start'` fijo en el componente, que pisaba el centrado del padre y no se podía corregir desde afuera. |
-| 2026-08-20 | **El spinner de pull-to-refresh se quedaba trabado** (§1.4.2). Abrir la app después de un rato dejaba el spinner colgado arriba y el contenido corrido hacia abajo, en las cuatro pantallas que tienen el gesto, sin que nadie hubiera tirado de nada. No era de estilos: `RefreshControl.refreshing` estaba atado a la bandera global `syncing` (Home y Círculo) y se prendía dentro de `load()` (Sismos), así que **cualquier** refresco automático lo encendía — arrancar, volver del segundo plano, recuperar la red, hasta aceptar una solicitud. Prenderlo por código hace que iOS empuje el contenido con una animación; si la vista no está en pantalla en ese momento, la animación no termina y el scroll se queda corrido. Que se arreglara solo al cambiar de pestaña y volver era la pista: eso fuerza un layout nuevo. Ahora el estado vive en `usePullToRefresh` y **solo lo enciende el gesto**; los refrescos automáticos revalidan en silencio, que es lo que ya se esperaba de la caché de §1.6.4.1. Se borró `syncing` del contexto: no le quedaba un solo consumidor y era la trampa a la vista para volver a atarlo. |
+| 2026-08-20 | **El spinner de pull-to-refresh se quedaba trabado** (§1.4.2). Abrir la app después de un rato dejaba el spinner colgado arriba y el contenido corrido hacia abajo, en las cuatro pantallas que tienen el gesto, sin que nadie hubiera tirado de nada. No era de estilos: `RefreshControl.refreshing` estaba atado a la bandera global `syncing` (Home y Red) y se prendía dentro de `load()` (Sismos), así que **cualquier** refresco automático lo encendía — arrancar, volver del segundo plano, recuperar la red, hasta aceptar una solicitud. Prenderlo por código hace que iOS empuje el contenido con una animación; si la vista no está en pantalla en ese momento, la animación no termina y el scroll se queda corrido. Que se arreglara solo al cambiar de pestaña y volver era la pista: eso fuerza un layout nuevo. Ahora el estado vive en `usePullToRefresh` y **solo lo enciende el gesto**; los refrescos automáticos revalidan en silencio, que es lo que ya se esperaba de la caché de §1.6.4.1. Se borró `syncing` del contexto: no le quedaba un solo consumidor y era la trampa a la vista para volver a atarlo. |
 | 2026-08-20 | **Leyenda de magnitud y procedencia en el feed global** (§1.6.4.2). La lista pintaba tres colores sin decir nunca qué significan, y encima la escala reutiliza la paleta de estados de personas —donde el rojo es "necesito ayuda"—, así que un sismo rojo se podía leer como alerta activa. Para el país y el continente hubo que descubrir que **`region` y `country_code` están en NULL para todo el USGS**: el único dato es el `place` en inglés, o sea que la procedencia se interpreta de un texto. Al hacerlo apareció que **`shortPlace()` estaba roto para el USGS** y nadie lo había visto: solo entendía el `" de "` del IGP, así que mostraba "63 km NNE of Ruteng" —prefijo en inglés y sin país—. Otras dos cosas que no se veían venir: para EE. UU. el USGS manda el estado y no el país (a veces la sigla, `", CA"`), y el feed global **incluye sismos del IGP**, con formato en español, donde tras la última coma va un departamento. El mapa se armó agrupando los `place` ya ingeridos, no de memoria; **verificado contra los 297 distintos de la base: 0 sin resolver**. A los eventos en el mar no se les inventa continente. |
 | 2026-08-20 | **Noticias Sísmicas pedía el feed en cada foco** (§1.6.4.1). Medido en los logs antes de tocar nada: 179 llamadas a `get_quake_feed` en 24 h de **un** usuario, con **mediana de 5 segundos** entre una y la siguiente, contra una ingesta que corre cada 2 minutos — el **85,5 %** no podía traer nada nuevo. Además cambiar Nacional/Global pedía dos veces, porque al cambiar `scope` cambiaba la identidad del callback de `useFocusEffect` y se sumaba a la llamada del handler. Se conservaron los disparadores (foco y volver del segundo plano, que existen por el congelamiento de §1.6.4) pero ahora pasan por un umbral de frescura igual al intervalo del cron, y cada scope guarda lo suyo. Decidido **no** poner un temporizador: esta pestaña no es el canal de alertas y sería un segundo mecanismo de refresco en paralelo al de `app-data`. De paso, un refresco fallido ya no borra la lista buena. |
 | 2026-08-20 | **La detección de contactos no funcionaba con ninguna agenda real** (§1.6.6). «No pudimos revisar tu agenda» con el permiso concedido, siempre. No era el permiso: `.in('phone_hash', …)` mete los 64 caracteres de **cada** hash en el query string, así que a partir de ~230 números la URL pasa los 16 KB y la petición ni sale (`TypeError: error sending request`). Medido lote por lote contra el proyecto real: 200 pasa, 240 falla. Arreglado consultando de a 100 en paralelo; verificado con 2000 hashes y —la aserción que importa— con el hash real sembrado en el lote 16 de 20, que sí aparece. **Sobrevivió tanto porque una agenda de simulador tiene 5 contactos.** De paso se arregló lo que lo hizo difícil de diagnosticar: `functions.invoke` devuelve un error genérico y deja el motivo en un `Response` sin leer, y el cliente además lo tragaba con un `catch` mudo — la pantalla aconsejaba "intenta de nuevo" ante un fallo que reintentar no arreglaba nunca. |
 | 2026-08-20 | **Cambiar contraseña y borrar la cuenta** (§1.1.3, migración 0013). Las dos salen de haber pasado a contraseña: la segunda es requisito **5.1.1(v)** de Apple y sin ella el envío se rechaza. Lo que no era obvio: la contraseña se valida **en Postgres** con `extensions.crypt()`, porque hacerlo solo en la app no frena a quien ya tenga el token de sesión y llame al RPC directo. 3/3 aserciones contra la base real, incluida la que confirma que un intento con contraseña incorrecta **no borra nada**. Probado además a mano sobre una cuenta real, y ahí apareció lo que las aserciones no muestran: **borrar la cuenta pierde el Premium**, porque el derecho queda atado al `app_user_id` viejo; se recupera con «Restaurar compras» y la pantalla ahora lo dice. De paso, un advisor nuevo que antes no aplicaba: `auth_leaked_password_protection` está apagado. |
 | 2026-08-20 | **Acceso por contraseña y adiós a la foto de perfil.** (1) El bug de *"Error sending confirmation email"* con correos ajenos resultó no ser de la app: Resend seguía mandando desde `onboarding@resend.dev`, que solo entrega a la casilla del dueño de la cuenta. El dominio `todosbien.app` ya estaba verificado con DKIM, SPF y MX —lo que faltaba era cambiar el *Sender email* en Supabase, que es **otro panel** (§1.1.2). Verificado contra el proyecto real: el registro con una dirección ajena pasó de 500 a 200, sin error en los logs. (2) El acceso pasó de código OTP a **correo + contraseña**, que es lo que exige App Review para poder entrar con una cuenta de demostración; de paso el correo deja de ser punto único de falla en cada ingreso (§1.1.1). Cinco pantallas donde había dos, con recuperación de contraseña por código en vez de link. Se descubrió al implementarlo que `verifyOtp({type:'recovery'})` **abre sesión antes** de que la contraseña nueva esté escrita, así que el guardia de navegación saca la pantalla de encima entre las dos llamadas: se resolvió validando antes, cerrando sesión si falla la escritura y avisando por `Alert`, lo único que sobrevive a la navegación. (3) **Eliminada la foto de perfil** (§1.9.2.1): guardaba el URI local del teléfono, o sea que solo se veía en el propio dispositivo, y hacerla real pedía Supabase Storage pago. Se fueron con ella el permiso de fotos de iOS y las dependencias `expo-image-picker` y `expo-image`. Typecheck, lint y bundle de iOS en verde; **las pantallas nuevas quedan sin verificar a mano** (ver Deudas). |
-| 2026-08-17 | Arranque. Decisiones 1.1 a 1.9 tomadas. Schema completo con RLS aplicado en Supabase, advisors corregidos, 12 tips sembrados, edge function `match-contacts` desplegada, RLS verificada con 17 aserciones contra la base real. Cliente Expo: infraestructura offline-first, acceso, onboarding de 4 pasos, tabs con barra nativa glass, Home en sus dos modos, círculo, chat, simulacro y ajustes. |
+| 2026-08-17 | Arranque. Decisiones 1.1 a 1.9 tomadas. Schema completo con RLS aplicado en Supabase, advisors corregidos, 12 tips sembrados, edge function `match-contacts` desplegada, RLS verificada con 17 aserciones contra la base real. Cliente Expo: infraestructura offline-first, acceso, onboarding de 4 pasos, tabs con barra nativa glass, Home en sus dos modos, red, chat, simulacro y ajustes. |
 | 2026-08-19 | **Un sismo real destapó que la ubicación nunca se sembraba.** Un M4,8 a 42 km de Lurín (49,1 km de Lima) no disparó alerta pese a estar dentro del radio y sobre el umbral. Diagnosticado contra la base: `user_status` sin coordenadas, así que la regla del radio de `get_active_alert()` ni se evaluaba. El fondo era un **callejón sin salida** de diseño —sin ubicación nunca hay alerta activa, y sin alerta activa nunca se captura ubicación— del que solo se salía reinstalando. Se descartaron las tres sospechas iniciales con datos: la ingesta funcionó (6 min del sismo a la base), el IGP no llegó tarde y el build del cliente es irrelevante porque la regla vive en el servidor (§1.6.3.1). Corregido con `syncLocationPermission()` en cada refresco, más aviso en Ajustes y en la Home. **De paso**: la pestaña Nacional se congelaba al volver del segundo plano, porque `useFocusEffect` no dispara si la pantalla ya estaba enfocada, y era la única lista sin pull-to-refresh (§1.6.4). Documentada también la **latencia real** y la decisión de **no hacer alerta temprana**: son 14 segundos hasta que llega la onda S, el SASPe ya existe y alerta por sirenas justamente porque un push no llega a tiempo (§1.11). Typecheck, lint y build de iOS en verde; **las pantallas nuevas quedan sin verificar a mano** (ver Deudas). |
 | 2026-08-19 | **Noticias Sísmicas** (§1.6.4): pestaña informativa con toggle Nacional/Global, detalle reutilizando el componente del banner de alerta, y bloqueo premium con vista previa ofuscada + pantalla de venta con los precios de la spec §13 (sin cobro: falta RevenueCat). Se agregó el feed `4.5_week` del USGS, sin el cual la lista Global habría estado casi vacía. **Cerrada una fuga premium** que venía de antes: las alertas mundiales no validaban `is_premium` y el usuario podía activárselas solo (§1.6.5). Verificado en simulador; se corrigió que el botón del paywall quedaba tapado por la tab bar. |
 | 2026-08-19 | **Guía de despliegue** (`docs/GUIA-DESPLIEGUE.md`), lo que pedía la spec §20: orden completo entre Apple Developer, App Store Connect, Firebase/FCM, EAS, TestFlight y RevenueCat, con las dependencias reales entre consolas. Verificado contra la documentación de Expo y RevenueCat, no de memoria. El hallazgo que cambia el orden: **el primer `eas build -p ios` crea solo el App ID, el certificado, el perfil y la APNs Key**, así que conviene correrlo antes de crear la ficha en App Store Connect; `eas submit`, en cambio, **no** crea la ficha. De paso: el splash seguía con el azul viejo `#208AEF` (corregido a `#0D6BC9`) y el `.gitignore` no cubría el service account de Firebase, que sí es secreto. |

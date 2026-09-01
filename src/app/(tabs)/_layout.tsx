@@ -31,7 +31,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="circle">
-        <NativeTabs.Trigger.Label>Círculo</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Red</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="person.2.fill" md="group" />
         {pending > 0 ? (
           <NativeTabs.Trigger.Badge>{String(pending)}</NativeTabs.Trigger.Badge>

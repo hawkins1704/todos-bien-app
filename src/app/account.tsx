@@ -145,7 +145,7 @@ export default function AccountScreen() {
               ]}
             />
             <Text variant="caption" tone="tertiary">
-              Así te ve tu círculo.
+              Así te ve tu red.
             </Text>
           </View>
 

@@ -10,7 +10,7 @@ import * as SQLite from 'expo-sqlite';
  */
 
 const DATABASE_NAME = 'todosbien.db';
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 5;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -138,6 +138,36 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   // correcto para equivocarse.
   if (current < 3) {
     await db.execAsync(`ALTER TABLE circle ADD COLUMN alerted_quake_ids TEXT;`);
+  }
+
+  // v4 · Ocultar un chat directo de la lista (migración 0032 del servidor).
+  //
+  // Es LOCAL a propósito, y es la única forma honesta de «eliminar» un chat de
+  // dos. Salir de verdad —borrar la fila de `conversation_members`— dejaría a la
+  // persona sin avisos de ese contacto para siempre y sin manera de volver: la
+  // política de DELETE del servidor directamente lo prohíbe. Ver la cabecera de
+  // `0032_conversaciones_renombrar_y_salir.sql`.
+  //
+  // Guarda CUÁNDO se ocultó. La lista compara ese instante contra
+  // `last_message_at` y **desoculta sola** en cuanto llega un mensaje posterior:
+  // si te escriben, la conversación vuelve. Un chat oculto que se traga un
+  // mensaje sería exactamente el fallo que esta app no se puede permitir.
+  //
+  // Por eso `writeConversations` hace UPSERT y no DELETE+INSERT: recrear la fila
+  // en cada sincronización borraría esta columna y el chat reaparecería solo.
+  if (current < 4) {
+    await db.execAsync(`ALTER TABLE conversations_cache ADD COLUMN hidden_at TEXT;`);
+  }
+
+  // v5 · A qué grupo pertenece cada conversación (migración 0034 del servidor).
+  //
+  // Es lo que separa las dos clases de conversación grupal que ahora conviven:
+  // las que tienen grupo detrás —donde el nombre y los integrantes se editan en
+  // el grupo— y las **sueltas**, anteriores a la 0034, que ya no se pueden crear
+  // pero siguen existiendo y siguen siendo mensajes de alguien. Sin esta columna
+  // la lista no sabría cuál de las dos está pintando.
+  if (current < 5) {
+    await db.execAsync(`ALTER TABLE conversations_cache ADD COLUMN group_id TEXT;`);
   }
 
   if (current !== DATABASE_VERSION) {

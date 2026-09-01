@@ -53,6 +53,38 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      group_members: {
+        Row: {
+          created_at: string;
+          group_id: string;
+          member_id: string;
+        };
+        Insert: {
+          group_id: string;
+          member_id: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      groups: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          owner_id: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          name: string;
+          owner_id: string;
+          sort_order?: number;
+        };
+        // Solo el nombre. `owner_id` no se regala y `sort_order` no lo mueve
+        // ninguna pantalla todavía.
+        Update: { name?: string };
+        Relationships: [];
+      };
       connections: {
         Row: {
           blocked_by: string | null;
@@ -102,6 +134,8 @@ export type Database = {
           created_at: string;
           created_by: string;
           direct_key: string | null;
+          /** El grupo dueño (0034). NULL en directos y en grupales sueltas viejas. */
+          group_id: string | null;
           id: string;
           kind: string;
           last_message_at: string | null;
@@ -111,12 +145,15 @@ export type Database = {
           created_at?: string;
           created_by: string;
           direct_key?: string | null;
+          group_id?: string | null;
           id?: string;
           kind: string;
           last_message_at?: string | null;
           title?: string | null;
         };
-        Update: { last_message_at?: string | null; title?: string | null };
+        // El título ya no se escribe desde acá: se renombra el grupo y un
+        // disparador lo espeja (0034).
+        Update: { last_message_at?: string | null };
         Relationships: [];
       };
       drills: {
@@ -434,9 +471,9 @@ export type Database = {
         Args: { drill_id: string; status_reported?: string | null };
         Returns: Database['public']['Tables']['drills']['Row'];
       };
-      create_group_conversation: {
-        Args: { group_title: string; member_ids: string[] };
-        Returns: Database['public']['Tables']['conversations']['Row'];
+      create_group: {
+        Args: { group_name: string; sort_order?: number };
+        Returns: string;
       };
       delete_my_account: {
         Args: { password_attempt?: string | null };
@@ -486,6 +523,19 @@ export type Database = {
         Returns: {
           quake_event_id: string;
           user_id: string;
+        }[];
+      };
+      get_groups: {
+        Args: Record<never, never>;
+        Returns: {
+          id: string;
+          name: string;
+          sort_order: number;
+          owner_id: string;
+          is_owner: boolean;
+          conversation_id: string | null;
+          /** jsonb: arreglo de `{user_id, display_name, is_owner, in_my_network}`. */
+          members: Json;
         }[];
       };
       get_or_create_direct_conversation: {

@@ -33,16 +33,16 @@ y en una app de seguridad, fabricar necesidad es fabricar miedo, que se paga con
 desinstalaciones y con reseñas que no se borran.
 
 La app ya estaba construida para esa persona sin haberlo cobrado: `notify_silent_contacts`
-(`0015_social_notifications.sql`) le avisa **al círculo del que se quedó callado**. El
+(`0015_social_notifications.sql`) le avisa **a la red del que se quedó callado**. El
 producto ya servía al que se preocupa; faltaba ponerle precio.
 
 ### 2.1 · Un modelo que se descartó, y por qué
 
-Se evaluó **«comprás Premium y lo tiene tu círculo entero»**. Se cae solo: un pago equipa a
-50 personas, y cada una puede ser el centro de otro círculo de 50.
+Se evaluó **«comprás Premium y lo tiene tu red entera»**. Se cae solo: un pago equipa a
+50 personas, y cada una puede ser el centro de otra red de 50.
 
 El diagnóstico importa más que el descarte: ese modelo hacía que el valor de Premium
-**bajara** cuando el círculo crecía. Tiene que ser al revés — **mientras más gente te
+**bajara** cuando la red crecía. Tiene que ser al revés — **mientras más gente te
 importa, más razones tenés para pagar**. Cualquier idea futura se mide con eso.
 
 La corrección es que **nada se propaga**: Premium es individual, y lo que compra son
@@ -58,10 +58,10 @@ funciones que operan **sobre** tus contactos sin que tus contactos necesiten nad
 | Función | Por qué es gratis |
 |---|---|
 | Alerta cuando tiembla cerca tuyo | Es la razón de existir de la app |
-| Los 4 estados y el tablero del círculo | Avisar que estás bien no se cobra |
+| Los 4 estados y el tablero de la red | Avisar que estás bien no se cobra |
 | Captura automática de ubicación | Es la promesa central |
-| Chat individual y grupal | |
-| Círculo **ilimitado** | Prometido en la landing, y cobrarlo sería cobrar seguridad |
+| Chat individual **ilimitado**, con cualquiera de tu red | Cobrarlo sería cobrar la coordinación, que es la app entera |
+| Red **ilimitada** | Prometido en la landing, y cobrarlo sería cobrar seguridad |
 | **«María no responde»** a los 20 min, **si el sismo también te llegó a ti** | **La señal de que algo salió mal es gratis.** Este corte es lo que hace legítimo todo lo demás |
 | **«María está bien»** cuando reporta, **si el sismo también te llegó a ti** | La contraparte de la anterior, y faltaba (migración 0027). Dentro de tu propio sismo la app te mandaba **solo malas noticias** |
 | 1 plan de acción · 3 simulacros · noticias del país | |
@@ -70,15 +70,93 @@ funciones que operan **sobre** tus contactos sin que tus contactos necesiten nad
 
 | Función | Estado |
 |---|---|
-| **Guardián** · aviso al **minuto 0** cuando tiembla cerca de un contacto, estés donde estés — con nombre y distancia — y el cierre «María dijo que está bien» | ✅ existe, **verificado en dos teléfonos** el 2026-08-27 |
+| **Guardián** · «María está bien» y «María no responde» **cuando el sismo NO te alcanzó a ti** | ✅ existe (migración 0030) |
 | Avisos y feed de sismos en el mundo | ✅ existe |
 | Simulacros ilimitados | ✅ existe |
 | Hasta 5 planes de acción con nombre | ✅ existe (migración 0024) |
-| SMS al que no responde | ⏳ más adelante |
+| **Grupos ilimitados** — gratis son 2 | ✅ existe (migraciones 0031 y 0034) |
+| SMS al que no responde | ⏳ más adelante, y es el mejor candidato — ver §3.3 |
 
 **Guardián es el único que importa.** Los otros son relleno de lista: nadie paga por
-simulacros ilimitados. Guardián es lo que convierte la app de «me avisa a mí» a «cuida a los
-míos».
+simulacros ilimitados.
+
+> **Los grupos son la excepción parcial, y por eso el tope está donde está.** Cumplen la
+> prueba de §2.1 mejor que cualquier otra función: **mientras más gente te importa, más grupos
+> necesitas**. Con 6 contactos, dos alcanzan y sobran; con 30 repartidos entre casa, familia y
+> trabajo, dos es exactamente donde empieza a molestar. El tope no recorta nada de seguridad —la
+> red sigue siendo ilimitada y todos los avisos son idénticos—, solo la comodidad de leer el
+> tablero ordenado en un sismo y de tener un chat por frente.
+
+##### La objeción a este tope, y por qué se aceptó igual (2026-09-01)
+
+Desde la 0034 un grupo **tiene chat**, y la app promete en el propio botón de Premium que *«el
+chat no depende de Premium»*. Limitar los grupos roza esa frase: con el cupo lleno, lo que no
+puedes abrir es un chat grupal más.
+
+Se evaluó mover el gancho al **simulacro grupal** —«ensaya con tu familia entera, no solo
+contigo»— y dejar los grupos libres. Es el argumento más limpio de los dos y sigue disponible
+para más adelante. Se descartó por ahora porque el simulacro grupal **todavía no existe** y el
+tope de grupos sí, y un plan Premium con una promesa a futuro es peor que uno con un límite
+entendible.
+
+**Cómo se sostiene la frase sin mentir**, y es lo que hay que escribir en la venta:
+
+- el chat **individual** es ilimitado y gratis, con cualquiera de tu red;
+- puedes estar en **todos** los grupos que quieras — el tope cuenta los que **creas**;
+- y los 2 gratis cubren de sobra el caso que la app existe para resolver: la casa y el trabajo.
+
+Lo que Premium compra no es «hablar con más gente», es **coordinar más frentes a la vez**. Si
+alguna vez hay que elegir entre este tope y la frase, gana la frase.
+
+#### 3.2.1 · Dónde se ofrece Premium, y por qué ahí
+
+**En el momento en que la persona intenta hacer algo, no antes.** Los dos topes con función
+gratuita —grupos y planes de acción— muestran su botón de crear **siempre**, con el cupo
+lleno o vacío, y es al tocarlo cuando aparece el paywall.
+
+Hasta el 2026-09-01 hacían lo contrario: al llegar al tope el botón desaparecía y en su lugar
+salía una tarjeta explicando el límite. Suena razonable y es peor por dos motivos:
+
+1. **Una función que no se ve no la compra nadie.** La tarjeta explica el límite a alguien que
+   ya dejó de intentar.
+2. **Un botón que desaparece no se lee como un límite, se lee como un bug.** Es la reacción que
+   tuvo la primera persona que lo probó, y esa reacción no vende, desconfía.
+
+Con el botón puesto, la secuencia es la que convierte: **intento → obstáculo → oferta → y al
+comprar, la app termina lo que estabas haciendo** (abre el formulario del grupo, o el editor
+del plan). La oferta llega cuando el deseo ya existe y está medido por la propia persona.
+
+Es el mismo criterio que la pestaña **Global** de Sismos, que se muestra con candado en vez de
+esconderse. Mecánica en `src/hooks/use-paywall.ts`; el porqué, en `ESTADO-DEL-PROYECTO.md`
+§1.9.1.0.
+
+### 3.3 · Qué se le quitó a Guardián el 2026-08-31, y por qué
+
+Guardián incluía además **«Tembló cerca de María»**: un aviso al minuto 0, con nombre y
+distancia, para quien estaba fuera de la zona. Se retiró (migración 0030) por dos razones:
+
+1. **No se podía explicar.** Su valor dependía de una condición que el usuario **no puede ver
+   ni verificar** —¿este sismo también me alcanzó a mí?—, que a su vez depende del radio, la
+   magnitud mínima, la magnitud nacional y el `country_code`. Enunciarlo bien exigía leer
+   cuatro migraciones. **Un beneficio que no entra en una frase no se vende**, y peor: se
+   recibe sin entender por qué llegó.
+2. **Quedó redundante.** Desde que la noticia nacional llega a todos sin importar dónde esté
+   la persona, cualquiera se entera de que hubo un M4,5+ en el Perú. «Tembló cerca de María»
+   pasó a ser una versión más precisa de algo que ya llegaba gratis.
+
+**Lo que quedó es lo único que no se sustituye con nada**, porque hace falta saber quién es tu
+gente: enterarte de que **reportaron, o de que no reportaron**, aunque a ti el sismo no te
+haya tocado. Ninguna noticia ni ningún catálogo puede darlo.
+
+> **La condición que lo hace posible:** sin el aviso de apertura, un «María está bien» a quien
+> nunca supo que tembló sería un sobresalto. Por eso **cada aviso hacia fuera de la zona nombra
+> el sismo** (magnitud y lugar). Si alguna vez se agrega un tercer aviso de esta familia, esa
+> regla no es opcional.
+
+**Lo que esto deja pendiente, dicho sin adornos:** Premium quedó más chico. El candidato para
+darle peso es el **SMS/llamada al que no responde** — una frase, ningún tipo de notificación
+nuevo, y con costo marginal real, que es la clase de Premium que nadie discute. Se construye
+con usuarios adentro, no antes.
 
 ### ⚠️ El corte real es más filoso de lo que decía este documento
 
@@ -243,7 +321,7 @@ casilla, no un release.
 
 | | Por qué |
 |---|---|
-| **Limitar el círculo gratis** | Es la jugada obvia de la categoría (Life360 la hace) y acá es literalmente cobrar seguridad. Además la landing ya promete círculo ilimitado |
+| **Limitar la red gratis** | Es la jugada obvia de la categoría (Life360 la hace) y acá es literalmente cobrar seguridad. Además la landing ya promete red ilimitada |
 | **Anuncios** | Ver §8 |
 | **Alertas más rápidas para Premium** | Ni es posible ni sería decente |
 | **Paywall durante la emergencia** | Ver §5 |
@@ -286,7 +364,7 @@ dos.
 | # | Qué | Estado |
 |---|---|---|
 | 1 | **`country_code` de verdad** — se detecta al capturar la primera ubicación | ✅ 2026-08-25 |
-| 2 | **Guardián** — reparto al círculo, aviso de cierre, interruptor, textos | ✅ 2026-08-25. Migración `0022` aplicada, **12/12 aserciones** contra la base real. Falta el recorrido en teléfono: `VERIFICACION-EN-DISPOSITIVO.md` §7.b |
+| 2 | **Guardián** — reparto a la red, aviso de cierre, interruptor, textos | ✅ 2026-08-25. Migración `0022` aplicada, **12/12 aserciones** contra la base real. Falta el recorrido en teléfono: `VERIFICACION-EN-DISPOSITIVO.md` §7.b |
 | 3 | **Planes de acción múltiples** — tabla propia, tope en el servidor | ✅ 2026-08-25. Migración `0024`, **15/15 aserciones**. Recorrido: `VERIFICACION-EN-DISPOSITIVO.md` §9.c |
 | 4 | Precios nuevos + Small Business Program + Términos/Privacidad en el paywall | ⚙️ |
 | 5 | Disponibilidad territorial (§6.2) | ⚙️ |

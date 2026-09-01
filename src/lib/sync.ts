@@ -1,6 +1,7 @@
 import {
   fetchActiveAlert,
   fetchCircle,
+  fetchGroups,
   fetchLastMonitoringCheck,
   fetchMyProfile,
   fetchMyStatus,
@@ -23,7 +24,14 @@ import {
 } from '@/lib/db/outbox';
 import { isAlertActive } from '@/lib/quakes';
 import { supabase } from '@/lib/supabase';
-import type { CircleMember, MyStatus, QuakeEvent, StatusKey, Tip } from '@/types/domain';
+import type {
+  Group,
+  CircleMember,
+  MyStatus,
+  QuakeEvent,
+  StatusKey,
+  Tip,
+} from '@/types/domain';
 
 /**
  * Sincronización servidor ↔ caché local.
@@ -49,6 +57,19 @@ export async function syncMe(userId: string): Promise<void> {
   if (profile) await kvSet(KV.myProfile, profile);
   if (settings) await kvSet(KV.mySettings, settings);
   if (status) await kvSet(KV.myStatus, status);
+}
+
+/**
+ * Los grupos (migración 0034), con sus integrantes ya resueltos.
+ *
+ * Se guardan enteros en el KV: son pocas filas con una lista corta de gente.
+ * Van a la caché y no se piden a demanda porque la Home los usa **durante una
+ * alerta**, que es justo cuando la red puede no estar.
+ */
+export async function syncGroups(): Promise<Group[]> {
+  const groups = await fetchGroups();
+  await kvSet(KV.groups, groups);
+  return groups;
 }
 
 export async function syncTips(): Promise<Tip[]> {
@@ -100,6 +121,7 @@ export async function syncEverything(userId: string): Promise<void> {
   await syncMe(userId);
   await Promise.all([
     syncCircle(),
+    syncGroups(),
     syncTips(),
     syncActiveQuake(),
     // Lo que anotó la tarea de fondo mientras nadie miraba. Casi siempre no hay

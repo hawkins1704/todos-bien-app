@@ -52,11 +52,11 @@ sistema, e incluso cerrada a mano por el usuario desde el multitarea.
    Con el radio y la magnitud que la persona elige. Único requisito: permiso de
    notificaciones, teléfono encendido y con internet.
 
-2. **«Avisá a tu círculo que estás bien con un toque.»**
+2. **«Avisá a tu red que estás bien con un toque.»**
 
 3. **«Vas a ver quién de tu gente ya respondió y quién todavía no.»**
 
-4. **«Podés escribirte con tu círculo dentro de la app.»**
+4. **«Podés escribirte con tu red dentro de la app.»**
 
 5. **«No te seguimos.»**
    La app toma tu ubicación **una vez** al configurarla, y después **solo** cuando hay un
@@ -65,14 +65,14 @@ sistema, e incluso cerrada a mano por el usuario desde el multitarea.
 
 6. **«Si no sabemos dónde estás, lo decimos.»**
    La app nunca muestra una ubicación vieja como si fuera de ahora. Muestra «sin ubicación».
-   Esto vale más que una garantía: un círculo que ve «sin ubicación» sabe que tiene que
+   Esto vale más que una garantía: una red que ve «sin ubicación» sabe que tiene que
    llamar.
 
 ---
 
 ## 4 · Lo que se puede prometer diciendo la letra chica
 
-> **«Tu círculo puede ver dónde estás después del sismo, sin que tengas que hacer nada.»**
+> **«Tu red puede ver dónde estás después del sismo, sin que tengas que hacer nada.»**
 
 Esto es lo que diferencia a la app, y funciona — está **probado en un dispositivo real**:
 con la app en segundo plano, se despertó sola y guardó la ubicación **1,2 segundos** después
@@ -103,8 +103,8 @@ despertarse sola, así que quien responde a la alerta se auto-repara.
 2. **No registra dónde estabas *durante* el sismo.** Registra dónde estás **unos minutos
    después**. Ver §6, porque esto suena peor de lo que es.
 
-3. **Sin internet no llega ningún aviso**, y tu círculo no ve tu reporte hasta que vuelva la
-   señal. Lo que sí funciona sin conexión: seguís viendo la última copia de tu círculo, y lo
+3. **Sin internet no llega ningún aviso**, y tu red no ve tu reporte hasta que vuelva la
+   señal. Lo que sí funciona sin conexión: seguís viendo la última copia de tu red, y lo
    que reportes queda guardado y se manda solo cuando hay red.
 
 4. **No garantiza que el aviso llegue.** Apple y Google entregan «con el mejor esfuerzo». Un
@@ -116,7 +116,7 @@ despertarse sola, así que quien responde a la alerta se auto-repara.
 
 6. **No reemplaza llamar a emergencias.** No contacta bomberos, policía ni ambulancias.
 
-7. **No comparte tu ubicación con nadie fuera de tu círculo**, ni la usa para publicidad.
+7. **No comparte tu ubicación con nadie fuera de tu red**, ni la usa para publicidad.
 
 ---
 
@@ -154,28 +154,93 @@ que pagar para que le avisen que tembló donde está. Vender eso sería vender e
 | | Gratis | Premium |
 |---|---|---|
 | **Alerta** — tembló cerca tuyo, o fuerte en tu país | ✅ | ✅ **igual** |
-| Captura automática de ubicación, círculo, chat, simulacros | ✅ | ✅ **igual** |
+| Captura automática de ubicación, red, chat, simulacros | ✅ | ✅ **igual** |
 | **«María no responde»** a los 20 minutos, **si ese sismo también te alcanzó a ti** | ✅ | ✅ **igual** |
 | **«María está bien»** cuando reporta, **si ese sismo también te alcanzó a ti** | ✅ | ✅ **igual** |
-| **«Tembló cerca de María»** cuando el sismo **no** te alcanzó a ti | ❌ | ✅ |
-| **Guardián** — «tembló cerca de María», al minuto 0, y su cierre «ya reportó» | ❌ | ✅ |
-| El aro de estado en el círculo de un contacto que está en un sismo vivo | ✅ | ✅ **igual** |
+| **Los dos avisos de arriba cuando el sismo NO te alcanzó a ti** — es todo Guardián | ❌ | ✅ |
+| El aro de estado en la red de un contacto que está en un sismo vivo | ✅ | ✅ **igual** |
 | **Noticias** de sismos en tu país | ✅ | ✅ |
 | **Noticias** de sismos en el resto del mundo | ❌ | ✅ |
 | Feed global de sismos | ❌ | ✅ |
 | **Planes de acción** | 1 | **hasta 5**, cada uno con su nombre |
+| **Grupos** — Casa, Familia, Trabajo, cada uno con su chat | 2 | **ilimitados** |
 | Simulacros | 3 | ilimitados |
 
+**Sobre los grupos, y esto hay que decirlo en la app y no solo acá.** Un grupo es **gente + un
+chat**: una sola cosa. Se comparte — todos los que están adentro ven el nombre y a los demás — y
+es de quien lo creó: solo él suma, saca y renombra; cualquiera puede irse.
+
+Tres cosas que la app dice en pantalla porque no se adivinan:
+
+- **Solo puedes sumar gente de tu propia red.** Es lo que impide que un tercero meta en tu grupo
+  a alguien que no conoces.
+- **Quien entra puede leer todo lo que se habló antes.** Es una decisión, no un descuido: para un
+  grupo chico de gente que se conoce, el historial compartido es lo esperable. Pero se avisa
+  justo al lado del botón de agregar, que es el momento en que se decide.
+- **El tope de 2 cuenta los grupos que CREAS**, no en cuántos estás. Los grupos donde te metieron
+  no ocupan cupo, o cualquiera podría dejarte sin poder armar los tuyos.
+
+**🔴 Y lo que un grupo NO hace, que es lo más importante de esta página.** Estar juntos en un
+grupo **no los conecta**. Si Renzo arma FAMILIA con su mamá, su hermana y su abuela, y la mamá
+solo está conectada con Renzo:
+
+| | La mamá |
+|---|---|
+| ve el grupo y los tres nombres | ✅ |
+| les escribe en el chat del grupo | ✅ |
+| ve el estado y la ubicación de las otras dos en un sismo | ❌ |
+
+Las conexiones **siguen siendo de a dos y no se contagian**. Un grupo es una presentación, no una
+conexión: te deja hablar con alguien, no ver dónde está. Para eso hay que agregarlo a la red, y la
+app lo ofrece ahí mismo con un toque — *«Ana no está en tu red · no vas a ver cómo está»*.
+
+Si esto se contara al revés —«arma un grupo y ve cómo está toda tu familia»— sería vender humo:
+alguien podría meterte en un grupo y darle tu ubicación a un desconocido sin que aceptes nada. La
+app no lo hace y la promesa no lo dice.
+
+> ⚠️ **Hasta el 2026-09-01 esto se llamaba «círculos» y era otra cosa**: etiquetas privadas que
+> solo veía quien las creaba. Se cambió porque convivían con las «conversaciones grupales» y eran
+> dos objetos que todo el mundo llamaba igual. **Si la landing o la ficha de la tienda todavía
+> dicen «círculo», están describiendo un producto que ya no existe.**
+
+**Y si se vence el Premium con siete grupos armados, los siete siguen ahí.** Lo único que no se
+puede es crear otro. Misma regla que los planes de acción, y por el mismo motivo: quitarle a
+alguien algo que ya organizó porque se le venció una suscripción es exactamente lo que este
+producto promete no hacer.
+
+**Sobre «eliminar un chat»: es de este teléfono, no del otro.** Se borran los mensajes de tu
+dispositivo y no vuelven nunca — ni al refrescar, ni cuando la conversación reaparezca. En el
+teléfono de la otra persona siguen ahí, porque el chat es de dos. Si te vuelve a escribir, la
+conversación aparece de nuevo con los mensajes nuevos y **solo** esos. La app lo dice con esas
+palabras antes de borrar nada.
+
+> **Lo que NO se puede hacer, y es a propósito: salir de un chat individual.** No es una función
+> que falte, está prohibida en la base. Sin fila de miembro dejarías de recibir los avisos de esa
+> persona **para siempre**, sin saberlo y sin forma de volver, en una app cuyo propósito es que
+> te enteres. Por eso «eliminar» borra tu copia y no te saca de la conversación. En un grupo sí
+> se puede salir, y ahí se dice lo que se pierde.
+
 **Sobre los planes, lo que se puede afirmar y lo que no:** si se vence el Premium, **los cinco
-planes siguen ahí y el círculo los sigue viendo**. Lo único que no se puede es agregar otro.
+planes siguen ahí y la red los sigue viendo**. Lo único que no se puede es agregar otro.
 Borrar o esconder información de seguridad de alguien porque se le venció una suscripción
 sería exactamente lo que este producto promete no hacer, y decirlo en la venta es un
 argumento, no una concesión.
 
-**El corte que hay que saber defender**, dicho con precisión (verificado en el código el
-2026-08-27, no deducido de la intención):
+> ⚠️ **La migración 0030 (2026-08-31) quitó «Tembló cerca de María».** Existía como aviso
+> propio, al minuto 0 y con distancia, y se retiró por dos razones: no se podía enunciar en
+> una frase —su valor dependía de una condición que el usuario no puede ver— y quedó
+> redundante desde que la noticia nacional llega a todos, esté la persona donde esté.
+>
+> **Guardián no desapareció: se redujo a lo único que ninguna noticia puede dar**, porque hace
+> falta saber quién es tu gente — enterarte de que reportaron, o de que no reportaron, aunque a
+> ti el sismo no te haya tocado. Y como ya no hay aviso de apertura que dé contexto, **cada uno
+> de esos avisos nombra el sismo** (magnitud y lugar): sin eso sería un sobresalto en vez de
+> una tranquilidad.
 
-> **Si el sismo te alcanzó a ti**, gratis tienes todo: tu alerta, tu círculo, «X no responde»
+**El corte que hay que saber defender**, dicho con precisión (verificado en el código el
+2026-08-31, no deducido de la intención):
+
+> **Si el sismo te alcanzó a ti**, gratis tienes todo: tu alerta, tu red, «X no responde»
 > a los 20 minutos, y el aviso cuando esa persona reporta que está bien.
 >
 > **Si el sismo NO te alcanzó**, gratis tienes que acordarte de abrir la app. Premium te
@@ -203,7 +268,7 @@ diáspora justo lo que no va a llegarle.
 
 **Lo que sí es gratis para el que está lejos**, y conviene decirlo porque suena a Premium y no
 lo es: al abrir la app, un contacto que está dentro de un sismo vivo aparece con **su aro de
-estado** en el círculo, sin pagar nada. El estado siempre se vio entrando a su ficha; cobrar
+estado** en la red, sin pagar nada. El estado siempre se vio entrando a su ficha; cobrar
 por el aro sería cobrar una comodidad visual de un dato que ya se regala. **Lo que se cobra es
 la interrupción**: que te avisen sin que se te ocurra mirar.
 
@@ -218,7 +283,7 @@ El detalle de por qué está cortado así vive en `MONETIZACION.md`.
 es entre **alerta** y **noticia**:
 
 - **Alerta:** «tembló cerca tuyo». Pone la app en modo emergencia, dispara la captura de
-  ubicación y activa el contador de tu círculo. Se dispara por cercanía o por magnitud
+  ubicación y activa el contador de tu red. Se dispara por cercanía o por magnitud
   nacional. **No tiene interruptor**, porque no es una preferencia: es la razón por la que la
   app existe.
 - **Noticia:** «hubo un sismo». Informativa, no activa nada, y **se puede apagar sin miedo**.

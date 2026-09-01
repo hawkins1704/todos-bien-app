@@ -63,9 +63,10 @@ export function NotificationRouter() {
           if (data.userId) router.push(`/contact/${data.userId}`);
           return;
 
-        // Guardián. Con un solo contacto en la zona se abre su ficha; con
-        // varios, `userId` viene nulo y el destino es el círculo, que es la
-        // pantalla que muestra quién respondió y quién no.
+        // Heredado: «tembló cerca de un contacto» dejó de emitirse en la
+        // migración 0030. Se conserva el destino porque un aviso viejo que
+        // siga en la bandeja tiene que llevar a algún lado al tocarlo, y con
+        // varios contactos `userId` venía nulo.
         case 'contact_in_quake_zone':
           router.push(data.userId ? `/contact/${data.userId}` : '/circle');
           return;

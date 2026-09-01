@@ -56,7 +56,7 @@ export function CircleGrid({
       <View style={[styles.empty, { borderColor: colors.border }]}>
         <MaterialIcons name="group-add" size={28} color={colors.textTertiary} />
         <Text variant="callout" tone="secondary" center>
-          Tu círculo está vacío
+          Tu red está vacía
         </Text>
         <Text variant="footnote" tone="tertiary" center>
           La app solo sirve si las personas que te importan también están acá.
@@ -128,7 +128,7 @@ export function CircleGrid({
           nada nuevo. */}
       {hidden > 0 ? (
         <Button
-          title={`Ver mi círculo completo (${members.length})`}
+          title={`Ver mi red completa (${members.length})`}
           variant="outline"
           onPress={() => router.push('/circle')}
         />

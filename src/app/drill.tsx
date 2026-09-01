@@ -141,7 +141,7 @@ export default function DrillScreen() {
             {sinSimulacros ? null : (
               <Card>
                 <Text variant="footnote" tone="secondary" weight="600">
-                  ¿AVISAMOS A TU CÍRCULO?
+                  ¿AVISAMOS A TU RED?
                 </Text>
 
                 <ModeOption
@@ -149,14 +149,14 @@ export default function DrillScreen() {
                   onPress={() => setMode('silent')}
                   icon="volume-off"
                   title="Modo silencioso"
-                  detail="Practicas tú solo. Nadie de tu círculo se entera ni recibe nada."
+                  detail="Practicas tú solo. Nadie de tu red se entera ni recibe nada."
                 />
 
                 <ModeOption
                   selected={mode === 'notify'}
                   onPress={() => setMode('notify')}
                   icon="campaign"
-                  title="Avisar a mi círculo"
+                  title="Avisar a mi red"
                   detail="Les llega un aviso que dice claramente que es un simulacro, nunca el texto de una alerta real."
                 />
               </Card>
@@ -223,7 +223,7 @@ export default function DrillScreen() {
 
             <Text variant="body" tone="secondary" center>
               Así se vería la alerta de verdad. Lo único que tienes que hacer es tocar tu estado:
-              tu círculo lo ve apenas abre la app.
+              tu red lo ve apenas abre la app.
             </Text>
 
             <Button title="Continuar" onPress={() => setStep('report')} size="lg" />
@@ -270,11 +270,11 @@ export default function DrillScreen() {
               Eso es todo
             </Text>
             <Text variant="body" tone="secondary" center>
-              Un toque y listo. Así se ve tu círculo cuando todos reportan.
+              Un toque y listo. Así se ve tu red cuando todos reportan.
             </Text>
 
             <Card>
-              <Text variant="headline">Tu círculo</Text>
+              <Text variant="headline">Tu red</Text>
               <View style={styles.circleBody}>
                 <CircleGrid members={accepted} activeQuakeId={null} showStatus />
               </View>

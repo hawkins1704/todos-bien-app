@@ -49,7 +49,7 @@ export function PreparednessChecklist({
     },
     {
       key: 'circle',
-      label: 'Tu círculo',
+      label: 'Tu red',
       detail:
         circleSize === 0
           ? 'Sin contactos todavía'
