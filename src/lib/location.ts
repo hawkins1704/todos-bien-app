@@ -69,26 +69,78 @@ export async function requestBackgroundPermission(): Promise<boolean> {
 }
 
 /**
- * Un único fix, con timeout.
+ * Por qué no hubo posición. Existe porque `null` no alcanzaba.
+ *
+ * 🔴 **El 2026-09-01 la tarea de fondo de un Android anotó `no-fix` y ahí murió
+ * la investigación**: no había forma de saber si el GPS tardó, si el sistema lo
+ * rechazó, o si la ubicación del teléfono estaba apagada. Son tres problemas
+ * distintos —uno se arregla esperando, otro es un permiso, el tercero lo tiene
+ * que tocar la persona— y los tres se veían iguales.
+ *
+ * Es el mismo patrón que apareció cuatro veces en esa sesión: el fallo no
+ * falla, se vuelve silencio. En el camino que sostiene la promesa central de la
+ * app, eso no se puede permitir.
+ */
+export type CaptureFailure =
+  | 'sin-permiso'
+  /** El permiso está concedido pero la ubicación del sistema está apagada. */
+  | 'servicios-apagados'
+  | 'tiempo-agotado'
+  /** El sistema rechazó la petición. `detail` trae lo que dijo. */
+  | 'error-del-sistema';
+
+export type CaptureResult =
+  | { fix: LocationFix; reason: null; detail?: undefined }
+  | { fix: null; reason: CaptureFailure; detail?: string };
+
+/**
+ * Un único fix, con timeout, **y con el motivo cuando no lo hay**.
  *
  * En background iOS da unos ~30 s de ejecución, así que se usa precisión
  * Balanced (≈100 m, suficiente para "en qué zona estaba") en vez de High, que
  * puede tardar demasiado y devolver nada. Si el fix nuevo no llega a tiempo se
  * cae a la última posición conocida del sistema, que es mejor que nada.
  */
-export async function captureLocationOnce(timeoutMs = 12_000): Promise<LocationFix | null> {
+export async function captureLocation(timeoutMs = 12_000): Promise<CaptureResult> {
   const foreground = await Location.getForegroundPermissionsAsync();
-  if (!foreground.granted) return null;
+  if (!foreground.granted) return { fix: null, reason: 'sin-permiso' };
 
-  const fresh = await withTimeout(
-    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-    timeoutMs,
-  );
+  // Tener el permiso y tener la ubicación encendida son cosas distintas, y en
+  // Android la segunda se apaga desde el panel rápido sin que la app se entere.
+  // Antes las dos terminaban en el mismo `null`.
+  if (!(await Location.hasServicesEnabledAsync())) {
+    return { fix: null, reason: 'servicios-apagados' };
+  }
 
-  if (fresh) return toFix(fresh);
+  let fresh: Location.LocationObject | null = null;
+  let fallo: string | undefined;
 
+  try {
+    fresh = await withTimeout(
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      timeoutMs,
+    );
+  } catch (caught) {
+    // Ya no se traga: que el sistema rechace es un diagnóstico, no un empate.
+    fallo = caught instanceof Error ? caught.message : String(caught);
+  }
+
+  if (fresh) return { fix: toFix(fresh), reason: null };
+
+  // La última conocida sirve igual: `toFix` guarda **la hora del fix**, no la de
+  // ahora, así que una posición vieja se muestra vieja y nadie la lee como
+  // reciente (ver 7c.6).
   const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 30 * 60 * 1000 });
-  return lastKnown ? toFix(lastKnown) : null;
+  if (lastKnown) return { fix: toFix(lastKnown), reason: null };
+
+  return fallo
+    ? { fix: null, reason: 'error-del-sistema', detail: fallo }
+    : { fix: null, reason: 'tiempo-agotado' };
+}
+
+/** Para quien solo quiere la posición y no tiene nada que hacer con el motivo. */
+export async function captureLocationOnce(timeoutMs = 12_000): Promise<LocationFix | null> {
+  return (await captureLocation(timeoutMs)).fix;
 }
 
 /**
@@ -107,7 +159,16 @@ export async function resolveCountryCode(
   point: { latitude: number; longitude: number },
   timeoutMs = 8_000,
 ): Promise<string | null> {
-  const places = await withTimeout(Location.reverseGeocodeAsync(point), timeoutMs);
+  // El `catch` va acá y no adentro de `withTimeout`: para el país, «tardó» y
+  // «falló» sí son lo mismo —se reintenta la próxima vez y listo—, pero eso es
+  // una decisión de este llamador, no del ayudante.
+  let places: Location.LocationGeocodedAddress[] | null = null;
+  try {
+    places = await withTimeout(Location.reverseGeocodeAsync(point), timeoutMs);
+  } catch {
+    return null;
+  }
+
   const iso = places?.[0]?.isoCountryCode;
 
   // `char_length(country_code) = 2` es un CHECK en la base (0001): un valor con
@@ -125,6 +186,13 @@ function toFix(position: Location.LocationObject): LocationFix {
   };
 }
 
+/**
+ * `null` si tardó de más. **Si la promesa falla, el error sale.**
+ *
+ * Antes tenía un `catch { return null }` y ahí se perdía la diferencia entre
+ * «tardó» y «el sistema dijo que no». Quien quiera tratarlas igual que lo
+ * escriba en su propio `try`, que es donde se lee.
+ */
 async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -134,8 +202,6 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null
         timer = setTimeout(() => resolve(null), ms);
       }),
     ]);
-  } catch {
-    return null;
   } finally {
     if (timer) clearTimeout(timer);
   }

@@ -108,6 +108,20 @@ export type CircleMember = {
    * recibió la alerta (migración 0025).
    */
   alertedQuakeIds: string[];
+  /**
+   * Si esta persona tiene **algún dispositivo donde recibir un aviso**
+   * (migración 0039, deuda 1.14).
+   *
+   * En `false` no le llega la alerta de sismo, y tampoco se dispara nunca
+   * «no responde» por ella: su entrega cierra como `no_token` y
+   * `notify_silent_contacts` solo mira las `sent`. O sea que el silencio de la
+   * app coincide con el silencio de quien más te preocuparía, y la única forma
+   * honesta de resolverlo es **decirlo antes**, no avisarlo durante un sismo.
+   *
+   * Ante la duda vale `true`: una advertencia sobre otra persona es demasiado
+   * seria para mostrarla por no tener el dato todavía.
+   */
+  receivesNotifications: boolean;
 };
 
 export type MyProfile = {

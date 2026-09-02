@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { formatAccuracy, timeAgo } from '@/lib/format';
-import { captureLocationOnce, getPermissionLevel } from '@/lib/location';
+import { captureLocation } from '@/lib/location';
 import { reportMyStatus } from '@/lib/sync';
 import { Spacing, type StatusKey } from '@/theme/tokens';
 import type { MyStatus } from '@/types/domain';
@@ -62,13 +62,15 @@ export function MyLocationCard({
   const update = async () => {
     setUpdating(true);
     try {
-      const fix = await captureLocationOnce();
+      const { fix, reason } = await captureLocation();
 
       if (!fix) {
-        // Un `null` tiene dos causas muy distintas y el consejo cambia según
-        // cuál sea, así que recién acá —y solo al fallar— se mira el permiso.
-        const level = await getPermissionLevel();
-        if (level === 'none') {
+        // Cada motivo tiene un dueño distinto y por eso un consejo distinto.
+        // Antes eran dos casos y faltaba el del medio: con la ubicación del
+        // sistema apagada se decía «acércate a una ventana», que es el peor
+        // consejo posible — mandar a caminar a quien solo tiene que tocar un
+        // interruptor.
+        if (reason === 'sin-permiso') {
           Alert.alert(
             'Necesitamos tu permiso de ubicación',
             'Sin él no podemos decirle a tu red dónde estás. Se activa desde Ajustes.',
@@ -76,6 +78,11 @@ export function MyLocationCard({
               { text: 'Ahora no', style: 'cancel' },
               { text: 'Ir a Ajustes', onPress: () => router.push('/settings') },
             ],
+          );
+        } else if (reason === 'servicios-apagados') {
+          Alert.alert(
+            'La ubicación del teléfono está apagada',
+            'El permiso lo tenemos, pero la ubicación del sistema está desactivada. Enciéndela desde los ajustes del teléfono y vuelve a intentar.',
           );
         } else {
           Alert.alert(

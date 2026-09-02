@@ -33,6 +33,24 @@ garantizado.
 >    and status = 'accepted';  -- tiene que dar 4
 > ```
 
+> 🟡 **Desde la 0039, los cuatro contactos demo salen marcados «No recibe notificaciones».**
+> Y es correcto: son perfiles sembrados, sin ningún dispositivo registrado, así que de verdad
+> no les llegaría un aviso. El distintivo hace su trabajo — pero cuatro de cuatro puede leerse
+> como que la app está rota.
+>
+> **Se decidió dejarlo así.** La alternativa era sembrarles un token falso, y eso es peor por
+> dos motivos: el primer sismo real de Lima intentaría enviarles, Expo devolvería
+> `DeviceNotRegistered` y el token se borraría solo —volviendo el distintivo—, y mientras tanto
+> la app le estaría mintiendo al revisor sobre un dato de seguridad. Lo que sí hay que hacer es
+> **contarlo en las notas del revisor** (§2), para que lo lea como una función y no como un
+> fallo. Comprobar cómo se ve el día del envío:
+>
+> ```sql
+> select p.display_name, exists (select 1 from public.push_tokens t where t.user_id = p.id) as recibe
+> from public.profiles p
+> where p.id = any (private.accepted_circle_of('00000000-0000-4000-a000-000000000001'));
+> ```
+
 | Campo | Valor |
 |---|---|
 | Correo | `todosbienapp@gmail.com` |
@@ -94,6 +112,21 @@ duplicar nada.
 
 Va en **App Review Information → Notes**. En inglés, que es lo que lee el equipo de revisión.
 
+> 🔴 **Reescritas el 2026-09-01, y no por gusto: mandaban al revisor a un sitio que ya no
+> existe.** Decían «Home tab → Simulacro», y desde la 0035 el simulacro se convoca desde
+> Ajustes → PRÁCTICA. Un revisor que sigue una instrucción y no encuentra el botón no
+> concluye que la nota está vieja: concluye que la app está rota, y eso es exactamente el
+> rechazo *«we were unable to review»* — sobre la **única** forma de evaluar la función
+> principal sin esperar un terremoto.
+>
+> Tampoco decían **cómo salir** del modo simulacro, que ahora es un modo y no una pantalla:
+> el revisor se habría quedado con una franja amarilla encima de toda la app sin saber qué
+> hacer con ella.
+>
+> Y la palabra «círculo» ya no existe en el producto (0034). **Cada vez que cambie un
+> recorrido de la app hay que releer este bloque**: es el único texto del proyecto donde una
+> instrucción desactualizada cuesta un rechazo en vez de una molestia.
+
 ```
 WHAT THIS APP IS
 Todos Bien is a post-earthquake family coordination app. It is NOT an early warning system:
@@ -102,20 +135,39 @@ Peru (IGP) or the USGS publishes the event. The app lets people tell their famil
 safe, see who has responded, and share their location with the contacts they accepted.
 
 HOW TO REVIEW THE MAIN FEATURE WITHOUT WAITING FOR AN EARTHQUAKE
-Real alerts depend on a real seismic event, so the app includes a guided DRILL that walks
-through the exact same flow. Please use it:
-  Home tab -> "Simulacro" (Drill) -> start.
-The drill shows the alert banner, the status buttons and the circle screen exactly as a real
-alert does. It is clearly labeled as a drill and never notifies other users unless the tester
-explicitly chooses that option.
+Real alerts depend on a real seismic event, so the app includes a guided DRILL that puts the
+app into the exact state a real earthquake produces. Please use it:
+
+  1. Settings tab (Ajustes) -> section "PRÁCTICA" -> "Hacer un simulacro"
+  2. Choose "Solo yo" (Just me) -> "Empezar simulacro"
+  3. The app returns to the Home tab, now in alert mode, and a 5-step guided tour
+     highlights each control in turn.
+
+This is not a mock screen: the real Home, the real status picker, the real network grid and
+the real location card are all live. A yellow "SIMULACRO" strip stays at the top of EVERY
+screen so the drill can never be mistaken for a real alert.
+
+  TO EXIT: Settings tab -> "PRÁCTICA" -> "Salir del modo simulacro".
+  That is the only exit, and the yellow strip says so. The drill also expires on its own
+  after 60 minutes, and a real earthquake would end it immediately.
+
+Nothing is sent to anyone: a solo drill is private. (Choosing a group instead would invite
+that group's members, which is why the option names them explicitly.)
 
 DEMO ACCOUNT
 Email: todosbienapp@gmail.com
 Password: [ver el gestor de contraseñas]
-The account already has an accepted circle of 4 contacts, an action plan and a chat thread,
+The account already has an accepted network of 4 contacts, an action plan and a chat thread,
 so every screen has content.
 
-WHY THE CIRCLE LOOKS QUIET
+WHY SOME CONTACTS SHOW "No recibe notificaciones"
+That label means the app has no registered device for that contact, so a real earthquake
+alert would not reach them. It is a working safety feature, not an error: we surface it on a
+calm day, when the user can still do something about it, precisely because during an
+earthquake we could not tell the difference between "they are silent" and "they never got
+asked". The four demo contacts are seeded profiles with no devices, so all four show it.
+
+WHY THE NETWORK LOOKS QUIET
 Outside of an active earthquake the app deliberately does NOT display anyone's status or
 location. This is a privacy decision, not missing data: we only store where someone was
 during an earthquake, so showing a position on a calm day would turn the app into a location
@@ -125,8 +177,8 @@ the status ring and the location card exactly as a real alert shows them.
 REPORTING AND BLOCKING (guideline 1.2)
 Users can report objectionable content and block other users:
   - Report a message: long-press any message from the other person in a chat -> "Denunciar".
-  - Report a person: Circle -> tap the contact -> "Denunciar a esta persona".
-  - Block: Circle -> tap the contact -> "Bloquear a esta persona", or right after sending a
+  - Report a person: "Mi red" tab -> tap the contact -> "Denunciar a esta persona".
+  - Block: "Mi red" tab -> tap the contact -> "Bloquear a esta persona", or right after sending a
     report. A blocked user cannot message you (not even in an existing conversation), cannot
     send you connection requests, and cannot see your status or location. Blocking can be
     undone from Settings -> "Personas bloqueadas"; the blocked user cannot undo it.

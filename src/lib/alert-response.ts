@@ -1,7 +1,13 @@
 import { updateMySettings } from '@/lib/api';
 import { ALERT_WRITE_JITTER_MS } from '@/lib/config';
 import { KV, kvGet, kvSet } from '@/lib/db/kv';
-import { captureLocationOnce, getPermissionLevel, resolveCountryCode } from '@/lib/location';
+import {
+  captureLocation,
+  captureLocationOnce,
+  getPermissionLevel,
+  resolveCountryCode,
+  type CaptureFailure,
+} from '@/lib/location';
 import { reportMyStatus, syncMe } from '@/lib/sync';
 import type { MySettings, MyStatus, QuakeEvent } from '@/types/domain';
 
@@ -165,16 +171,33 @@ export async function syncLocationPermission(userId: string): Promise<boolean> {
  * "X/Y confirmados" exige `status <> 'unconfirmed'`, así que la persona sigue
  * figurando como no confirmada, pero su círculo ya puede ver dónde estaba.
  */
+/**
+ * Qué pasó con la captura automática.
+ *
+ * Devolver un booleano bastaba mientras nadie preguntara *por qué* no. La
+ * corrida del 2026-09-01 preguntó: la tarea de fondo de un Android anotó
+ * `no-fix` y no había con qué seguir. Los `false` de acá son cinco situaciones
+ * distintas y solo dos son problemas.
+ */
+export type CaptureOutcome =
+  | { captured: true; why?: undefined; detail?: undefined }
+  | {
+      captured: false;
+      /** Las dos primeras son normales: ya había una captura en curso, o ya reportaste. */
+      why: 'ya-estaba-capturando' | 'ya-reportado' | 'sin-permiso' | CaptureFailure;
+      detail?: string;
+    };
+
 export async function captureLocationForActiveAlert(
   quake: QuakeEvent,
   { jitter = true }: { jitter?: boolean } = {},
-): Promise<boolean> {
-  if (capturing) return false;
+): Promise<CaptureOutcome> {
+  if (capturing) return { captured: false, why: 'ya-estaba-capturando' };
 
   const before = await kvGet<MyStatus>(KV.myStatus);
-  if (before?.quakeEventId === quake.id) return false;
+  if (before?.quakeEventId === quake.id) return { captured: false, why: 'ya-reportado' };
 
-  if ((await getPermissionLevel()) === 'none') return false;
+  if ((await getPermissionLevel()) === 'none') return { captured: false, why: 'sin-permiso' };
 
   capturing = true;
   try {
@@ -189,8 +212,8 @@ export async function captureLocationForActiveAlert(
     // la aplica el servidor al repartir los envíos con `send_after`.
     if (jitter) await sleep(Math.random() * ALERT_WRITE_JITTER_MS);
 
-    const fix = await captureLocationOnce();
-    if (!fix) return false;
+    const { fix, reason, detail } = await captureLocation();
+    if (!fix) return { captured: false, why: reason, detail };
 
     // Último chequeo justo antes de escribir. Entre el jitter y el fix del GPS
     // pueden pasar más de 20 s, y en ese rato la persona pudo tocar "estoy
@@ -198,7 +221,7 @@ export async function captureLocationForActiveAlert(
     // borra el estado anterior del outbox, así que el reporte manual se
     // perdería antes de subir.
     const latest = await kvGet<MyStatus>(KV.myStatus);
-    if (latest?.quakeEventId === quake.id) return false;
+    if (latest?.quakeEventId === quake.id) return { captured: false, why: 'ya-reportado' };
 
     await reportMyStatus({
       status: 'unconfirmed',
@@ -207,7 +230,7 @@ export async function captureLocationForActiveAlert(
       isDrill: false,
     });
 
-    return true;
+    return { captured: true };
   } finally {
     capturing = false;
   }

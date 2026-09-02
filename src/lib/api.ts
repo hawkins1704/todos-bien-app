@@ -46,6 +46,9 @@ export async function fetchCircle(): Promise<CircleMember[]> {
     reportedAt: row.reported_at,
     statusUpdatedAt: row.status_updated_at,
     alertedQuakeIds: parseQuakeIds(row.alerted_quake_ids),
+    // `?? true` para las builds que hablen con un servidor sin la 0039: ante la
+    // duda no se advierte nada sobre nadie.
+    receivesNotifications: row.receives_notifications ?? true,
   }));
 }
 

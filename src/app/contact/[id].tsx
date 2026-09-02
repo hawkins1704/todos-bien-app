@@ -43,7 +43,7 @@ export default function ContactDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, status: statusColors } = useTheme();
   const { activeQuake, groups, refresh, lastCircleSync } = useAppData();
 
   /** Solo los grupos que creaste: son los únicos donde puedes tocar la lista. */
@@ -273,6 +273,43 @@ export default function ContactDetailScreen() {
             </Text>
           ) : null}
         </View>
+
+        {/* El aviso va ARRIBA de todo lo demás, y es un estado permanente y no
+            una notificación (deuda 1.14, migración 0039).
+
+            Si esta persona no tiene ningún dispositivo registrado, no le llega
+            la alerta de sismo — y tampoco se dispara nunca «no responde» por
+            ella, porque su entrega cierra como `no_token` y el aviso de silencio
+            solo mira las enviadas. O sea que **el silencio de la app coincide
+            con el silencio de quien más te preocuparía**, y durante el sismo no
+            hay nada que se pueda decir sin mentir: no está callada, está
+            incomunicada.
+
+            Por eso se dice acá y ahora, un martes cualquiera, que es cuando
+            todavía se puede hacer algo: escribirle. */}
+        {!member.receivesNotifications ? (
+          <Card>
+            <View style={styles.aviso}>
+              <MaterialIcons name="notifications-off" size={18} color={statusColors.helping.strong} />
+              <View style={styles.flex}>
+                <Text variant="callout" weight="600">
+                  No recibe notificaciones
+                </Text>
+                {/* Habla del EFECTO y no de la causa: el servidor sabe que no
+                    hay a dónde mandar, pero no sabe por qué —permiso denegado,
+                    teléfono nuevo, o una reinstalación sin abrir la app—.
+                    Adivinar haría que la mitad de los consejos fueran malos. */}
+                <Text variant="footnote" tone="secondary" style={styles.gapTop}>
+                  Las notificaciones de Todos Bien no están llegando a su teléfono, así que{' '}
+                  <Text variant="footnote" weight="600">
+                    no va a recibir el aviso de un sismo
+                  </Text>
+                  . Escríbele y pídele que abra la app.
+                </Text>
+              </View>
+            </View>
+          </Card>
+        ) : null}
 
         {statusVisible !== null && member.statusMessage ? (
           <Card>
@@ -561,6 +598,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
   flex: { flex: 1 },
+  aviso: { flexDirection: 'row', gap: Spacing.sm },
   copyButton: {
     alignItems: 'center',
     borderRadius: 16,

@@ -63,9 +63,17 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(
       // buena parte. La dispersión que busca la spec §6 ya la aplica el
       // servidor, que reparte los envíos con `send_after` en una ventana de 30
       // segundos, así que los dispositivos ni siquiera despiertan a la vez.
-      const captured = await captureLocationForActiveAlert(quake, { jitter: false });
+      const { captured, why, detail } = await captureLocationForActiveAlert(quake, {
+        jitter: false,
+      });
 
-      await traceBackground(captured ? 'captured' : 'no-fix');
+      // El motivo va en la migaja. Sin él, `no-fix` era el final de toda
+      // investigación: no se distinguía «el GPS tardó» de «la ubicación del
+      // teléfono está apagada», y son problemas de dueños distintos.
+      await traceBackground(
+        captured ? 'captured' : 'no-fix',
+        captured ? undefined : [why, detail].filter(Boolean).join(' · '),
+      );
 
       return captured
         ? Notifications.BackgroundNotificationTaskResult.NewData

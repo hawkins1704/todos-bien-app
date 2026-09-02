@@ -659,9 +659,25 @@ function MemberRow({
       />
 
       <View style={styles.rowCopy}>
-        <Text variant="callout" weight="500" numberOfLines={1}>
-          {member.displayName}
-        </Text>
+        <View style={styles.nombreLinea}>
+          <Text variant="callout" weight="500" numberOfLines={1} style={styles.flex}>
+            {member.displayName}
+          </Text>
+
+          {/* El distintivo de «no le llega nada» (deuda 1.14, migración 0039).
+              Va pegado al nombre y no en la línea de abajo porque no es una
+              novedad de hoy: es una condición de la persona, y compite con el
+              estado por el mismo renglón. El detalle, con qué hacer al
+              respecto, está en su ficha. */}
+          {!member.receivesNotifications ? (
+            <MaterialIcons
+              name="notifications-off"
+              size={16}
+              color={colors.textTertiary}
+              accessibilityLabel="No recibe notificaciones"
+            />
+          ) : null}
+        </View>
 
         {status !== null ? (
           <View style={styles.statusLine}>
@@ -692,6 +708,7 @@ function MemberRow({
 
 const styles = StyleSheet.create({
   content: { gap: Spacing.lg, paddingHorizontal: Spacing.lg },
+  nombreLinea: { alignItems: 'center', flexDirection: 'row', gap: Spacing.xs },
   header: { alignItems: 'center', flexDirection: 'row' },
   flex: { flex: 1 },
   sectionHeader: {

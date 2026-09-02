@@ -294,7 +294,8 @@ order by le_llega desc;
 > lo que hay que recordar es la forma — un `pg_temp` que deja a B sin reportar y lo hace reportar,
 > se corre una vez por caso cambiando un solo ajuste, y `rollback` al final.
 | 7b.12 | `select private.fan_out_quake('<id>')` dos veces sobre el mismo sismo | No se duplica: `alert_deliveries_unique` y `dedupe_key` |
-| 7b.13 | Un contacto de A **sin ningún dispositivo registrado**, callado tras la alerta | ⚠️ **Falla a propósito y ya está anotado**: su entrega cierra como `no_token`, y `notify_silent_contacts` solo mira las `sent`. Nunca se dispara «no responde» por esa persona. Es la deuda **1.14** de `QUE-FALTA.md`; no perder tiempo diagnosticándolo acá |
+| 7b.13 | Un contacto de A **sin ningún dispositivo registrado**, callado tras la alerta | ⚠️ **Sigue sin llegar «no responde», y es lo correcto**: su entrega cierra como `no_token` y esa persona nunca recibió la alerta, así que no está callada sino incomunicada. Lo que sí tiene que pasar (migración 0039) es que **se vea antes**: en su ficha, «No recibe notificaciones», y un ícono de campana tachada junto a su nombre en la pestaña Red |
+| 7b.14 | Instalar la app en un teléfono nuevo con esa misma cuenta y volver a mirar | El distintivo **desaparece solo** en el refresco siguiente: ya hay dónde recibir. Es la comprobación de que el dato es vivo y no una marca pegada |
 
 ---
 

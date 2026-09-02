@@ -30,6 +30,8 @@ type CircleRow = {
   status_updated_at: string | null;
   /** JSON de `string[]`. NULL en filas escritas antes de la v3 del esquema. */
   alerted_quake_ids: string | null;
+  /** 1 = tiene dónde recibir un aviso. Nace en 1 (v6 del esquema). */
+  receives_notifications: number;
 };
 
 function toMember(row: CircleRow): CircleMember {
@@ -54,6 +56,9 @@ function toMember(row: CircleRow): CircleMember {
     reportedAt: row.reported_at,
     statusUpdatedAt: row.status_updated_at,
     alertedQuakeIds: parseQuakeIds(row.alerted_quake_ids),
+    // `!== 0` y no `=== 1`: en una fila escrita antes de la v6 la columna llega
+    // como NULL, y eso significa «no sabemos», que se trata como que sí recibe.
+    receivesNotifications: row.receives_notifications !== 0,
   };
 }
 
@@ -86,8 +91,9 @@ export async function writeCircle(members: CircleMember[]): Promise<void> {
            action_plan_updated_at, action_plans, connection_status, requested_by,
            connection_created_at, status, status_message, latitude, longitude,
            location_accuracy_m, location_at, quake_event_id, is_drill,
-           reported_at, status_updated_at, alerted_quake_ids
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           reported_at, status_updated_at, alerted_quake_ids,
+           receives_notifications
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         m.userId,
         m.connectionId,
         m.displayName,
@@ -108,6 +114,7 @@ export async function writeCircle(members: CircleMember[]): Promise<void> {
         m.reportedAt,
         m.statusUpdatedAt,
         JSON.stringify(m.alertedQuakeIds ?? []),
+        m.receivesNotifications ? 1 : 0,
       );
     }
   });

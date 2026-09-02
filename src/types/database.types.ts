@@ -514,12 +514,20 @@ export type Database = {
           location_at: string | null;
           longitude: number | null;
           quake_event_id: string | null;
+          receives_notifications: boolean | null;
           reported_at: string | null;
           requested_by: string;
           responded_at: string | null;
           status: string | null;
           status_message: string | null;
           status_updated_at: string | null;
+          user_id: string;
+        }[];
+      };
+      get_circle_push_reach: {
+        Args: Record<never, never>;
+        Returns: {
+          reachable: boolean | null;
           user_id: string;
         }[];
       };

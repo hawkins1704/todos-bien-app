@@ -130,7 +130,11 @@ export default function HomeScreen() {
 
     let cancelled = false;
     void captureLocationForActiveAlert(activeQuake)
-      .then((captured) => {
+      // Desestructurado y no `if (resultado)`: ahora devuelve un objeto con el
+      // motivo, y un objeto siempre es verdadero. El compilador no lo marca
+      // —una condición puede ser cualquier cosa— así que el único aviso es
+      // acordarse.
+      .then(({ captured }) => {
         if (captured && !cancelled) void reloadLocal();
       })
       // `captureLocationForActiveAlert` tiene su propio `try/finally` sin

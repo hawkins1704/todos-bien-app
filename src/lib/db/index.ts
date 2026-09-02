@@ -10,7 +10,7 @@ import * as SQLite from 'expo-sqlite';
  */
 
 const DATABASE_NAME = 'todosbien.db';
-const DATABASE_VERSION = 5;
+const DATABASE_VERSION = 6;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -168,6 +168,18 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   // la lista no sabría cuál de las dos está pintando.
   if (current < 5) {
     await db.execAsync(`ALTER TABLE conversations_cache ADD COLUMN group_id TEXT;`);
+  }
+
+  // v6 · Quién de tu red no tiene dónde recibir un aviso (migración 0039).
+  //
+  // Nace en 1 —«sí recibe»— y no en 0: mientras no llegue el primer refresco no
+  // sabemos nada, y una advertencia sobre un contacto es demasiado seria para
+  // mostrarla por no tener el dato todavía. Es la misma regla del `coalesce`
+  // del servidor: ante la duda, no se avisa.
+  if (current < 6) {
+    await db.execAsync(
+      `ALTER TABLE circle ADD COLUMN receives_notifications INTEGER NOT NULL DEFAULT 1;`,
+    );
   }
 
   if (current !== DATABASE_VERSION) {
