@@ -46,6 +46,13 @@ const NOTIFICATION_LABELS: { key: keyof NotificationPrefs; title: string; detail
     title: 'Solicitudes aceptadas',
     detail: 'Alguien aceptó tu solicitud de conexión.',
   },
+  // Al lado de las dos de arriba y no junto a «Mensajes»: las tres avisan de un
+  // cambio en tu red hecho por otra persona (migración 0040).
+  {
+    key: 'groupAdded',
+    title: 'Te sumaron a un grupo',
+    detail: 'Alguien de tu red te agregó a uno de sus grupos.',
+  },
   {
     key: 'contactNotResponding',
     title: 'Contacto sin responder',

@@ -97,15 +97,48 @@ returning id;
 > update public.notification_preferences
 >    set contact_needs_help = false, contact_not_responding = false, contact_message = false,
 >        guardian_alerts = false, quake_national = false, quake_worldwide = false,
->        contact_reported = false, drill_invites = false
+>        contact_reported = false, drill_invites = false, group_added = false
 >  where user_id in ('<ajeno-1>', '<ajeno-2>');
 > ```
 >
 > Y una trampa de segundo orden: si durante la sesión se aplica una migración que **agrega una
 > columna de preferencia**, esa nace en `true` y abre un agujero nuevo en un blindaje que ya
-> creías puesto. Pasó con `contact_reported` (0027) y volvió a pasar con `drill_invites`
-> (0035) — que además de un push mete a la persona en un simulacro ajeno. **Dos veces es un
-> patrón: al agregar una preferencia, actualizar este bloque en la misma sesión.**
+> creías puesto. Pasó con `contact_reported` (0027), volvió a pasar con `drill_invites`
+> (0035) —que además de un push mete a la persona en un simulacro ajeno— y otra vez con
+> `group_added` (0040). **Tres veces es una regla: al agregar una preferencia, actualizar este
+> bloque en la misma migración.**
+
+> 🔴 **Una prueba en SQL no se revierte sola. Aprendido el 2026-09-02, en esta misma tanda.**
+>
+> El patrón de la sesión anterior —«una transacción revertida que dispara el trigger de verdad»—
+> funciona **solo si la reversión está escrita**. Un `do $$ … raise exception $$` revierte,
+> porque la excepción aborta el bloque entero. Un `create function pg_temp.…` seguido de un
+> `select` **no**: son dos sentencias que la herramienta autocommitea, y todo lo que la función
+> escribió queda.
+>
+> Pasó exactamente eso al probar la 0040, y dejó cuatro rastros. El grave no fue ninguno de los
+> obvios: **dos filas en `notification_deliveries` en estado `pending`**, que `send-notifications`
+> iba a intentar mandar de verdad en los cinco minutos siguientes. Una prueba que se escapa por
+> el mismo caño que la app es la peor clase de prueba.
+>
+> Y una trampa dentro de la limpieza: **borrar la fila de `group_members` del dueño lo saca de
+> su propio chat**, porque el disparador `group_members_sync_chat` de la 0034 borra la fila
+> espejo. El dueño está en `conversation_members` pero **no** en `group_members` —así lo dejó la
+> 0034— así que hay que reponerla a mano después de limpiar.
+>
+> **La forma que sí revierte:**
+>
+> ```sql
+> do $$
+> begin
+>   -- …insertar, medir, guardar los resultados en una tabla temporal…
+>   raise exception 'ROLLBACK A PROPOSITO';
+> end $$;
+> ```
+>
+> Para poder **leer** los resultados: acumularlos en `create temp table` dentro del bloque no
+> sirve —se va con el rollback—, así que o se leen del mensaje de la excepción, o se corre la
+> prueba sabiendo que hay que limpiar y **se escribe la limpieza antes de correrla**.
 
 **Verificar a quién le llegó, antes de mirar el teléfono:**
 
@@ -499,13 +532,16 @@ verificar es justamente que el otro lado vea lo mismo.
 | 9d.4 | Crear otro con el mismo nombre | Lo rechaza. ⚠️ iOS capitaliza sola la primera letra: para probarlo de verdad hay que borrar la mayúscula a mano |
 | 9d.5 | Cuenta **gratis**, crear un **tercero** | El botón «Nuevo grupo» sigue a la vista y abre el **paywall**. Si la compra sale bien, el formulario se abre solo |
 | 9d.6 | Detalle → «AGREGAR DE TU RED», tocar a alguien | Pasa arriba en el acto, con reloj de carga y sin botón de guardar |
+| 9d.6.bis | 🔴 **En el teléfono del sumado**, sin tocar nada | Llega el aviso **«\<Dueño\> te sumó a un grupo · Ahora estás en «Casa». Ábrelo para ver quiénes están.»** (migración 0040). Antes entrabas sin enterarte: el grupo y su chat aparecían al siguiente refresco y punto |
+| 9d.6.ter | Tocar ese aviso | Abre el **detalle del grupo**, no Chats. Es donde se responde la pregunta que deja el aviso: en qué te metieron y quiénes están — con el aviso de quién no está en tu red y su botón de agregar |
+| 9d.6.quater | Apagar Ajustes → NOTIFICACIONES → **«Te sumaron a un grupo»** y que el dueño vuelva a sumarte | **No llega el push.** Pero el grupo aparece igual: esta preferencia apaga el aviso y nada más — al revés que «Simulacros de mis grupos» (9f.26), que además te saca de la lista de participantes |
 | 9d.7 | 🔴 **Desde el otro teléfono**, Mi red → Mis grupos | **El grupo APARECE**, con su nombre y la lista completa. Dice «lo creó otra persona». Es lo contrario de lo que pasaba con los círculos, y es el corazón de la 0034 |
 | 9d.8 | Desde el otro teléfono, abrir ese grupo | 🔴 **No hay lápiz en el nombre, no hay ⊖ en nadie, no hay «AGREGAR DE TU RED»**. Abajo dice «Salir del grupo», no «Borrar». Si aparece cualquier cosa de esas, la RLS de la 0034 está mal |
 | 9d.9 | Chats → Grupales, en los dos teléfonos | 🔴 **El chat del grupo ya existe en los dos**, con el nombre del grupo. Nadie tuvo que crearlo |
 | 9d.10 | Escribir en ese chat desde el otro teléfono | Llega el mensaje y el aviso |
 | 9d.11 | El dueño renombra el grupo | 🔴 **Desde el otro teléfono cambian el nombre del grupo Y el del chat.** Son el mismo nombre |
 | 9d.12 | El dueño saca a alguien (⊖) | 🔴 **En el teléfono del sacado, el grupo desaparece de Mi red, el chat desaparece de Chats, y sus mensajes se borran del teléfono** |
-| 9d.13 | El sacado vuelve a ser sumado | Vuelve a ver el grupo y el chat, **con todo el historial** — incluido lo que se habló mientras no estaba. Es la decisión documentada en QUE-PROMETE §7, y la pantalla lo avisa antes de sumar |
+| 9d.13 | El sacado vuelve a ser sumado | Vuelve a ver el grupo y el chat, **con todo el historial** — incluido lo que se habló mientras no estaba. Es la decisión documentada en QUE-PROMETE §7, y la pantalla lo avisa antes de sumar. 🔴 **Y el aviso de 9d.6.bis llega OTRA VEZ**: por eso la 0040 no le puso `dedupe_key`, que lo habría silenciado para siempre después del primero |
 | 9d.14 | Un integrante toca «Salir del grupo» | Sale de la lista para todos. El dueño lo ve al refrescar |
 | 9d.15 | El dueño toca «Borrar grupo» | 🔴 **Desaparece para todos, con su chat y sus mensajes.** El diálogo lo dice antes. Nadie sale de la red de nadie |
 | 9d.16 | Volver la cuenta a **gratis** teniendo 5 grupos | 🔴 **Los 5 siguen ahí.** Solo el botón de crear abre el paywall |

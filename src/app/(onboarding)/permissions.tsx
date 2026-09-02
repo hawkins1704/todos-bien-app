@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OnboardingStep } from '@/components/onboarding-step';
@@ -37,6 +37,24 @@ export default function OnboardingPermissionsScreen() {
     void getNotificationPermission().then(setNotificationsGranted);
   }, []);
 
+  /**
+   * Lo único que responde a estos dos botones es que la tarjeta cambie de
+   * estado. Si el intento lanza, la tarjeta se queda igual y el toque parece no
+   * haber hecho nada — y el permiso puede haberse concedido de verdad, con solo
+   * el paso siguiente fallando. Por eso los dos `catch` releen el estado real
+   * antes de hablar: la pantalla no puede quedar diciendo algo distinto de lo
+   * que el sistema opina.
+   */
+  const avisarFalloDePermiso = async (releer: () => Promise<void>) => {
+    // Si ni siquiera se puede releer, se deja el valor que ya estaba: un dato
+    // viejo es mejor que uno inventado.
+    await releer().catch(() => {});
+    Alert.alert(
+      'No pudimos completar el permiso',
+      'Inténtalo otra vez. Si el sistema ya no vuelve a preguntar, actívalo desde los Ajustes del teléfono.',
+    );
+  };
+
   const askLocation = async () => {
     setBusy('location');
     try {
@@ -60,6 +78,10 @@ export default function OnboardingPermissionsScreen() {
       // quien abandona el onboarding más adelante. Sin await: no debe demorar
       // la pantalla.
       void ensureInitialLocation();
+    } catch {
+      // `updateMySettings` necesita red, así que un permiso concedido con mala
+      // señal entraba acá y dejaba la tarjeta en "Sin conceder" para siempre.
+      await avisarFalloDePermiso(async () => setLocationLevel(await getPermissionLevel()));
     } finally {
       setBusy(null);
     }
@@ -69,6 +91,10 @@ export default function OnboardingPermissionsScreen() {
     setBusy('notifications');
     try {
       setNotificationsGranted(await requestNotificationPermission());
+    } catch {
+      await avisarFalloDePermiso(async () =>
+        setNotificationsGranted(await getNotificationPermission()),
+      );
     } finally {
       setBusy(null);
     }

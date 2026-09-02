@@ -157,7 +157,15 @@ export default function ChatScreen() {
     // Y el reloj se apaga en cuanto el servidor la acepta, sin depender de que
     // el eco de Realtime llegue. Si no hay red, `flushOutbox` vuelve sin
     // haberla subido y el reloj se queda puesto — que es la verdad.
-    await flushOutbox();
+    try {
+      await flushOutbox();
+    } catch {
+      // Que la subida falle no cambia lo que hay que pintar: la burbuja ya está
+      // en la caché con su reloj de pendiente, que es la verdad. Sin este
+      // `catch` el `setMessages` de abajo no corría, así que un fallo al vaciar
+      // la cola dejaba el mensaje recién escrito **sin aparecer en pantalla**
+      // hasta el refresco siguiente.
+    }
     setMessages(await readCachedMessages(conversationId));
   };
 

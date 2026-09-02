@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "bundleIdentifier": "com.renzoarroyo.todos-bien",
       "appleTeamId": "3S8A8U48YR",
       "infoPlist": {

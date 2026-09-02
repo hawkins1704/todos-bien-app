@@ -270,7 +270,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   // Al recuperar conectividad se vacía el outbox solo, sin acción del usuario.
   useEffect(() => {
     if (online && !wasOnline.current && userId) {
-      void flushOutbox().then(() => refresh());
+      // El `catch` va antes del `refresh` y no envuelve a los dos: si vaciar la
+      // cola falla, la pantalla igual tiene que releer. La cola se reintenta
+      // sola en la próxima reconexión, así que no hay nada que decirle a nadie.
+      void flushOutbox()
+        .catch(() => undefined)
+        .then(() => refresh());
     }
     wasOnline.current = online;
   }, [online, userId, refresh]);

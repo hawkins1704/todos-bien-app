@@ -863,6 +863,19 @@ export type NotificationPrefs = {
    * preferencia a medias, que es peor que no tenerla.
    */
   drillInvites: boolean;
+  /**
+   * Que alguien de tu red te sume a uno de sus grupos (migración 0040).
+   *
+   * **Columna propia y no colgada de `contactMessage`**, que era la idea anotada
+   * en la deuda 1.15. Ese interruptor se llama «Mensajes · Un contacto te
+   * escribió por chat»: quien lo apaga quiere silenciar el chat, no dejar de
+   * enterarse de en qué grupos está. Compartirlos haría que el interruptor
+   * mienta, que es la clase de fallo que arregló la 0036.
+   *
+   * El vecino correcto es `connectionAccepted`: los dos avisan de un cambio en
+   * tu grafo social hecho por otra persona.
+   */
+  groupAdded: boolean;
 };
 
 export async function fetchNotificationPrefs(userId: string): Promise<NotificationPrefs | null> {
@@ -886,6 +899,7 @@ export async function fetchNotificationPrefs(userId: string): Promise<Notificati
     guardianAlerts: data.guardian_alerts,
     contactReported: data.contact_reported,
     drillInvites: data.drill_invites,
+    groupAdded: data.group_added,
   };
 }
 
@@ -907,6 +921,7 @@ export async function updateNotificationPrefs(
   if (patch.guardianAlerts !== undefined) payload.guardian_alerts = patch.guardianAlerts;
   if (patch.contactReported !== undefined) payload.contact_reported = patch.contactReported;
   if (patch.drillInvites !== undefined) payload.drill_invites = patch.drillInvites;
+  if (patch.groupAdded !== undefined) payload.group_added = patch.groupAdded;
 
   // Upsert y no update: un `update` sobre una fila que no existe afecta cero
   // filas y **no devuelve error**, así que el interruptor se veía cambiado en

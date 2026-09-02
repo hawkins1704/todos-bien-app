@@ -46,7 +46,13 @@ export function NotificationRouter() {
       atendidos.current.add(id);
 
       const data = response.notification.request.content.data as
-        | { type?: string; userId?: string; conversationId?: string; quakeEventId?: string }
+        | {
+            type?: string;
+            userId?: string;
+            conversationId?: string;
+            quakeEventId?: string;
+            groupId?: string;
+          }
         | undefined;
 
       switch (data?.type) {
@@ -69,6 +75,14 @@ export function NotificationRouter() {
         // varios contactos `userId` venía nulo.
         case 'contact_in_quake_zone':
           router.push(data.userId ? `/contact/${data.userId}` : '/circle');
+          return;
+
+        // Al detalle del grupo y no a Chats: la pregunta que deja el aviso es
+        // «¿en qué me metieron y quiénes están?», y ahí es donde se responde
+        // —incluido el aviso de quiénes no están en tu red, con su botón de
+        // agregar (migración 0040).
+        case 'group_added':
+          if (data.groupId) router.push(`/group/${data.groupId}`);
           return;
 
         case 'connection_request':

@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
@@ -156,6 +156,23 @@ export function PermissionsChecklist() {
         const concedido = await requestContactsPermission();
         if (concedido) router.push('/add-contacts');
       }
+    } catch {
+      // Este `catch` faltaba y la barrida de la deuda 1.13 no podía verlo: el
+      // archivo tenía un `catch` (el del token, adentro) y un `finally`, así que
+      // contarlos daba "equilibrado".
+      //
+      // Lo que se escapaba: `syncLocationPermission` escribe en el servidor y
+      // `refresh()` lee de él. Con mala señal, conceder la ubicación desde acá
+      // lanzaba, la fila se quedaba en ámbar y no se decía nada — en la pantalla
+      // que existe justamente para que alguien arregle sus permisos.
+      //
+      // El `reload()` del `finally` corre igual, así que la fila termina
+      // mostrando lo que el sistema opina de verdad; lo único que se pierde sin
+      // esto es el aviso.
+      Alert.alert(
+        'No pudimos completar el permiso',
+        'Revisa tu conexión e inténtalo otra vez. Si el sistema ya no vuelve a preguntar, actívalo desde los Ajustes del teléfono.',
+      );
     } finally {
       setPidiendo(null);
       reload();

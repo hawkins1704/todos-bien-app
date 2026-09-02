@@ -261,6 +261,7 @@ export type Database = {
           contact_not_responding: boolean;
           contact_reported: boolean;
           drill_invites: boolean;
+          group_added: boolean;
           guardian_alerts: boolean;
           quake_national: boolean;
           quake_worldwide: boolean;
@@ -275,6 +276,7 @@ export type Database = {
           contact_not_responding?: boolean;
           contact_reported?: boolean;
           drill_invites?: boolean;
+          group_added?: boolean;
           guardian_alerts?: boolean;
           quake_national?: boolean;
           quake_worldwide?: boolean;
@@ -288,6 +290,7 @@ export type Database = {
           contact_not_responding?: boolean;
           contact_reported?: boolean;
           drill_invites?: boolean;
+          group_added?: boolean;
           guardian_alerts?: boolean;
           quake_national?: boolean;
           quake_worldwide?: boolean;
