@@ -320,7 +320,7 @@ export default function ChatsScreen() {
                 <Text variant="subhead" tone="secondary" style={styles.emptyBody}>
                   {accepted.length === 0
                     ? 'Agrega contactos a tu red y vas a poder escribirles desde acá.'
-                    : 'Puedes escribirle a cualquier persona de tu red, sin depender de que WhatsApp esté funcionando.'}
+                    : 'Puedes escribirle a cualquier persona de tu red, sin depender de que otra app de mensajería esté funcionando.'}
                 </Text>
               </Card>
               {accepted.length > 0 ? (
@@ -357,8 +357,8 @@ export default function ChatsScreen() {
               <Text variant="headline">Todavía no tienes grupos</Text>
               <Text variant="subhead" tone="secondary" style={styles.emptyBody}>
                 Un grupo es gente + un chat. Sirve para hablar con varios a la vez sin depender de
-                que WhatsApp esté funcionando, y en un sismo la Home te dice cuántos de cada grupo
-                ya se reportaron.
+                otra app de mensajería, y en un sismo la Home te dice cuántos de cada grupo ya se
+                reportaron.
               </Text>
             </Card>
             {/* El chat grupal ya no se crea desde acá: nace con el grupo. El

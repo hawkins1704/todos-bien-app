@@ -15,7 +15,19 @@ const DATABASE_VERSION = 6;
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export function getDb(): Promise<SQLite.SQLiteDatabase> {
-  dbPromise ??= open();
+  dbPromise ??= open().catch((error: unknown) => {
+    // 🔴 Sin esta línea, un fallo al abrir queda cacheado **como promesa
+    // rechazada**: `??=` no reemplaza un valor que no es null, así que cada
+    // `getDb()` posterior devuelve el mismo rechazo y la app se queda en el
+    // splash para siempre, sin más salida que reinstalar.
+    //
+    // Es lo que convirtió un tropiezo de esquema en una app muerta el
+    // 2026-09-02. Abrir la base puede fallar por cosas transitorias —la tarea
+    // de fondo tiene la base bloqueada, el disco está lleno—: el arranque
+    // siguiente tiene que poder volver a intentarlo.
+    dbPromise = null;
+    throw error;
+  });
   return dbPromise;
 }
 
@@ -25,14 +37,74 @@ async function open(): Promise<SQLite.SQLiteDatabase> {
   return db;
 }
 
+/**
+ * `ALTER TABLE … ADD COLUMN` que se puede correr dos veces.
+ *
+ * SQLite no tiene `ADD COLUMN IF NOT EXISTS`, así que la comprobación va a
+ * mano. **No es cinturón y tirantes sobre la transacción de abajo**: hay
+ * teléfonos que YA están en el estado que la transacción previene —columna
+ * agregada, `user_version` sin subir— y para esos la atomicidad llega tarde.
+ * Sin esto, esos teléfonos siguen sin abrir aunque el resto esté arreglado.
+ */
+async function agregarColumna(
+  txn: SQLite.SQLiteDatabase,
+  tabla: string,
+  columna: string,
+  definicion: string,
+): Promise<void> {
+  const columnas = await txn.getAllAsync<{ name: string }>(`PRAGMA table_info(${tabla})`);
+  if (columnas.some((c) => c.name === columna)) return;
+  await txn.execAsync(`ALTER TABLE ${tabla} ADD COLUMN ${columna} ${definicion};`);
+}
+
+/**
+ * ## Por qué esto es una transacción exclusiva y no una lista de sentencias
+ *
+ * Lo era, y el 2026-09-02 la app se quedó muerta en el splash con
+ * `duplicate column name: receives_notifications`. El estado del teléfono era
+ * imposible según el código: la columna de la v6 estaba puesta **y**
+ * `user_version` seguía en 5, así que la migración la intentaba de nuevo en cada
+ * arranque y fallaba en cada arranque.
+ *
+ * Ese estado era inalcanzable leyendo el código de arriba abajo, porque el
+ * `ALTER` y el `PRAGMA user_version` estaban a cuatro líneas. Pero eran **dos
+ * sentencias sueltas**, y hay dos formas de quedarse en el medio. No se puede
+ * saber cuál fue —el teléfono no lo cuenta— y da igual: las dos las cierra lo
+ * mismo.
+ *
+ *   1. **Dos contextos de JavaScript a la vez.** La tarea de fondo que responde
+ *      al push de sismo no vive en el árbol de React: tiene su propio módulo, su
+ *      propio `dbPromise` y su propia migración, sobre el mismo archivo. Los dos
+ *      leen la versión 5, los dos hacen el `ALTER`, uno gana y el otro muere — y
+ *      el que muere nunca escribe la versión. Que el singleton evite la carrera
+ *      **dentro** de un contexto no dice nada de lo que pasa entre dos.
+ *   2. **El proceso muere en el medio.** Entre las dos sentencias, un cierre
+ *      forzado o un iOS impaciente con un arranque lento dejan el `ALTER`
+ *      commiteado y la versión sin subir.
+ *
+ * La documentación de expo-sqlite v57 lo dice con todas las letras para este
+ * caso: una transacción normal «no es exclusiva y puede ser interrumpida por
+ * otras consultas asíncronas», y recomienda `withExclusiveTransactionAsync`
+ * para migraciones. Ahora el `ALTER` y el `PRAGMA user_version` son un solo
+ * hecho: o pasan los dos o no pasa ninguno.
+ */
 async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
-  const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  const current = row?.user_version ?? 0;
+  // Fuera de la transacción a propósito: SQLite **ignora en silencio** un cambio
+  // de `journal_mode` dentro de una. Adentro, la base se quedaría sin WAL y sin
+  // avisar. Es idempotente, así que correrlo en cada arranque no cuesta nada.
+  await db.execAsync('PRAGMA journal_mode = WAL;');
 
-  if (current < 1) {
-    await db.execAsync(`
-      PRAGMA journal_mode = WAL;
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    const row = await txn.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+    const current = row?.user_version ?? 0;
 
+    // Al día, o más nueva que este código (una instalación que se degradó). En
+    // los dos casos lo correcto es no tocar nada: bajar `user_version` a mano
+    // haría que la próxima versión creyera que tiene que volver a migrar.
+    if (current >= DATABASE_VERSION) return;
+
+    if (current < 1) {
+      await txn.execAsync(`
       -- Espejo de get_circle(). Una fila por contacto, aceptado o pendiente.
       CREATE TABLE IF NOT EXISTS circle (
         user_id                TEXT PRIMARY KEY NOT NULL,
@@ -124,9 +196,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   // Va como columna nueva y no como recreación de la tabla porque el círculo
   // cacheado es lo que se lee SIN RED después de un sismo. Borrarlo para
   // migrar dejaría la pantalla vacía justo hasta la primera sincronización.
-  if (current < 2) {
-    await db.execAsync(`ALTER TABLE circle ADD COLUMN action_plans TEXT;`);
-  }
+    if (current < 2) {
+      await agregarColumna(txn, 'circle', 'action_plans', 'TEXT');
+    }
 
   // v3 · Qué sismos alcanzaron a cada contacto (migración 0025). Columna nueva
   // por el mismo motivo que la v2: el círculo cacheado es lo que se lee SIN RED
@@ -136,9 +208,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   // Las filas viejas quedan en NULL, que `parseQuakeIds` degrada a lista vacía:
   // hasta el primer `syncCircle` nadie sale marcado como callado. Es el lado
   // correcto para equivocarse.
-  if (current < 3) {
-    await db.execAsync(`ALTER TABLE circle ADD COLUMN alerted_quake_ids TEXT;`);
-  }
+    if (current < 3) {
+      await agregarColumna(txn, 'circle', 'alerted_quake_ids', 'TEXT');
+    }
 
   // v4 · Ocultar un chat directo de la lista (migración 0032 del servidor).
   //
@@ -155,9 +227,9 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   //
   // Por eso `writeConversations` hace UPSERT y no DELETE+INSERT: recrear la fila
   // en cada sincronización borraría esta columna y el chat reaparecería solo.
-  if (current < 4) {
-    await db.execAsync(`ALTER TABLE conversations_cache ADD COLUMN hidden_at TEXT;`);
-  }
+    if (current < 4) {
+      await agregarColumna(txn, 'conversations_cache', 'hidden_at', 'TEXT');
+    }
 
   // v5 · A qué grupo pertenece cada conversación (migración 0034 del servidor).
   //
@@ -166,25 +238,27 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   // el grupo— y las **sueltas**, anteriores a la 0034, que ya no se pueden crear
   // pero siguen existiendo y siguen siendo mensajes de alguien. Sin esta columna
   // la lista no sabría cuál de las dos está pintando.
-  if (current < 5) {
-    await db.execAsync(`ALTER TABLE conversations_cache ADD COLUMN group_id TEXT;`);
-  }
+    if (current < 5) {
+      await agregarColumna(txn, 'conversations_cache', 'group_id', 'TEXT');
+    }
 
-  // v6 · Quién de tu red no tiene dónde recibir un aviso (migración 0039).
-  //
-  // Nace en 1 —«sí recibe»— y no en 0: mientras no llegue el primer refresco no
-  // sabemos nada, y una advertencia sobre un contacto es demasiado seria para
-  // mostrarla por no tener el dato todavía. Es la misma regla del `coalesce`
-  // del servidor: ante la duda, no se avisa.
-  if (current < 6) {
-    await db.execAsync(
-      `ALTER TABLE circle ADD COLUMN receives_notifications INTEGER NOT NULL DEFAULT 1;`,
-    );
-  }
+    // v6 · Quién de tu red no tiene dónde recibir un aviso (migración 0039).
+    //
+    // Nace en 1 —«sí recibe»— y no en 0: mientras no llegue el primer refresco no
+    // sabemos nada, y una advertencia sobre un contacto es demasiado seria para
+    // mostrarla por no tener el dato todavía. Es la misma regla del `coalesce`
+    // del servidor: ante la duda, no se avisa.
+    //
+    // 🔴 Es la que reventó. El teléfono quedó con la columna puesta y
+    // `user_version` en 5, así que reintentaba el `ALTER` en cada arranque.
+    if (current < 6) {
+      await agregarColumna(txn, 'circle', 'receives_notifications', 'INTEGER NOT NULL DEFAULT 1');
+    }
 
-  if (current !== DATABASE_VERSION) {
-    await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
-  }
+    // Va DENTRO de la transacción, que es el punto entero: si esto no se
+    // escribe, nada de lo de arriba se escribió tampoco.
+    await txn.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+  });
 }
 
 /** Borra todo lo local. Se llama al cerrar sesión. */

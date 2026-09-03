@@ -69,8 +69,36 @@ Qué tiene adentro:
 | Red | 4 contactos con la conexión ya aceptada: **María Salazar** y **Jorge Salazar** en «estoy bien», **Ana Ríos** en «necesito ayuda» con mensaje, y **Carlos Medina** sin confirmar y sin ubicación |
 | Plan de acción | Escrito, con punto de encuentro y contacto fuera de la ciudad |
 | Chat | Una conversación con María, de cuatro mensajes |
+| **Grupos** | **Dos, sembrados el 2026-09-03**: **Casa** (María y Jorge) y **Familia** (los cuatro). Cada uno con su chat: 3 mensajes en Casa, 2 en Familia |
 | Simulacros | 0 de 3 usados: el revisor tiene los tres disponibles |
 | Premium | **No.** Tiene que poder ver el paywall y probar la compra en sandbox |
+
+> ✅ **Sembrados el 2026-09-03**, y hasta ese día la cuenta tenía cero: la ficha ya describía los
+> grupos y los ponía en la **captura 3**, así que un revisor que abriera la pestaña Red habría
+> encontrado vacía la única función que la tienda le acababa de prometer.
+>
+> Se sembraron **por el mismo camino que usa la app** —grupo, después su chat, y recién entonces
+> los integrantes—, que es el orden que exige `create_group`: el disparador que espeja
+> `group_members` en `conversation_members` necesita que el chat ya exista. Un grupo sin chat
+> rompe la regla 1 de la 0034 y no se puede reparar desde el cliente.
+>
+> **Efecto secundario a tener presente: la cuenta queda en 2 de 2 grupos gratis**, así que tocar
+> «Nuevo grupo» abre el **paywall**. No es un defecto —es el tope funcionando, y de paso le da al
+> revisor una segunda puerta al paywall además de Ajustes— pero la nota de §2 tiene que decirlo,
+> porque un botón que abre una pantalla de pago sin explicación se lee como un cobro sorpresa.
+>
+> Verificación, el día del envío:
+>
+> ```sql
+> select g.name,
+>        (select count(*) from public.group_members m where m.group_id = g.id) as integrantes,
+>        (select count(*) from public.messages ms
+>          join public.conversations c on c.id = ms.conversation_id
+>         where c.group_id = g.id) as mensajes
+>   from public.groups g
+>  where g.owner_id = '00000000-0000-4000-a000-000000000001'
+>  order by g.sort_order;   -- Casa 2/3 · Familia 4/2
+> ```
 
 > **Por qué Carlos está sin confirmar y sin ubicación, a propósito:** es la mitad del
 > producto. Una red donde todos dicen «estoy bien» no muestra para qué sirve la app; lo
@@ -127,6 +155,41 @@ Va en **App Review Information → Notes**. En inglés, que es lo que lee el equ
 > recorrido de la app hay que releer este bloque**: es el único texto del proyecto donde una
 > instrucción desactualizada cuesta un rechazo en vez de una molestia.
 
+> 🔴 **Revisadas otra vez el 2026-09-03. Dos afirmaciones se habían vuelto falsas con los
+> grupos, y las dos tocan la guía 1.2**, que es la que se revisa con lupa:
+>
+> 1. Decían *«chats are strictly one-to-one between people who BOTH explicitly accepted the
+>    connection»*. Con los grupos eso es **falso y comprobable en un minuto**: el revisor abre
+>    la pestaña Chats, ve un chat de grupo, y a partir de ahí no puede confiar en ninguna otra
+>    línea de la nota. Reemplazado por el bloque MESSAGING MODEL, que describe los dos tipos de
+>    chat y por qué ninguno expone a desconocidos.
+> 2. Decían que quien está bloqueado *«cannot message you (not even in an existing
+>    conversation)»*, sin acotarlo. `private.conversation_blocked` filtra por
+>    `cv.kind = 'direct'`, así que la frase se queda corta en los grupos.
+>
+>    ⚠️ **Y acá el primer diagnóstico fue peor que la realidad.** Leyendo solo ese filtro parece
+>    que el bloqueo no alcanza a ningún grupo, y eso es falso: el disparador
+>    `connections_drop_group_membership` corre `after delete or update on connections`, y al pasar
+>    el vínculo de `accepted` a `blocked` **borra la pertenencia en las dos direcciones** — la
+>    persona sale de los grupos de quien la bloqueó, y viceversa. **Comprobado el 2026-09-03** en
+>    una transacción revertida: bloquear a María la sacó del grupo de Renzo (`0`) y dejó a Jorge
+>    intacto (`1`).
+>
+>    El hueco real es **uno y más chico**: un grupo de una **tercera** persona donde los dos son
+>    integrantes. Ahí ninguna de las dos ramas del disparador coincide y el bloqueado sigue
+>    escribiendo. Es lo que dice ahora la nota, y lo que quedó publicado en los términos §5.1.
+>
+>    **La lección:** leer el filtro de una función no alcanza para describir un comportamiento que
+>    varios disparadores producen entre todos. Casi se publicó una limitación más grave que la
+>    verdadera, en el texto legal y frente al revisor.
+>
+> **Decirlo antes es más barato que que lo encuentren.** Un límite declarado es una decisión de
+> producto; el mismo límite descubierto por el revisor después de haber leído lo contrario es
+> una nota que miente.
+>
+> Y también se corrigió el rótulo de la pestaña: la nota decía «Mi red» y en la app dice
+> **«Red»**. Es exactamente el error que advierte el bloque de arriba.
+
 ```
 WHAT THIS APP IS
 Todos Bien is a post-earthquake family coordination app. It is NOT an early warning system:
@@ -154,6 +217,23 @@ screen so the drill can never be mistaken for a real alert.
 Nothing is sent to anyone: a solo drill is private. (Choosing a group instead would invite
 that group's members, which is why the option names them explicitly.)
 
+GROUPS
+The demo account already has two, so you can see the model without building anything:
+
+  · "Casa" -- 3 people (the account plus 2 contacts), with a 3-message chat
+  · "Familia" -- 5 people (the account plus all 4 contacts), with a 2-message chat
+
+Both are in the "Red" tab, and their chats are listed in the "Chats" tab. During an alert the
+Home screen breaks the network down per group ("Casa 2/3") instead of showing one flat list --
+run the drill above to see it.
+
+Only the person who created a group can add or remove members, and can only add contacts they
+are ALREADY connected to. That restriction is enforced by a database policy, not by the UI.
+
+Note: the free plan allows 2 groups and this account has both in use, so tapping "Nuevo grupo"
+opens the Premium paywall. That is the free limit working as intended, not an error -- and it is
+a second way to reach the paywall besides Settings -> "Obtener Premium".
+
 DEMO ACCOUNT
 Email: todosbienapp@gmail.com
 Password: [ver el gestor de contraseñas]
@@ -177,20 +257,32 @@ the status ring and the location card exactly as a real alert shows them.
 REPORTING AND BLOCKING (guideline 1.2)
 Users can report objectionable content and block other users:
   - Report a message: long-press any message from the other person in a chat -> "Denunciar".
-  - Report a person: "Mi red" tab -> tap the contact -> "Denunciar a esta persona".
-  - Block: "Mi red" tab -> tap the contact -> "Bloquear a esta persona", or right after sending a
-    report. A blocked user cannot message you (not even in an existing conversation), cannot
-    send you connection requests, and cannot see your status or location. Blocking can be
-    undone from Settings -> "Personas bloqueadas"; the blocked user cannot undo it.
+  - Report a person: "Red" tab -> tap the contact -> "Denunciar a esta persona".
+  - Block: "Red" tab -> tap the contact -> "Bloquear a esta persona", or right after sending a
+    report. A blocked user cannot message you in your one-to-one chat (not even in an existing
+    conversation), cannot send you connection requests, and cannot see your status or location.
+    Blocking ALSO removes that person from every group you own, and removes you from every group
+    they own, automatically and in both directions. Blocking can be undone from Settings ->
+    "Personas bloqueadas"; the blocked user cannot undo it.
+  - Leave a group: any member can leave at any time, without asking the owner. This covers the
+    one case a block does not reach -- a group owned by a THIRD person where both users are
+    members -- and that group's owner can remove either of them too. We state this precisely in
+    our terms, section 5.1, rather than let a user assume a block covers more than it does.
   - "Quitar de mi red" is a separate, softer action: it ends the connection but either
     side may send a new request later.
 Reports are reviewed within 24 hours. Our terms of service state a zero-tolerance policy for
 abusive content: https://todosbien.app/terminos (section 5.1). Contact for reports and
 support: todosbienapp@gmail.com
 
-Note that chats are strictly one-to-one between people who BOTH explicitly accepted the
-connection. There is no public content, no discovery of strangers and no way to message
-someone who has not accepted you.
+MESSAGING MODEL — no strangers, in either kind of chat
+  - One-to-one chat: only between two people who BOTH explicitly accepted the connection.
+  - Group chat: lives inside a group created by one user. Only the owner can add members, and
+    only people the OWNER is already connected to, so no one can be placed in a group by a
+    stranger. Members see the group name and each other's display names, and they do NOT see
+    each other's status or location unless they separately accept each other -- group membership
+    never creates a connection. Any member can leave at any time.
+There is no public content and no discovery of strangers: nothing in the app lets a user find,
+browse or message someone who has not accepted them or been added by a mutual contact.
 
 ACCOUNT DELETION (guideline 5.1.1(v))
 In-app path: Settings tab -> tap the profile card at the top -> SEGURIDAD -> "Borrar mi

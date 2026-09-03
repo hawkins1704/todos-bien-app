@@ -290,7 +290,10 @@ export default function ContactDetailScreen() {
         {!member.receivesNotifications ? (
           <Card>
             <View style={styles.aviso}>
-              <MaterialIcons name="notifications-off" size={18} color={statusColors.helping.strong} />
+              {/* `error-outline` y no `notifications-off`: la campana tachada es
+                  el símbolo de «lo silencié yo», y acá es al revés. Cambiado
+                  junto con el de la pestaña Red, que decía lo mismo mal. */}
+              <MaterialIcons name="error-outline" size={18} color={statusColors.helping.strong} />
               <View style={styles.flex}>
                 <Text variant="callout" weight="600">
                   No recibe notificaciones

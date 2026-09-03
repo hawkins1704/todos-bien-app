@@ -40,7 +40,27 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 > publicar), **1.2** (es SQL, no necesita build, y hacerla bien exige no duplicar las 429 líneas
 > de `geo.ts` en Postgres) y **1.7** (necesita padrón).
 >
-> **La lección de la tanda no es de código, es de método.** La barrida que buscaba
+> 🔴 **La app no arrancó, y el arranque no estaba en ninguna lista de pruebas.** Al instalar el
+> build, iOS se quedó en el splash con `duplicate column name: receives_notifications`. El
+> teléfono estaba en un estado imposible según el código: la columna de la v6 puesta **y**
+> `user_version` en 5, así que reintentaba el `ALTER` en cada arranque. `src/lib/db/index.ts`
+> hacía el `ALTER` y el `PRAGMA user_version` como **dos sentencias sueltas**, y hay dos formas
+> de quedarse en el medio: dos contextos de JavaScript migrando a la vez —la tarea de fondo del
+> push tiene su propio módulo y su propio `dbPromise` sobre el mismo archivo— o el proceso
+> muriendo entre las dos. Ahora van en `withExclusiveTransactionAsync`, que es lo que la
+> documentación de expo-sqlite v57 recomienda **para migraciones**, y las columnas se agregan de
+> forma idempotente porque hay teléfonos ya en ese estado y para esos la atomicidad llega tarde.
+>
+> **Pero lo que convirtió el tropiezo en una app muerta fue otra línea:** `dbPromise ??= open()`
+> guardaba la promesa **rechazada**, y `??=` no reemplaza lo que no es null. Cada `getDb()`
+> posterior devolvía el mismo rechazo, para siempre, sin más salida que reinstalar. Un fallo
+> recuperable —la base bloqueada por la tarea de fondo, el disco lleno— se volvía permanente.
+>
+> Y el detalle de método: **este fallo no lo habría encontrado el recorrido**, porque el
+> recorrido empieza en la pantalla 1 y da por sentado que la app abre. Todas sus secciones
+> asumen una app viva. `VERIFICACION` §10 tiene ahora un paso 0.
+>
+> **La otra lección de la tanda es sobre las herramientas.** La barrida que buscaba
 > `try/finally` sin `catch` comparaba `catch` contra `finally`, y así un archivo con un
 > `try/catch` interno más un `try/finally` externo daba «equilibrado». Se corrió tres veces
 > desde el 28 de agosto y las tres dijo que quedaba **uno**; quedaban dos.
@@ -113,8 +133,8 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 | **Ícono, splash y textos de permiso** | ✅ en el binario: `ios/` regenerado y el `Info.plist` de disco ya tiene los textos nuevos |
 | Sitio, dominio y páginas legales | 🟡 desplegado y respondiendo 200, pero **la versión de agosto no subió todavía** |
 | Ficha cargada en App Store Connect | 🟡 falta App Privacy, notas del revisor y capturas |
-| Verificación en dispositivo | 🟡 **casi entero**, con iPhone y Android. se recorrió una primera versión de §9.d y §9.e el 2026-09-01 y lo que fallaba está arreglado, **pero las dos secciones se reescribieron esa misma tarde con la 0034 y hay que correrlas de nuevo enteras** — sobre todo **9d.7–9d.15** (que el otro teléfono vea el grupo) y **9d.18–9d.24** (el atajo, que necesita **tres** cuentas). Falta además lo que exige el build nuevo (§3, §4, §7, §8), lo que exige instalación nueva (7b.1, 7b.2, 9c.13, 9c.14), **§8.c** —el teclado en las 8 pantallas que no son el chat— y **7.6**, que no se puede forzar |
-| **Textos de «red», «círculo» y «grupo» fuera del repo** | ❌ **empeoró el 2026-09-01**: la landing (`../todos-bien-website`) y la ficha de App Store dicen «círculo», que ahora no describe nada. El producto tiene **grupos compartidos**. La fuente es `QUE-PROMETE-LA-APP.md` §7, ya reescrita |
+| Verificación en dispositivo | 🟢 **Corrido entero el 2026-09-02** sobre el build 3, con iPhone y Android: acceso, agenda real, mapas, chats, grupos, simulacro individual y grupal, el atajo de tres cuentas, teclado en Android, compras en sandbox, borrar cuenta, y el bloque de sismos sembrados completo (push, captura en segundo plano en **las dos plataformas**, refresco en vivo, matriz gratis/premium y desglose por grupo). **Quedan tres**, y las tres necesitan el build siguiente: `9f.16.bis` y `9f.17` —arreglados hoy, todavía sin compilar— y `0b.1`, que exige instalar **encima** de una versión anterior y por eso no se pudo probar sobre una instalación limpia. `7.6` no es una tarea: la contesta el próximo sismo real. *(La entrada anterior, del 2026-09-01, decía:)* 🟡 casi entero, con iPhone y Android. se recorrió una primera versión de §9.d y §9.e el 2026-09-01 y lo que fallaba está arreglado, **pero las dos secciones se reescribieron esa misma tarde con la 0034 y hay que correrlas de nuevo enteras** — sobre todo **9d.7–9d.15** (que el otro teléfono vea el grupo) y **9d.18–9d.24** (el atajo, que necesita **tres** cuentas). Falta además lo que exige el build nuevo (§3, §4, §7, §8), lo que exige instalación nueva (7b.1, 7b.2, 9c.13, 9c.14), **§8.c** —el teclado en las 8 pantallas que no son el chat— y **7.6**, que no se puede forzar |
+| **Textos de «red», «círculo» y «grupo» fuera del repo** | ✅ **cerrado el 2026-09-03.** La landing quedó reescrita, y con ella los tres textos de tienda: la **descripción de App Store** (que además vendía el aviso retirado por la 0030 y no mencionaba los grupos), las **keywords** (`circulo` → `grupos`), las **capturas** (ahora ocho, con los grupos de tercera) y la **copia del paywall** de `GUIA-SUSCRIPCIONES.md` §4. Los **legales** también: términos §2, §5, §5.1 y §5.2 nuevo, privacidad §1, §3, §6, §7 y §9, y la página de eliminar cuenta. Detalle en el **Bloque 1** del orden sugerido |
 | Build de producción enviado | 🟡 el flujo funciona (Xcode local + `eas submit`); falta el build **posterior a los arreglos del 27-28** |
 | **Android** | ❌ sin empezar salvo Firebase |
 | Mercados fuera de Perú | ❌ decidido que sí, no construido (`ALCANCE-Y-IDIOMAS.md`) |
@@ -133,11 +153,30 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 | 1.5 | 🟡 **Declaración de permisos en Play Console** | Quedan tres que vienen de la plantilla de Expo y de `expo-file-system` —`SYSTEM_ALERT_WINDOW` y los dos de almacenamiento acotados a `maxSdkVersion=32`— que hay que saber justificar al publicar. La recomendación es dejarlos |
 | 1.6 | Sentry para errores de cliente | Sin esto, un crash en el teléfono de un usuario es invisible |
 | 1.7 | Pruebas de carga (spec §16.2) | El fan-out recorre `user_settings` entero por sismo. Con padrón grande hay que medirlo |
+| 1.16 | 🟡 **El bloqueo no alcanza al grupo de un tercero** | Encontrado el 2026-09-03 al escribir los legales. `private.conversation_blocked` filtra por `cv.kind = 'direct'`, así que solo cierra el chat individual. **Lo que sí funciona, y conviene no confundirlo:** el disparador `connections_drop_group_membership` borra la pertenencia en las dos direcciones al pasar de `accepted` a `blocked`, así que el bloqueado sale de los grupos de quien lo bloqueó y viceversa — **comprobado en transacción revertida**. El hueco es **uno**: un grupo cuyo dueño es una **tercera** persona y donde ambos son integrantes; ninguna rama del disparador coincide y el bloqueado sigue escribiendo donde el otro lo lee. **No bloquea el envío** —la guía 1.2 pide poder denunciar y bloquear, y las dos existen; además el remedio de salir del grupo está a un toque— pero es un agujero de moderación real y está **declarado** en los términos §5.1, en la política §7 y en las notas del revisor. El arreglo natural es que `conversation_blocked` mire también los grupos, y hay que decidir **qué significa**: ¿se le esconden los mensajes al que bloqueó, se le prohíbe escribir al bloqueado, o se lo saca del grupo? Las tres son defendibles y solo la tercera es visible para el resto del grupo |
 | ~~1.11~~ | ✅ **Cerrada el 2026-09-02 (migración 0041, aplicada).** `revoke insert, update, delete, truncate … from anon, authenticated` | Venían del `grant all` que Supabase aplica por defecto a las tablas nuevas de `public`, no de una decisión. **No arregla un fallo** —RLS ya bloqueaba las tres primeras y PostgREST no expone TRUNCATE— sino que quita el terreno preparado para el día que alguien agregue una política de escritura por error. Seguro porque los tres únicos caminos que tocan la tabla se verificaron antes: el cliente solo hace `.select()` (`api.ts:698`), la ingesta usa `service_role`, y el fan-out son funciones `security definer`. Sembrar sismos de prueba sigue funcionando: corre como `postgres` |
 | 1.12 | **Fortaleza del hash de teléfono** | La sal está hardcodeada en `src/lib/phone.ts` (`todosbien.v1`). El espacio de números peruanos es chico: con la sal conocida, la tabla de `phone_hash` es reversible por fuerza bruta. No bloquea el MVP; sí hay que resolverlo antes de tener padrón grande. 🔴 **Revisado el 2026-09-02: NO se arregla cambiando la sal.** El propio comentario de `phone.ts:46-58` ya lo dice — la sal **no es un secreto**, viaja en el bundle, y una sal nueva es igual de extraíble; lo único que se ganaría es invalidar todos los hashes guardados a cambio de nada. **El arreglo real es un *pepper* en el servidor:** el cliente sigue mandando `v1 = sha256(sal:e164)` y el servidor guarda `v2 = hmac(pepper, v1)`, con el pepper fuera del alcance del teléfono. Lo elegante es que **el backfill se calcula desde lo ya guardado** —`v2 = hmac(pepper, v1)` con el `v1` que ya está en la tabla— sin necesidad de conocer ni un solo número. Deja de ser un ataque offline sobre un volcado y pasa a ser uno online contra un RPC, que se puede limitar por tasa. **Por qué no entró en el build 3:** toca el **único** camino de conexión que tiene la app —el match de agenda, desde que se quitaron los códigos de invitación— y eso no se mete el día de compilar |
 | 1.14 | ✅ **Cerrada el 2026-09-01 (migración 0039).** Lo que sigue es el porqué, que conviene no perder. El aviso **no se hizo sonar** —eso reintroduce el ruido sin antecedente de la 0020 y además mentiría: quien nunca recibió la alerta no está callado, está incomunicado—. Se resolvió como **estado permanente**: `get_circle_push_reach()`, security definer con el mismo patrón que `get_circle_alert_scope`, expone un solo booleano y solo sobre tu red aceptada; `get_circle` lo trae como `receives_notifications` y viaja en la caché local (v6 del esquema). Se ve en la ficha del contacto con qué hacer al respecto, y como distintivo junto al nombre en la pestaña Red. ⚠️ Consecuencia a mirar antes de enviar: **los cuatro contactos de la cuenta demo salen marcados**, porque de verdad no tienen dispositivo (ver `REVISION-APPLE.md` §1). El texto original de la deuda: | Si alguien de tu red no tiene ningún dispositivo registrado, su entrega cierra como `no_token` y no como `sent` (`send-alerts/index.ts:186`). Y `notify_silent_contacts` solo mira a los callados con `status = 'sent'`, así que **nunca se dispara «X no responde» por esa persona** — ni gratis ni con Guardián. El silencio de la app coincide con el silencio de quien más te preocuparía. *(«X está bien» sí funciona: se dispara cuando ella reporta, y para reportar no hace falta recibir ningún push.)* **El arreglo NO es quitar el filtro de `sent`** — eso reintroduce el ruido sin antecedente que corrigió la 0020. Va como **estado permanente**, no como notificación: una línea en la ficha del contacto y un distintivo en la grilla de la red, con el texto *«No recibe notificaciones · Las notificaciones de Todos Bien no están llegando a su teléfono. No va a recibir el aviso de sismo.»* — redactado sobre el efecto y no sobre la causa, porque el servidor sabe que no hay a dónde mandar pero **no sabe por qué** (permiso denegado, teléfono nuevo, o reinstalación sin abrir la app). Implementación: `push_tokens` tiene RLS `_own` y no se toca; hace falta una función `security definer` que exponga solo ese booleano para la red aceptada, **mismo patrón que `get_circle_alert_scope` de la 0025**, que existe por este mismo problema con `alert_deliveries`. Cero notificaciones nuevas |
 | ~~1.15~~ | ✅ **Cerrada el 2026-09-02 (migración 0040, aplicada y probada).** Que te metan en un grupo ahora te avisa | Los cuatro lugares de la 0028, más la aserción de la 0036 al final. **Dos decisiones que conviene no perder:** (1) **columna propia y NO colgada de `contact_message`**, que era la idea anotada acá — ese interruptor se llama «Mensajes · Un contacto te escribió por chat», y quien lo apaga quiere silenciar el chat, no dejar de saber en qué grupos está; compartirlos haría que el interruptor **mienta**, que es la clase de fallo que la 0036 acaba de arreglar. El vecino correcto es `connection_accepted`. (2) **Sin `dedupe_key`, a propósito**: si te sacan y te vuelven a sumar (paso 9d.13) el aviso tiene que salir de nuevo, y una clave por grupo lo silenciaría para siempre. El emisor es un **disparador sobre `group_members`** y no una función RPC, porque el cliente inserta directo en la tabla — igual que `group_members_sync_chat`, que vive ahí por lo mismo. El cuerpo del push **no promete ver el estado de los demás**: estar en un grupo no conecta a nadie, y decirlo sería falso justo para el caso que el atajo de la 0034 existe para resolver |
 | ~~1.13~~ | ✅ **Cerrada el 2026-09-02**, y de paso se encontró **uno más que la barrida no podía ver**. Los dos bloques de `(onboarding)/permissions.tsx` ya tienen `catch`: releen el estado real del permiso antes de hablar, porque el fallo típico —`updateMySettings` necesita red— dejaba la tarjeta en «Sin conceder» con el permiso **concedido de verdad**. 🔴 **El octavo: `components/permissions-checklist.tsx`.** La barrida comparaba `catch` contra `finally`, y ese archivo tenía un `try/catch` interno (el del token) más un `try/finally` externo: 1 y 1, «equilibrado». **La barrida correcta compara `try` contra `catch`**, y con esa salieron seis candidatos de los cuales cuatro son falsos positivos verificados uno por uno —`withTimeout` deja salir el error a propósito, `endDrill()` ya no lanza, y `alert-response.ts` solo suelta un candado. Lo que se escapaba en el checklist: conceder la ubicación con mala señal lanzaba en `syncLocationPermission`, la fila se quedaba en ámbar y no se decía nada — en la pantalla que existe justamente para que alguien arregle sus permisos. Se repite con: `for f in $(grep -rl "} finally {" src/); do t=$(grep -c "^\s*try {" "$f"); c=$(grep -c "} catch" "$f"); [ "$t" -gt "$c" ] && echo "$f"; done`. ⚠️ **Esa barrida marca cuatro archivos para siempre y los cuatro están verificados como falsos positivos** — anotarlo acá es lo que evita investigarlos una quinta vez: `lib/location.ts` (`withTimeout` deja salir el error **a propósito**, para no confundir «tardó» con «el sistema dijo que no»), `(tabs)/settings.tsx` (`endDrill()` ya no lanza: devuelve si el servidor confirmó), `lib/alert-response.ts` (el `finally` solo suelta el candado `capturing`, y los dos llamadores capturan) y `lib/sync.ts` (el `finally` solo repone la bandera `flushing`; los errores por fila ya los trata el `catch` interno, y **los dos llamadores se cerraron el 2026-09-02** — en `chat/[id].tsx` el fallo dejaba el mensaje recién escrito sin aparecer en pantalla, porque se llevaba puesto el `setMessages` que venía después). El barrido del 2026-08-28 encontró **siete**; los dos del simulacro se cerraron el 2026-09-01 al reescribirlo. El de `context/drill.tsx` era el peor de la familia: salir del simulacro apagaba el modo local igual, así que un fallo de red **parecía haber funcionado** mientras los demás seguían practicando. Ahora `end()` no lanza, devuelve si el servidor confirmó, y Ajustes lo dice **solo cuando le pasa algo a otra persona** — un simulacro grupal tuyo que no se cerró. ⚠️ **`lib/alert-response.ts` aparece en el barrido y NO es un caso**: ese `finally` solo suelta el candado `capturing`, y los dos llamadores (`(tabs)/index.tsx` y `background-alert.ts`) capturan. Se repite con: `for f in $(grep -rl "} finally {" src/); do ...` comparando cuántos `catch` y cuántos `finally` tiene cada archivo |
+
+**Corregido el 2026-09-02 — «X no responde» tenía una tercera forma de mentir, y la advertía su
+propia migración (0042, aplicada y probada).** Con dos sismos sembrados y las apps abiertas
+salieron dos avisos falsos y cruzados —«Paolo no responde» a Renzo y «Renzo no responde» a
+Paolo— citando el sismo **anterior**, sobre dos personas que sí habían reportado.
+
+La 0038 sacó del CTE el filtro de **tiempo** y dejó `d.status = 'sent'`, que hace lo mismo por
+otra puerta: descarta el sismo nuevo mientras su push está en la cola. La ventana es el jitter de
+`send_after` (hasta 30 s) más lo que falte para el minuto siguiente del cron de envío —hasta ~90
+segundos—, y adentro de ella la app **ya está mostrando la alerta nueva** (`get_active_alert` no
+mira el estado del envío) y la captura automática ya reescribió `user_status` apuntando a ella,
+borrando la prueba de que se contestó la anterior.
+
+**La lección es sobre las advertencias que uno mismo escribe.** La cabecera de la 0038 dice
+textualmente: *«un sismo nuevo que todavía no cumple los 20 minutos queda fuera y el "más
+reciente" vuelve a ser el viejo, que es exactamente el bug que esto arregla»*. Estaba escrita, era
+correcta, y la corrección tapó solo la puerta que tenía delante. **Una condición que excluye al
+sismo vigente lo rompe, sea de tiempo o de estado de envío.**
 
 **Corregido el 2026-09-01 — «X no responde» tenía dos formas de mentir (migraciones 0037 y 0038,
 aplicadas y verificadas con dos teléfonos y sismos sembrados).** Las dos salieron de la misma
@@ -311,15 +350,15 @@ agenda.
 | # | Qué | Dónde |
 |---|---|---|
 | 2.1 | 🔴 **Build de producción posterior al 2026-08-28** | Los arreglos del 27 y del 28 son **JavaScript**: si el build es anterior, los cuatro bugs de interfaz y la grilla nueva **no viajan**. Se compila local con Xcode y `eas submit` sube el `.ipa` |
-| 2.1.b | 🔴 **Subir el número de build en LOS DOS lugares** | `autoIncrement` de `eas.json` **no aplica a builds locales**, y App Store Connect rechaza un número repetido para la misma versión. La trampa, encontrada el 2026-09-02: subir `ios.buildNumber` en `app.json` **no alcanza**. `ios/` está en el repo, y al compilar en Xcode el número que viaja es `CFBundleVersion` de `ios/TodosBien/Info.plist`, que `app.json` no toca. Los dos decían cosas distintas (3 y 2) y el `.ipa` habría salido como el 2 otra vez. **Se sincroniza a mano** —una línea— y no con `prebuild`: regenerar el proyecto nativo el día del envío es riesgo sin ganancia si no cambió nada nativo. `grep -A1 CFBundleVersion ios/TodosBien/Info.plist` lo dice en un segundo |
-| 2.4 | **Nutrition Labels** | Respuestas listas, dato por dato, en `PRIVACIDAD-APP-STORE.md`. Falta pegarlas |
+| 2.1.b | 🔴 **Subir el número de build en LOS DOS lugares** | `autoIncrement` de `eas.json` **no aplica a builds locales**, y App Store Connect rechaza un número repetido para la misma versión. La trampa, encontrada el 2026-09-02: subir `ios.buildNumber` en `app.json` **no alcanza**. `ios/` está en el repo, y al compilar en Xcode el número que viaja es `CFBundleVersion` de `ios/TodosBien/Info.plist`, que `app.json` no toca. Los dos decían cosas distintas (3 y 2) y el `.ipa` habría salido como el 2 otra vez. **Se sincroniza a mano** —una línea— y no con `prebuild`: regenerar el proyecto nativo el día del envío es riesgo sin ganancia si no cambió nada nativo. `grep -A1 CFBundleVersion ios/TodosBien/Info.plist` lo dice en un segundo. 🔧 **Corrección del 2026-09-03:** esta fila decía que «`ios/` está en el repo» y no es así — `/ios` y `/android` están los dos en `.gitignore` (líneas 56-57). Existen en disco como artefactos de `prebuild`. El consejo no cambia, porque Xcode compila lo que hay en disco; lo que cambia es que un clone limpio **no** trae ese `Info.plist` y hay que prebuildear antes |
+| 2.4 | **Nutrition Labels** | Respuestas listas, dato por dato, en `PRIVACIDAD-APP-STORE.md`. Falta pegarlas. 🟢 **Revisadas con los grupos el 2026-09-03**: los tres datos nuevos caen en categorías ya declaradas y **no agregan ninguna casilla**. Lo que cambió es la política publicada, no el formulario — y por eso la política tiene que subir primero (Bloque 1) |
 | 2.5 | **Justificación de ubicación en segundo plano, en inglés** | Escrita en `PRIVACIDAD-APP-STORE.md` §4. Falta pegarla |
-| 2.7.b | 🔴 **Notas para el revisor** | El texto está en `REVISION-APPLE.md` §2. ⚠️ **Tenía el correo equivocado** de la cuenta demo hasta el 2026-08-28; usar la versión corregida |
-| 2.8 | **Capturas de pantalla** | Las seis, con qué tiene que verse en cada una, en `FICHA-APP-STORE.md` §5. Hay una séptima decidida: la lista de sismos |
-| 2.12 | Revisión legal de términos y limitación de responsabilidad | spec §18 |
+| 2.7.b | 🔴 **Notas para el revisor** | El texto está en `REVISION-APPLE.md` §2. ⚠️ **Tenía el correo equivocado** de la cuenta demo hasta el 2026-08-28; usar la versión corregida. 🔴 **Y dos afirmaciones falsas hasta el 2026-09-03**, las dos sobre la guía 1.2: decían que los chats son «strictly one-to-one» —el revisor ve un chat de grupo y deja de creerle a la nota entera— y que el bloqueado no puede escribir «not even in an existing conversation», sin acotarlo a los grupos. Corregidas, con un bloque **HOW TO REVIEW GROUPS** nuevo porque la cuenta demo tiene **cero grupos** y la ficha ahora los vende |
+| 2.8 | **Capturas de pantalla** | Ahora son **ocho**, con qué tiene que verse en cada una, en `FICHA-APP-STORE.md` §5. La tercera es nueva (**grupos**, con el desglose «Casa 4/5» y el chat) y la de simulacro **tiene que mostrar la franja amarilla** — sin ella parece una alerta falsa, que es justo lo que los términos §4 prohíben |
+| 2.12 | Revisión legal de términos y limitación de responsabilidad | spec §18. 🟢 **Los grupos entraron el 2026-09-03** —términos §5.2 y privacidad §1/§3/§6/§7/§9—, que era el hueco que impedía que la declaración de App Privacy coincidiera con lo publicado. Lo que sigue pendiente es la revisión por un abogado, no el contenido |
 | 2.13 | **Disponibilidad territorial: Perú + América + Japón** | Guardián se le vende a la diáspora, así que restringirlo a Perú deja fuera al que paga. **España e Italia quedan afuera por ahora** — distribuir en la UE exige declarar *trader status* y Apple publica nombre, dirección y teléfono del desarrollador |
 | 2.6.d | 🟡 **Small Business Program de Apple** | Baja la comisión del 30 % al 15 % con menos de un millón de dólares al año. Es un formulario y duplica el margen |
-| 2.14 | 🔴 **Correr el recorrido de verificación** | `VERIFICACION-EN-DISPOSITIVO.md`, sobre el build de 2.1. Es la única puerta que queda |
+| 2.14 | 🟢 **Corrido entero el 2026-09-02** sobre el build 3 | Quedan **tres** confirmaciones sobre el build siguiente: `9f.16.bis`, `9f.17` (arreglados hoy, sin compilar) y `0b.1` (instalar encima de una versión anterior, imposible sobre una instalación limpia). Ninguna es trabajo nuevo: es mirar tres pantallas una vez que el build exista |
 
 ### 2.b · Lo que ya está cerrado
 
@@ -383,9 +422,9 @@ sean de Google.
 
 | # | Qué |
 |---|---|
-| 3.2.1 | Cuenta de **Google Play Developer** (pago único de USD 25) |
+| 3.2.1 | 🔴 **Cuenta de Google Play Developer (USD 25) — y es lo que hay que hacer PRIMERO de todo Android, incluso antes de que la app esté lista.** Una cuenta **personal** creada después del 13-11-2023 no puede publicar en producción hasta correr una prueba cerrada con **12 testers opted-in durante 14 días corridos**; recién ahí se solicita acceso a producción, que tarda hasta 7 días más. No aplica a cuentas de organización, pero la privacidad declara persona natural con RUC, así que **aplica**. Sumado a las 48 h de verificación de identidad, **entre abrir la cuenta y estar en producción hay tres semanas de calendario como piso**. Verificado contra la documentación de Google el 2026-09-03 |
 | 3.2.2 | Crear la app en Play Console con el paquete `com.renzoarroyo.todosbien` (**sin guiones**: Android no los admite, y que difiera del bundle de iOS es correcto) |
-| 3.2.3 | Ficha: descripción, capturas, icono, clasificación de contenido, cuestionario de seguridad de datos |
+| 3.2.3 | Ficha: descripción, capturas, icono, clasificación de contenido, cuestionario de seguridad de datos. ✅ **Todo escrito el 2026-09-03 en `FICHA-PLAY-STORE.md`**, con los largos contados y las respuestas de los tres formularios. Lo que falta es material gráfico: el **gráfico destacado de 1024 × 500 es obligatorio en Play y no existe en Apple**, así que hay que diseñarlo, no recortarlo |
 | 3.2.4 | Firma de la app: dejar que **Play App Signing** la maneje, que es el default y lo que EAS espera |
 | 3.2.5 | Primera subida a un *internal testing track* |
 
@@ -393,10 +432,10 @@ sean de Google.
 
 | # | Qué |
 |---|---|
-| 3.3.1 | Crear los productos en Play Console con los **mismos identificadores** que en App Store Connect |
-| 3.3.2 | Service account con permisos de **facturación**, conectada a RevenueCat |
-| 3.3.3 | Agregar la app de Android en RevenueCat y poner la clave `goog_...` en `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` |
-| 3.3.4 | Probar una compra en el track de prueba |
+| 3.3.1 | Crear los tres productos en Play Console. 🔧 **Corregido el 2026-09-03: NO llevan los mismos identificadores que App Store Connect**, y esta fila decía lo contrario. Cada tienda tiene su catálogo y lo único que comparten es el **entitlement**. Además el modelo es distinto: mensual y anual son **suscripciones con plan base**, y el de por vida es un **producto único**. Paso a paso, con los identificadores y el formato `producto:plan_base` que espera RevenueCat, en `GUIA-SUSCRIPCIONES.md` §8 |
+| 3.3.2 | ✅ **Hecho el 2026-09-03 por el dueño**: Play Console conectado a RevenueCat, con la app `Todos Bien (Play Store)` (`app81b5d0c59d`, paquete `com.renzoarroyo.todosbien`) |
+| 3.3.3 | ✅ **Clave puesta el 2026-09-03.** `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=goog_…Pmwapw` en `.env`, que se commitea a propósito porque las SDK keys son públicas. ⚠️ **Transcrita desde una captura**: conviene pegarla una vez con el botón de copiar del panel, porque `I` mayúscula y `l` minúscula son indistinguibles a ojo y el SDK no arranca con un carácter mal |
+| 3.3.4 | Probar una compra en el track de prueba. ⚠️ **No se puede desde un APK instalado a mano.** Play Billing solo responde si el build llegó por Play: hay que subirlo a un track de **internal testing** (3.2.5) y comprar con una cuenta declarada **license tester** en Play Console. Con un APK de depuración sale «el artículo que solicitaste no está disponible», que parece un fallo de la app y no lo es |
 
 > El webhook de RevenueCat **no hay que tocarlo**: es el mismo para las dos tiendas. El
 > campo `store` del evento distingue `APP_STORE` de `PLAY_STORE` y la función ya lo guarda.
@@ -409,10 +448,25 @@ sean de Google.
 
 ### Bloque 1 · Subir el sitio
 
-1. **Hostinger**: la landing corregida (`index.html` + `css/styles.css`) y
-   **`terminos/index.html`**, que cambió con el bloqueo y todavía no subió. La landing tiene
-   correcciones del 2026-08-28 que **arreglan una afirmación falsa** sobre lo que es gratis:
-   mientras no suba, el sitio promete algo que la app no hace.
+1. **Hostinger**, y ahora son **cinco** archivos, no dos. Nada de esto está publicado, así que
+   hoy el sitio describe un producto anterior a los grupos:
+
+   | Archivo | Qué cambió |
+   |---|---|
+   | `index.html` | Reescrita entera el 2026-09-02/03: sin WhatsApp, banner simplificado, tarjetas cortas, grilla 3+4, títulos centrados, móvil arreglado, FAQ 15 sobre grupos. Antes traía una **afirmación falsa** sobre lo que es gratis |
+   | `css/styles.css` | La grilla de 12 columnas y `.section-head.center` |
+   | `js/main.js` | El menú móvil reescrito |
+   | `terminos/index.html` | §2, §5 y §5.1 corregidos, **§5.2 nuevo** con las reglas de los grupos. Versión **1.2** |
+   | `privacidad/index.html` | §1, §3, §6, §7 y §9. Versión **1.2** |
+   | `eliminar-cuenta/index.html` | Qué pasa con los grupos al borrar la cuenta |
+
+   ⚠️ **El sitio no está en git.** La copia previa a todo esto está en
+   `scratchpad/landing-backup/` de la sesión.
+
+   ⚠️ **Y la privacidad tiene que subir ANTES de contestar las Nutrition Labels (2.4)**, no
+   después. Apple compara la declaración del formulario con la política publicada en la URL de la
+   ficha: si el formulario declara contenido de grupo y la página en vivo no lo menciona, la
+   contradicción está a un clic del revisor.
 
 ### Bloque 2 · Compilar
 

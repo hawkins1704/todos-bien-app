@@ -172,10 +172,34 @@ function skip(reason: string): false {
  * El resultado era una app instalada en un teléfono real con `push_tokens`
  * vacía y sin ninguna forma de arreglarlo salvo reinstalar.
  *
- * Se pide el token en cada refresco pero **solo se escribe cuando cambió**: el
- * token rota muy de vez en cuando y no tiene sentido gastar una escritura por
- * cada vez que alguien vuelve a la app.
+ * Se pide el token en cada refresco pero **solo se escribe una vez por
+ * arranque**: el token rota muy de vez en cuando y no tiene sentido gastar una
+ * escritura cada vez que alguien vuelve a la app.
+ *
+ * ## Por qué «una vez por arranque» y no «una vez y ya»
+ *
+ * El atajo anterior era `si el token es el mismo que guardé, no hago nada`, y
+ * eso da por sentado algo que solo el servidor sabe: que la fila sigue ahí.
+ * Puede no estar — `send-alerts` borra los tokens que Expo devuelve como
+ * `DeviceNotRegistered` (`send-alerts/index.ts:304`).
+ *
+ * ⚠️ **Esto es defensivo, no el arreglo de un fallo observado, y conviene que
+ * quede escrito así.** El 2026-09-02 se borró a mano la fila de un teléfono
+ * real para probar el distintivo de la 0039. Al mirar al minuto siguiente el
+ * token no había vuelto y se dio por confirmado un silencio permanente; **fue
+ * una conclusión apurada sobre una sola lectura.** Dos minutos después el token
+ * estaba de vuelta, escrito por la propia app. Nunca se estableció por qué el
+ * atajo no lo frenó.
+ *
+ * Lo que queda entonces no es un bug medido sino una garantía que faltaba: con
+ * la bandera, cada arranque vuelve a afirmar el token contra el servidor, y no
+ * hace falta saber por qué la caché local y la tabla se separaron para que se
+ * vuelvan a juntar. Cuesta **una** escritura por sesión, así que el sondeo de
+ * 8 s del simulacro no escribe nada.
  */
+
+/** Si el servidor ya confirmó el token en ESTE arranque. Ver el bloque de arriba. */
+let confirmadoEnEsteArranque = false;
 export async function syncPushToken(userId: string): Promise<boolean> {
   if (!Device.isDevice) return skip('es el simulador, no entrega tokens de APNs');
 
@@ -188,7 +212,9 @@ export async function syncPushToken(userId: string): Promise<boolean> {
   await ensureAndroidChannels();
 
   const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-  if ((await kvGet<string>(KV.pushToken)) === token) return skip('ya estaba registrado, sin cambios');
+  if (confirmadoEnEsteArranque && (await kvGet<string>(KV.pushToken)) === token) {
+    return skip('ya confirmado contra el servidor en este arranque');
+  }
 
   const { error } = await supabase.from('push_tokens').upsert(
     {
@@ -203,6 +229,7 @@ export async function syncPushToken(userId: string): Promise<boolean> {
   if (error) throw error;
 
   await kvSet(KV.pushToken, token);
+  confirmadoEnEsteArranque = true;
   if (__DEV__) console.log('[push] token registrado:', token);
   return true;
 }

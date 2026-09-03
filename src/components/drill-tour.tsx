@@ -243,9 +243,23 @@ export function DrillTourProvider({ children }: { children: React.ReactNode }) {
     yaLlevado.current = drillId;
     if (yaEnHome) return;
 
-    // `dismissTo` y no `push`: si hay pantallas encima —un chat, una ficha— hay
-    // que sacarlas, no apilar otra Home debajo del banner.
+    // Hacen falta LAS DOS, y con una sola el fallo pasa desapercibido.
+    //
+    // `dismissTo` desarma lo que esté APILADO encima —un chat abierto, la ficha
+    // de un contacto, una modal—, que es lo que se probó el 2026-09-01 y por eso
+    // pareció resuelto.
+    //
+    // Pero no cambia de PESTAÑA: Chats y Home son hermanas dentro de `(tabs)`,
+    // no una encima de la otra, así que no hay nada que descartar y la llamada
+    // se va sin hacer nada. Encontrado el 2026-09-02 (9f.16.bis): a quien le
+    // convocaban un simulacro leyendo la lista de chats le aparecía la franja
+    // amarilla y se quedaba ahí, y la guía recién arrancaba si iba a la Home a
+    // mano — o sea, justo el caso que este efecto existe para cubrir.
+    //
+    // `navigate` después: sobre una ruta en la que ya estás no hace nada, así
+    // que encadenarlas es seguro y cubre los dos casos.
     router.dismissTo('/');
+    router.navigate('/');
   }, [isDrilling, drillId, indice, grupoDeRuta, yaEnHome, router]);
 
   const anotarDesplazamiento = useCallback((y: number) => {

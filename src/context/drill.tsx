@@ -30,6 +30,16 @@ const DrillContext = createContext<DrillState | null>(null);
 export const DRILL_LIMIT_ERROR = 'limite_simulacros_free';
 
 /**
+ * Cada cuánto se relee el estado de los demás mientras hay un simulacro.
+ *
+ * 8 s es lo que separa «se actualizó solo» de «no se actualiza». Más corto no
+ * aporta —nadie reporta dos veces en cinco segundos— y más largo devuelve el
+ * síntoma: alguien se pone en verde y en la otra pantalla sigue gris el rato
+ * suficiente para que se lea como que no funcionó.
+ */
+const REFRESCO_EN_SIMULACRO_MS = 8_000;
+
+/**
  * El modo simulacro (migración 0035).
  *
  * **No guarda estado propio**: el simulacro vive en el servidor y llega por la
@@ -149,6 +159,51 @@ export function DrillProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => clearTimeout(id);
+  }, [activeDrill, refresh]);
+
+  /**
+   * Durante un simulacro la pantalla se refresca sola. Es el paso 9f.17.
+   *
+   * ## Por qué hace falta, y por qué SOLO acá
+   *
+   * La Home tiene cinco disparadores de refresco: montar, recuperar red, volver
+   * al primer plano, tirar de la lista, y **que llegue un push** (el arreglo de
+   * 7d.1). En un sismo real ese último cubre todo: si alguien reporta «estoy
+   * bien», sale `contact_reported` o `contact_is_safe`, llega el push, la
+   * pantalla se mueve.
+   *
+   * En un simulacro no sale nada. Verificado en la corrida del 2026-09-02
+   * leyendo `notification_deliveries`: de un simulacro grupal entero salieron
+   * `drill_started`, `drill_ended` y `contact_needs_help`, y **ni un solo aviso
+   * por «estoy bien»**. Así que el participante se ponía en verde en el
+   * servidor y en la pantalla del convocante seguía gris.
+   *
+   * Encima los otros cuatro disparadores tampoco sirven ahí: la capa oscura de
+   * la guía tapa el gesto de tirar de la lista, y nadie va a mandar la app al
+   * fondo en mitad de una práctica. Quedaba sin salida.
+   *
+   * **Lo que engañaba:** marcar «necesito ayuda» sí manda push, así que la
+   * pantalla se movía justo después de ese paso y parecía que el problema se
+   * arreglaba solo. Lo arreglaba el aviso del paso anterior.
+   *
+   * ## Por qué sondeo y no un push nuevo
+   *
+   * Un aviso por cada cambio de estado es exactamente el ruido que la 0026 y
+   * 7c.4 se ocuparon de sacar. Y acá no hace falta avisar: la persona **está
+   * mirando la pantalla**, que es lo que significa estar en un simulacro. Lo
+   * que falta no es enterarse, es que lo que ya está delante se actualice.
+   *
+   * Está acotado por los dos lados: solo con simulacro activo, y el simulacro
+   * caduca a los 60 minutos. Fuera de un simulacro esto no existe.
+   */
+  useEffect(() => {
+    if (!activeDrill) return;
+
+    const id = setInterval(() => {
+      void refresh();
+    }, REFRESCO_EN_SIMULACRO_MS);
+
+    return () => clearInterval(id);
   }, [activeDrill, refresh]);
 
   const value = useMemo<DrillState>(

@@ -1,7 +1,8 @@
 # Ficha de App Store — texto listo para pegar
 
 Todo lo que pide App Store Connect en **App Information** y en **iOS App → Version
-Information**, escrito y contado. Escrito el **2026-08-24**.
+Information**, escrito y contado. Escrito el **2026-08-24**, revisado contra el
+comportamiento real el **2026-09-03**.
 
 > **Cada afirmación de acá sale de `QUE-PROMETE-LA-APP.md`.** Si algo suena mejor pero no
 > está respaldado ahí, no se cambia acá: se cambia primero allá. La ficha es el lugar donde
@@ -30,10 +31,14 @@ Los largos están **contados**, no estimados. Apple corta sin avisar.
 ### Keywords (100 caracteres, separadas por coma, sin espacios)
 
 ```
-sismo,terremoto,temblor,IGP,familia,emergencia,contactos,ubicacion,simulacro,Peru,aviso,circulo
+sismo,terremoto,temblor,IGP,familia,emergencia,contactos,ubicacion,simulacro,Peru,aviso,grupos
 ```
 
-95 / 100. Tres decisiones detrás:
+94 / 100. Cuatro decisiones detrás:
+
+- **`circulo` salió el 2026-09-03.** Describía las etiquetas privadas de la migración 0031, que
+  dejaron de existir con la 0034: hoy el objeto es un **grupo** compartido. Una keyword que
+  nombra algo que la app ya no tiene es un slot de los 100 gastado en atraer a nadie.
 
 - **No aparece «alerta sísmica».** Es la keyword más buscada del rubro y es exactamente la
   que no podemos usar: en Perú significa SASPe, o sea alerta temprana. Usarla trae
@@ -58,6 +63,13 @@ descripción.
 
 > Pegar tal cual. Los saltos de línea importan: App Store Connect respeta los párrafos.
 
+**3963 / 4000 caracteres.** Contado, no estimado: al sumar los grupos y los simulacros se pasó
+de 4000 y hubo que recortar. Si se agrega un párrafo, volver a contar.
+
+> **Este mismo texto es la descripción de Google Play**, con una sola sustitución. No se copia a
+> otro archivo — ver `FICHA-PLAY-STORE.md` §2, que explica por qué y trae el script que la genera.
+> **Si editas esta descripción, corré ese script**: falla solo si quedó una mención a Apple.
+
 ```
 Todos Bien no es una alarma sísmica. Es la app para los minutos después del sismo.
 
@@ -69,25 +81,36 @@ Después de un sismo todos llaman a la vez y la red se cae. Un toque en la app p
 VES QUIÉN RESPONDIÓ Y QUIÉN NO
 Tu red aparece en una sola pantalla con el estado de cada persona. Quien todavía no contestó se ve distinto de quien dijo que está bien: es la diferencia entre quedarte tranquilo y saber a quién llamar primero.
 
+Y si a alguien de tu red no le van a llegar los avisos —porque no dio el permiso o cambió de teléfono— te lo decimos antes de que haga falta, no después.
+
 TU UBICACIÓN, SOLO CUANDO IMPORTA
-La app toma tu ubicación una vez al configurarla y otra vez después de cada sismo que te afecta, aunque esté cerrada. Nada más. No registra tu recorrido, no guarda un historial y no te sigue el resto del tiempo. La ven únicamente los contactos que aceptaste, y si no la tenemos, lo decimos: nunca mostramos una posición vieja como si fuera de ahora.
+La app toma tu ubicación una vez al configurarla y otra vez después de cada sismo que te afecta, aunque esté cerrada. Nada más. No registra tu recorrido ni te sigue el resto del tiempo. La ven únicamente los contactos que aceptaste, y si no la tenemos, lo decimos: nunca mostramos una posición vieja como si fuera de ahora.
 
 AVISOS SEGÚN TU ZONA
-Eliges el radio y la magnitud mínima. Seguimos el catálogo del IGP y del USGS todo el día, y te avisamos cuando un sismo entra en tus criterios, con la app cerrada.
+Eliges el radio y la magnitud mínima. Seguimos el catálogo del IGP y del USGS todo el día, y te avisamos cuando un temblor entra en tus criterios, con la app cerrada.
 
 CHAT CON TU RED
-Para lo que no cabe en un estado: dónde estás, qué necesitas, dónde se ven.
+Para lo que no cabe en un estado: dónde estás, qué necesitas, dónde se ven. Individual con cualquiera de tu red, y uno en cada grupo.
+
+GRUPOS: CASA, FAMILIA, TRABAJO
+Tu red en subconjuntos con nombre, cada uno con su chat. Cuando tiembla ves «Casa 4/5» y «Familia 8/11» en vez de una lista plana de treinta caras: es la diferencia entre «faltan dos de mi casa» y «faltan doce conocidos». Dos grupos gratis, ilimitados con Premium.
+
+Estar en un grupo no conecta a nadie: ves los nombres y se escriben, pero el estado y la ubicación siguen siendo de a dos y necesitan que ambos se acepten. Nadie puede meterte en un grupo y darle tu ubicación a un desconocido.
 
 SIMULACROS
-Tres simulacros guiados, gratis, para que la primera vez que uses la app de verdad no sea durante un terremoto.
+Tres simulacros guiados, gratis, para que la primera vez que uses la app de verdad no sea durante un terremoto. Solo, o con un grupo entero.
+
+Mientras dura hay una franja amarilla que dice SIMULACRO, el aviso que reciben los demás dice que es una práctica, y si tiembla de verdad el simulacro se cierra solo.
 
 TIPS DE PREPARACIÓN
 Con la fuente citada en cada uno: INDECI, Cruz Roja Peruana e Instituto Geofísico del Perú.
 
 PREMIUM (opcional)
-Cuando el sismo te toca a ti, la app funciona completa sin pagar: tu alerta, tu red y el aviso de que alguien no respondió nunca dependen de que pagues.
+Cuando el sismo te toca a ti, la app funciona completa sin pagar: tu alerta, tu red, el aviso de que alguien pidió ayuda y el de que alguien no respondió nunca dependen de que pagues.
 
-Premium sirve para lo contrario: los sismos que NO te tocan a ti. Te avisa apenas tiembla cerca de alguien de tu red —estés donde estés, con su nombre y a cuántos kilómetros le pasó— y otra vez cuando esa persona reporta que está bien. Agrega además avisos de sismos fuertes en cualquier parte del mundo, simulacros ilimitados y hasta cinco planes de acción con nombre, uno por situación: casa, trabajo, colegio.
+Premium sirve para lo contrario: los sismos que NO te tocan a ti. Te avisa cuando alguien de tu red reporta que está bien, y también si pasan veinte minutos y no reporta. Cada aviso te dice de qué sismo habla —magnitud y lugar—, para que se entienda solo. Eso es Guardián.
+
+Agrega además avisos de sismos de todo el mundo, grupos y simulacros ilimitados, y hasta cinco planes de acción con nombre: casa, trabajo, colegio.
 
 Tu familia no necesita pagar nada ni enterarse: Premium es tuyo, y sirve para saber de ellos.
 
@@ -156,19 +179,29 @@ Apple exige, como mínimo, el juego del iPhone más grande; los tamaños menores
 ese si no se suben aparte. **Confirmar los tamaños vigentes en App Store Connect al subir**,
 que cambian con cada generación de iPhone.
 
-Las siete, en orden, y qué tiene que verse en cada una:
+Las ocho, en orden, y qué tiene que verse en cada una:
 
 | # | Pantalla | Qué demuestra | Texto sugerido encima |
 |---|---|---|---|
 | 1 | Home en modo alerta, con el sismo arriba y la red debajo | El producto en el momento para el que existe | «Tembló. ¿Están todos bien?» |
 | 2 | Red con estados mezclados: dos en verde, uno en ámbar, uno sin confirmar | El valor real: ver quién falta | «Ves quién respondió y quién no» |
-| 3 | Los cuatro estados / «Estoy bien» | Lo que hace el usuario | «Un toque, y tu gente lo sabe» |
-| 4 | Detalle de contacto con el mini mapa | La ubicación, con su límite | «Su ubicación después del sismo. No antes, no siempre» |
-| 5 | Ajustes de radio y magnitud | Control del usuario | «Tú eliges qué te despierta» |
-| 6 | Simulacro | Que se puede probar sin un terremoto | «Practica antes de necesitarlo» |
-| 7 | Noticias, con la lista de sismos de Perú y la del mundo | Que hay contenido todos los días, no solo cuando tiembla fuerte | «Los sismos del IGP, y los del mundo» |
+| 3 | **Grupos**, con el desglose «Casa 4/5 · Familia 8/11» y el chat del grupo debajo | Que la red no es una bolsa plana. Contesta la pregunta que deja la captura 2: *«¿y si tengo treinta contactos?»* | «Faltan dos de tu casa, no doce conocidos» |
+| 4 | Los cuatro estados / «Estoy bien» | Lo que hace el usuario | «Un toque, y tu gente lo sabe» |
+| 5 | Detalle de contacto con el mini mapa | La ubicación, con su límite | «Su ubicación después del sismo. No antes, no siempre» |
+| 6 | Ajustes de radio y magnitud | Control del usuario | «Tú eliges qué te despierta» |
+| 7 | Simulacro, **con la franja amarilla visible** | Que se puede probar sin un terremoto, y que no se confunde con uno | «Practica antes de necesitarlo» |
+| 8 | Noticias, con la lista de sismos de Perú y la del mundo | Que hay contenido todos los días, no solo cuando tiembla fuerte | «Los sismos del IGP, y los del mundo» |
 
-**Por qué la lista de sismos va séptima y no antes.** Es la pantalla que contesta «¿y qué
+**Por qué los grupos entran como captura y no como línea de la descripción.** Es la función más
+nueva (migraciones 0031-0034) y la única que **no se entiende leyéndola**: «subconjuntos con
+nombre de tu red» suena a organización de contactos, que es aburrido y además no es el punto. El
+punto es el desglose durante un sismo, y eso se ve en un segundo y no se explica en un párrafo.
+
+> ⚠️ **La franja amarilla del simulacro tiene que salir en la captura 7.** Es la prueba en imagen
+> de que la app no puede hacerle creer a nadie que tembló de verdad — el §4 de los términos lo
+> prohíbe y App Review lo mira. Una captura de simulacro sin la franja parece una alerta falsa.
+
+**Por qué la lista de sismos va última y no antes.** Es la pantalla que contesta «¿y qué
 hago con esta app un martes cualquiera?», y eso importa: sin ella la app parece algo que se
 abre una vez al año. Pero **no es la promesa** — un catálogo de sismos lo tienen el IGP y una
 docena de apps gratis. Ponerla arriba invita a compararnos con ellas, que es la comparación
@@ -197,7 +230,7 @@ más allá de Perú. Lo que ya está decidido para cuando toque:
 | Campo | Valor | Largo |
 |---|---|---|
 | Subtitle | `Tell your family you're OK` | 26 / 30 |
-| Keywords | `earthquake,quake,tremor,family,safety,check in,emergency,location,drill,USGS,alert,circle` | 89 / 100 |
+| Keywords | `earthquake,quake,tremor,family,safety,check in,emergency,location,drill,USGS,alert,groups` | 89 / 100 |
 
 > `alert` sí puede ir en inglés: no arrastra el significado de alerta temprana que «alerta
 > sísmica» tiene en Perú. Lo que **no** puede aparecer en ningún idioma es *early warning*.
@@ -213,7 +246,22 @@ más allá de Perú. Lo que ya está decidido para cuando toque:
 - [ ] Las capturas no muestran datos de personas reales
 - [x] Está resuelto el punto de moderación de §4 — denunciar y bloquear existen desde el
       2026-08-24
-- [ ] La descripción de Premium sigue diciendo la verdad sobre lo que es gratis. **Es lo que
+- [x] La descripción de Premium sigue diciendo la verdad sobre lo que es gratis. **Es lo que
       más se desactualiza**: el corte cambió el 2026-08-27 y estaba mal escrito en cuatro
       lugares públicos a la vez. La versión buena es la de §2, y su fuente es
       `QUE-PROMETE-LA-APP.md` §7
+      — **Revisado el 2026-09-03, y esta casilla se había quedado sin marcar por segunda vez.**
+      La descripción vendía «te avisa apenas tiembla cerca de alguien de tu red, con su nombre
+      y a cuántos kilómetros le pasó», que es el aviso del minuto 0 que la migración **0030**
+      retiró el 2026-08-31. Quien pagara S/ 79,90 por esa frase nunca iba a recibirla.
+- [x] La descripción menciona los **grupos** — corregido el 2026-09-03. Faltaban por completo:
+      la app tenía grupos compartidos con chat desde las migraciones 0031-0034 y la ficha
+      seguía describiendo solo el chat individual
+- [ ] La captura del simulacro muestra la **franja amarilla** (ver §5)
+
+> **La lección, porque va a volver a pasar.** Las dos casillas de arriba fallaron por el mismo
+> motivo: al retirar o agregar una función se corrige el código, se corrige la tabla de §7 de
+> `QUE-PROMETE-LA-APP.md`, y **los textos listos para pegar quedan intactos** porque nadie los
+> relee al revisar una migración. Los tres lugares donde vive copia lista para publicar son
+> **este archivo (§2), `GUIA-SUSCRIPCIONES.md` §4 y la landing**. Al tocar una función, abrir
+> los tres.

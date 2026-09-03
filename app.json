@@ -46,6 +46,7 @@
           "imageWidth": 200
         }
       ],
+      "./plugins/with-android-window-background",
       "expo-sqlite",
       "expo-secure-store",
       [

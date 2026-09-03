@@ -10,7 +10,7 @@ Los otros documentos son distintos: `ESTADO-DEL-PROYECTO.md` explica *cómo* fun
 qué* se decidió así; `QUE-FALTA.md` es el índice de trabajo pendiente. **Acá solo va lo que
 se puede afirmar en público, y con qué palabras.**
 
-Última revisión: **2026-08-24**.
+Última revisión: **2026-09-03**.
 
 ---
 
@@ -312,8 +312,15 @@ Lo destapó un M6,7 en el mar de Scotia, a 5.887 km de Lima, que puso la app de 
 Premium en modo emergencia (ESTADO §1.13.5). Estaban mezcladas en una sola tubería.
 
 **Para la landing:** *«Premium no te da alertas más rápidas ni más alertas. Te deja saber qué
-pasa con los tuyos: enterarte apenas tiembla donde está tu gente, aunque vos estés lejos. Lo
-que te protege es gratis.»*
+pasa con los tuyos: que reportaron, o que no reportaron, aunque a ti ese sismo no te haya
+tocado. Lo que te protege es gratis.»*
+
+> 🔴 **Hasta el 2026-09-03 esta frase decía «enterarte apenas tiembla donde está tu gente».**
+> Era el aviso del minuto 0 que la migración 0030 retiró, y de acá se copió a la ficha de App
+> Store y al paywall de `GUIA-SUSCRIPCIONES.md`. **Es el segundo párrafo de este documento que
+> sobrevive a la función que describe**, y el patrón es siempre el mismo: se corrige el código,
+> se corrige la tabla de §7, y las frases «para pegar» quedan intactas porque nadie las lee al
+> revisar. Al retirar una función, buscar también las frases listas para copiar.
 
 ---
 

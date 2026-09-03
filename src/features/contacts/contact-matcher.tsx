@@ -264,8 +264,8 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
       <Card>
         <Text variant="headline">Invitar a alguien que no la tiene</Text>
         <Text variant="subhead" tone="secondary" style={styles.gapTopSm}>
-          Comparte la app por WhatsApp, mensaje o correo. Cuando la instale y se registre con su
-          número, aparece acá al revisar tu agenda y le envías la solicitud.
+          Comparte la app por mensaje, correo o como prefieras. Cuando la instale y se registre con
+          su número, aparece acá al revisar tu agenda y le envías la solicitud.
         </Text>
         <Button
           title="Compartir Todos Bien"

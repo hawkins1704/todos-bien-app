@@ -627,7 +627,9 @@ function MemberRow({
   first: boolean;
   onPress: () => void;
 }) {
-  const { colors } = useTheme();
+  // `status: statusColors` porque acá abajo `status` ya es el de la persona.
+  // Mismo renombre que en `contact/[id].tsx`, por la misma colisión.
+  const { colors, status: statusColors } = useTheme();
   // Sin alerta propia el anillo igual aparece si a esta persona la alcanzó un
   // sismo que sigue vivo (ver `liveQuakeStatus`).
   const status = showStatus ? effectiveStatus(member, activeQuakeId) : liveQuakeStatus(member);
@@ -668,12 +670,24 @@ function MemberRow({
               Va pegado al nombre y no en la línea de abajo porque no es una
               novedad de hoy: es una condición de la persona, y compite con el
               estado por el mismo renglón. El detalle, con qué hacer al
-              respecto, está en su ficha. */}
+              respecto, está en su ficha.
+
+              🔴 Era `notifications-off` en gris, y se leía al revés (probado en
+              dispositivo el 2026-09-02). La campana tachada es el símbolo
+              universal de «lo silencié yo», y el gris terciario dice «inerte»:
+              juntos daban «silenciaste a esta persona», que es lo contrario de
+              lo que pasa —no le llega nada, no es cosa tuya, y conviene
+              avisarle—.
+
+              El ámbar y no el rojo, aunque el rojo se lea más urgente: en esta
+              app el rojo significa «necesito ayuda» (ESTADO §1.4.1) y gastarlo
+              acá se lo quita al que sí es una emergencia. Es la misma decisión
+              que ya tomó `permissions-checklist.tsx` para lo mismo. */}
           {!member.receivesNotifications ? (
             <MaterialIcons
-              name="notifications-off"
+              name="error-outline"
               size={16}
-              color={colors.textTertiary}
+              color={statusColors.helping.strong}
               accessibilityLabel="No recibe notificaciones"
             />
           ) : null}

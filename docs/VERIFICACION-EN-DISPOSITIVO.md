@@ -327,6 +327,17 @@ order by le_llega desc;
 > lo que hay que recordar es la forma — un `pg_temp` que deja a B sin reportar y lo hace reportar,
 > se corre una vez por caso cambiando un solo ajuste, y `rollback` al final.
 | 7b.12 | `select private.fan_out_quake('<id>')` dos veces sobre el mismo sismo | No se duplica: `alert_deliveries_unique` y `dedupe_key` |
+> **Cómo montar 7b.13 sin conseguir un teléfono más** (2026-09-02): borrar la fila de
+> `push_tokens` de un contacto —`delete from public.push_tokens where user_id = '<id>'`— es
+> exactamente el estado que se quiere probar. Guardar el token antes.
+>
+> 🔴 **Y cómo NO leer el resultado.** Al restaurarlo, la app del contacto vuelve a registrarse
+> sola, pero **no necesariamente en el refresco siguiente**: en la corrida del 2026-09-02 tardó
+> ~2 minutos. Se miró la tabla al minuto, se vio vacía, y se concluyó que el token no volvía
+> nunca y que existía un silencio permanente. **Era una conclusión apurada sobre una sola
+> lectura**, y estuvo mal. Si la tabla sigue vacía, esperar y volver a mirar antes de escribir
+> un diagnóstico.
+
 | 7b.13 | Un contacto de A **sin ningún dispositivo registrado**, callado tras la alerta | ⚠️ **Sigue sin llegar «no responde», y es lo correcto**: su entrega cierra como `no_token` y esa persona nunca recibió la alerta, así que no está callada sino incomunicada. Lo que sí tiene que pasar (migración 0039) es que **se vea antes**: en su ficha, «No recibe notificaciones», y un ícono de campana tachada junto a su nombre en la pestaña Red |
 | 7b.14 | Instalar la app en un teléfono nuevo con esa misma cuenta y volver a mirar | El distintivo **desaparece solo** en el refresco siguiente: ya hay dónde recibir. Es la comprobación de que el dato es vivo y no una marca pegada |
 
@@ -359,6 +370,7 @@ arreglados; esto es para que no vuelvan.
 | 7d.5 | Pestaña Red **con** alerta activa | Selector triple arriba con los conteos: **En la zona · Fuera · Todos** |
 | 7d.6 | Pestaña Red **sin** alerta activa | El selector **no está**. Fuera de una alerta no hay «zona» de la que hablar |
 | 7d.7 | Filtrar por «En la zona» sin nadie adentro | Dice que a nadie le llegó la alerta, no una lista vacía |
+| 7d.8 | 🔴 **Sembrar un SEGUNDO sismo mientras el primero sigue dentro de la ventana de 6 h**, con las apps abiertas, y esperar a que corra `notify-silent-contacts` | **No llega ningún «X no responde»** a nadie que haya reportado. Encontró la migración **0042** el 2026-09-02: salieron dos avisos falsos y cruzados, citando el sismo **anterior**, sobre dos personas que sí habían contestado. La causa es una ventana de ~90 s entre que el fan-out crea la entrega y el cron la despacha; adentro de esa ventana el sismo nuevo era invisible para el cron mientras la captura automática ya había movido `user_status` hacia él. **Un solo sismo sembrado no lo encuentra**: hacen falta dos, y el segundo tiene que caer cerca de un múltiplo de 5 minutos |
 
 ---
 
@@ -615,6 +627,30 @@ Esto necesita **tres cuentas**: A (dueño), B y C, donde **B y C no están conec
 > Lo que sigue sin verse en un teléfono: la caducidad a los 60 minutos (9f.27) y **la prueba del
 > sismo real**, que es la del recuadro al final y no se puede saltear.
 
+> 🔴 **Segunda corrida, 2026-09-02.** Pasó todo salvo dos, los dos del simulacro **grupal** —que
+> es la mitad que no se había podido probar bien antes. Arreglados; hay que volver a correr
+> `9f.16.bis` y `9f.17` sobre el build siguiente.
+>
+> 1. **`9f.16.bis` · al participante no lo llevaba a la Home.** El arreglo del 1 de septiembre
+>    usaba `router.dismissTo('/')`, que **solo desarma pantallas apiladas**. Se probó con un chat
+>    abierto —que sí es una pantalla apilada— y pareció resuelto. Pero quien está en la **pestaña
+>    Chats** no tiene nada encima de la Home: son hermanas dentro de `(tabs)`, así que la llamada
+>    se iba sin hacer nada y la persona se quedaba mirando la lista de chats con la franja
+>    amarilla puesta. Ahora van las dos, `dismissTo` y `navigate`.
+> 2. **`9f.17` · la grilla no se pintaba de verde.** La Home se refresca sola **cuando llega un
+>    push** (7d.1), y en un simulacro reportar «estoy bien» **no manda ninguno**: comprobado
+>    leyendo `notification_deliveries` de la corrida entera, donde salieron `drill_started`,
+>    `drill_ended` y `contact_needs_help`, y ni un aviso por «estoy bien». Encima los otros
+>    disparadores tampoco servían: la capa de la guía tapa el gesto de tirar de la lista.
+>
+>    ⚠️ **Y por qué parecía intermitente.** En la segunda pasada sí se actualizó, y eso hizo
+>    pensar que no había nada que arreglar. Lo que pasó es que justo antes se había probado
+>    «necesito ayuda», que **sí** manda push — y ese push refrescó las dos pantallas. *No se
+>    arregló solo: lo arregló el aviso del paso anterior.* Ahora la Home se relee cada 8 s
+>    mientras haya simulacro. No se agregó un push nuevo a propósito: en un simulacro la persona
+>    ya está mirando la pantalla, así que lo que falta no es enterarse sino que lo de delante se
+>    mueva.
+
 ### Individual
 
 | # | Paso | Qué tiene que pasar |
@@ -659,6 +695,24 @@ Esto necesita **tres cuentas**: A (dueño), B y C, donde **B y C no están conec
 > sembrar un sismo de prueba que **sí** alcance a esa cuenta (ver §0). El simulacro tiene que
 > **cerrarse solo** y la pantalla mostrar la alerta real. Un banner amarillo que dice «esto es
 > una práctica» encima de un sismo de verdad es la peor ambigüedad que puede tener esta app.
+
+---
+
+## 0.b · Que la app ABRA — el paso que faltaba
+
+> 🔴 **Escrito el 2026-09-02, después de que un build no pasara del splash.** Todo este
+> documento empieza en la pantalla 1 y **da por sentado que la app arranca**. Un fallo en la
+> migración de SQLite local dejó a iOS colgado en el splash y ninguna de las 200 filas de abajo
+> lo habría encontrado, porque todas asumen una app viva. El primer paso del recorrido no puede
+> ser «crear una cuenta».
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 0b.1 | Instalar el build **sobre la versión anterior**, sin borrar la app | Abre y llega a la Home. 🔴 Es el caso que rompió: una base local con esquema viejo migrando al nuevo. Borrar la app antes de instalar **oculta exactamente este fallo**, porque una base nueva no migra nada |
+| 0b.2 | Mirar la consola en los primeros segundos | Sin `Uncaught (in promise)`. Un fallo al abrir la base sale así y no como una pantalla de error |
+| 0b.3 | Cerrar la app a la fuerza durante el primer arranque y volver a abrirla | Abre igual. La migración es una transacción exclusiva: o entra entera o no entra, así que matarla en el medio no deja el esquema a medias |
+| 0b.4 | Repetir con la cuenta que tiene datos (red, chats, grupos) | La red y los chats **siguen ahí**. Migrar no puede vaciar la caché: es lo que se lee sin red después de un sismo |
+| 0b.5 | **En Android**, mirar el color entre el splash y la Home | 🔴 **Azul, nunca blanco.** El sistema cambia al `postSplashScreenTheme` apenas crea la Activity, y `AppTheme` no declaraba `android:windowBackground`: heredaba el blanco de `Theme.AppCompat.DayNight` y la ventana quedaba blanca hasta que React pintaba. Lo pone el plugin `plugins/with-android-window-background.js`. ⚠️ **Se mide en un build de producción, no con `npx expo start`**: el plugin tapa el hueco, no lo acorta, y en desarrollo el hueco dura segundos porque el bundle va sin minificar y por Metro |
 
 ---
 

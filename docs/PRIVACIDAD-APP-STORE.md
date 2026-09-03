@@ -1,7 +1,7 @@
 # App Privacy (Nutrition Labels) — hoja de respuestas
 
 Lo que hay que responder en App Store Connect → **App Privacy**, dato por dato, con el
-motivo de cada respuesta. Escrito el **2026-08-24**.
+motivo de cada respuesta. Escrito el **2026-08-24**, revisado con los grupos el **2026-09-03**.
 
 **Por qué existe este documento y no se contesta el formulario a ojo:** la declaración tiene
 que coincidir con tres cosas a la vez — lo que el código hace, lo que dice
@@ -32,7 +32,7 @@ respuestas son siempre las mismas y conviene tenerlas claras:
 | Contact Info | Name | El nombre para mostrar que elige la persona | Sí | No | App Functionality |
 | Contact Info | Phone Number | Opcional. Se guarda en E.164 y sirve para que te encuentren | Sí | No | App Functionality |
 | Location | Precise Location | Latitud y longitud. **Una** lectura al conceder el permiso y **una** por cada sismo que aplica | Sí | No | App Functionality |
-| User Content | Other User Content | El estado reportado y su mensaje opcional; los mensajes de chat; el plan de acción | Sí | No | App Functionality |
+| User Content | Other User Content | El estado reportado y su mensaje opcional; los mensajes de chat **individual y de grupo**; el plan de acción; **el nombre que la persona le pone a cada grupo** | Sí | No | App Functionality |
 | Identifiers | User ID | El UUID de la cuenta, y el token de push del dispositivo | Sí | No | App Functionality |
 | Purchases | Purchase History | Lo maneja RevenueCat para saber si la suscripción está activa | Sí | No | App Functionality |
 
@@ -52,6 +52,29 @@ sale del teléfono, y no se guarda nada de la agenda en el servidor.
 **Ubicación.** Se declara **Precise Location**, no *Coarse*. Aunque la captura use
 `Accuracy.Balanced`, lo que se guarda son coordenadas reales y el permiso pedido es el de
 ubicación precisa. Declarar *Coarse* para que se vea mejor sería falso.
+
+### Los grupos no agregan ninguna casilla, y conviene saber por qué
+
+Revisado el **2026-09-03**, al sumar los grupos a la política publicada. Los tres datos nuevos
+que introdujeron las migraciones 0031-0034 **caen dentro de categorías ya declaradas**:
+
+| Dato nuevo | Dónde cae | Casilla nueva |
+|---|---|---|
+| El nombre del grupo | User Content → Other User Content | No |
+| Los mensajes del chat del grupo | User Content → Other User Content, igual que el chat individual | No |
+| Quiénes integran cada grupo | Identifiers → User ID (son UUID de cuentas ya declaradas) | No |
+
+**Lo que sí cambió es el alcance de la divulgación, y eso no vive en el formulario sino en la
+política:** el nombre de una persona y lo que escribe en el chat de un grupo los ve **todo el
+grupo**, incluidos integrantes con los que no tiene una conexión aceptada. Apple no pregunta
+«¿quién puede ver este dato?» en las Nutrition Labels, así que si esto no está en la política
+publicada no está en ninguna parte. Se agregó a `privacidad/index.html` §1 y §7 el 2026-09-03.
+
+> **La pregunta que un revisor puede hacer, y la respuesta:** el estado y la ubicación **no** se
+> comparten por pertenecer a un grupo. Eso está impuesto en la base y no en la interfaz — para
+> sumar a alguien, la política `group_members_insert_owner` exige
+> `is_group_owner(group_id) and is_connected(member_id)`, así que nadie puede meter a un
+> desconocido en un grupo, y estar en el mismo grupo no crea una conexión.
 
 ---
 
@@ -112,10 +135,17 @@ Si se cambia una, se revisan las cuatro. Es la lista de verificación de cada au
 | Los textos del diálogo del sistema | `app.json` → plugin `expo-location` y `expo-contacts` |
 | La pantalla de permisos y la de Ajustes | `src/app/(onboarding)/permissions.tsx`, `src/app/(tabs)/settings.tsx` |
 | La política de privacidad publicada | `../todos-bien-website/privacidad/index.html` |
+| **Los términos publicados** | `../todos-bien-website/terminos/index.html` §5 y §5.2 |
 | Esta declaración | App Store Connect → App Privacy |
 
-**Verificado el 2026-08-24:** las cuatro dicen lo mismo — una lectura al conceder el permiso,
-una por cada sismo que aplica, capturas manuales solo durante una alerta activa, y nada más.
+**Verificado el 2026-08-24** sobre la ubicación: las cuatro dicen lo mismo — una lectura al
+conceder el permiso, una por cada sismo que aplica, capturas manuales solo durante una alerta
+activa, y nada más.
+
+**Verificado el 2026-09-03** sobre los grupos, y por eso la lista pasó de cuatro superficies a
+cinco: las reglas de un grupo —quién administra, a quién se puede sumar, qué ve cada integrante,
+qué pasa al borrar la cuenta del dueño— son obligaciones recíprocas entre usuarios, así que su
+lugar natural son los **términos** y no solo la política. Estaban en ninguna de las dos.
 
 ---
 
@@ -129,7 +159,7 @@ desde dentro (guía **5.1.1(v)**).
 | ¿Se pueden crear cuentas? | Sí |
 | ¿Se puede borrar la cuenta desde la app? | Sí |
 | ¿Dónde? | **Ajustes → tocar el perfil → SEGURIDAD → Borrar mi cuenta** |
-| ¿Qué se borra? | Todo lo que cuelga de la cuenta, por `on delete cascade`, verificado contra el esquema real (ESTADO §1.1.3) |
+| ¿Qué se borra? | Todo lo que cuelga de la cuenta, por `on delete cascade`, verificado contra el esquema real (ESTADO §1.1.3). **Incluidos los grupos que la persona creó y sus chats** — verificado el 2026-09-03: `groups.owner_id → profiles` es cascade y `conversations.group_id → groups` también, así que el grupo y su chat desaparecen **para todos sus integrantes**. Está dicho con esas palabras en `/eliminar-cuenta` y en la política §9 |
 | ¿Qué NO se borra, y por qué? | `revenuecat_events`, la bitácora de facturación, que tiene que sobrevivir para resolver un reembolso o un reclamo. Solo la lee `service_role`. **Está dicho así en la política de privacidad** |
 
 También existe la página pública `https://todosbien.app/eliminar-cuenta`, que Google Play

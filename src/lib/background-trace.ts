@@ -77,8 +77,27 @@ export async function traceBackground(stage: BackgroundStage, detail?: string): 
  * **El borrado va después de que el servidor confirmó.** Al revés se perdería
  * justo la evidencia de un despertar que ocurrió sin red, que es uno de los
  * casos que queremos poder ver.
+ *
+ * ## El candado, y por qué hace falta
+ *
+ * Leer → insertar → borrar no es atómico, así que dos llamadas a la vez leen
+ * las mismas migajas y las dos las insertan. Y **dos a la vez es lo normal en el
+ * momento que importa**: cuando llega el aviso de un sismo, `refresh()` se
+ * dispara por el listener del push *y* por el AppState al tocarlo.
+ *
+ * Pasó el 2026-09-02: la cadena entera de un teléfono quedó duplicada, con el
+ * mismo milisegundo. No se pierde información, pero la duplicación cae
+ * justamente sobre la tabla que existe para diagnosticar, y ahí un `woke` de más
+ * se puede leer como un despertar de más.
+ *
+ * Mismo patrón que el `flushing` de `flushOutbox`, por el mismo motivo.
  */
+let subiendo = false;
+
 export async function flushBackgroundTrace(userId: string): Promise<number> {
+  if (subiendo) return 0;
+  subiendo = true;
+
   try {
     const migajas = await kvGet<Migaja[]>(KV.backgroundTrace);
     if (!migajas || migajas.length === 0) return 0;
@@ -98,5 +117,7 @@ export async function flushBackgroundTrace(userId: string): Promise<number> {
     return migajas.length;
   } catch {
     return 0;
+  } finally {
+    subiendo = false;
   }
 }

@@ -131,21 +131,65 @@ export async function syncActiveDrill(): Promise<ActiveDrill | null> {
   return drill;
 }
 
+/**
+ * ## Por qué cada pieza falla por su cuenta
+ *
+ * Antes esto era `await flushOutbox(); await syncMe(); await Promise.all([…])`,
+ * o sea **todo o nada**: si el outbox o los datos propios lanzaban, `syncCircle`
+ * no llegaba a correr nunca. Y como `refresh()` se traga el error para no
+ * romper la pantalla sin red, el resultado era una caché vieja sin ninguna
+ * señal.
+ *
+ * Fuera de una alerta eso es inofensivo. **Durante una alerta no:** con el
+ * círculo viejo, nadie de tu red figura alcanzado por el sismo, y la Home no
+ * dice «no pude comprobarlo» sino **«a nadie de tu red le llegó la alerta»** —
+ * una afirmación falsa, en el peor momento, con la misma cara de confianza que
+ * si fuera cierta.
+ *
+ * Se vio en la corrida del 2026-09-02 (sismo sembrado, `7ca8aae8`): la Home de
+ * A dijo eso mientras B estaba dentro del sismo con su entrega en `sent` y el
+ * dato correcto en el servidor desde un minuto antes. ⚠️ **No quedó probado que
+ * la causa fuera esta**: al repetirlo en frío sincronizó bien, así que fue algo
+ * transitorio de aquella vez —el candidato natural es el token vencido que
+ * describe el reintento de `refresh()`—. Lo que sí es seguro es que con esta
+ * forma un fallo parcial deja de poder producir esa frase.
+ *
+ * Sigue lanzando al final si algo falló, para que el reintento único de
+ * `refresh()` —que renueva el token— siga ocurriendo. La diferencia es que
+ * ahora lo que sí se pudo bajar **ya quedó escrito** antes de ese reintento.
+ */
 export async function syncEverything(userId: string): Promise<void> {
-  // El outbox va primero: no tiene sentido bajar un círculo que ya sabemos
-  // que está desactualizado respecto de lo que el usuario reportó offline.
-  await flushOutbox();
-  await syncMe(userId);
+  const fallidos: string[] = [];
+
+  const paso = async (nombre: string, tarea: Promise<unknown>) => {
+    try {
+      await tarea;
+    } catch (error) {
+      fallidos.push(nombre);
+      if (__DEV__) console.warn(`[sync] falló ${nombre}`, error);
+    }
+  };
+
+  // El outbox va primero, y `syncMe` después: no tiene sentido bajar el estado
+  // propio del servidor mientras haya un reporte local sin subir, porque el de
+  // abajo pisaría al de arriba. El resto no depende de ninguno de los dos.
+  await paso('outbox', flushOutbox());
+  await paso('me', syncMe(userId));
+
   await Promise.all([
-    syncCircle(),
-    syncGroups(),
-    syncTips(),
-    syncActiveQuake(),
-    syncActiveDrill(),
+    paso('circle', syncCircle()),
+    paso('groups', syncGroups()),
+    paso('tips', syncTips()),
+    paso('quake', syncActiveQuake()),
+    paso('drill', syncActiveDrill()),
     // Lo que anotó la tarea de fondo mientras nadie miraba. Casi siempre no hay
     // nada y ni toca la red; ver `background-trace.ts`.
-    flushBackgroundTrace(userId),
+    paso('trazas', flushBackgroundTrace(userId)),
   ]);
+
+  if (fallidos.length > 0) {
+    throw new Error(`sincronización incompleta: ${fallidos.join(', ')}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
