@@ -91,6 +91,18 @@ export function LocationMap({
         pressed ? styles.pressed : null,
       ]}>
       <MapView
+        // Remonta el mapa cuando el punto cambia, y no es un truco: `initialRegion`
+        // es como el `initialValue` de un input —la librería lo dice en sus tipos,
+        // «changing this prop after the component has mounted will not result in a
+        // region change»—, así que con el MapView ya montado la coordenada nueva no
+        // mueve la cámara. Se veía al tocar «Actualizar mi ubicación»: la posición
+        // llegaba al servidor y el mapa seguía mostrando la cuadra anterior.
+        //
+        // La salida NO es pasar a `region` controlada ni animar con un ref: las dos
+        // pelean con `cacheEnabled` y `liteMode`, que existen a propósito para que
+        // esto sea una imagen estática y no le robe el gesto al scroll (ver arriba).
+        // Un mapa de un solo disparo se actualiza volviéndolo a disparar.
+        key={`${latitude},${longitude}`}
         style={StyleSheet.absoluteFill}
         // El mapa ya no responde a gestos (`cacheEnabled`), pero sin esto sigue
         // capturando el toque y el Pressable de arriba nunca se entera.
