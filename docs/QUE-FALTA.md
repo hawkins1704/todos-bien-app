@@ -24,7 +24,54 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 - `GUIA-DESPLIEGUE.md` — el procedimiento paso a paso de tiendas y credenciales.
 - `GUIA-CORREO-RESEND.md` — configuración de correo y plantillas.
 
-Última revisión: **2026-09-02**.
+Última revisión: **2026-09-06**.
+
+> 🔴 **2026-09-06 · Apple rechazó el build 1.0 (11). Dos guías, y una de las dos esta lista la
+> daba por cerrada.**
+>
+> **Guideline 5.1.1(iv) — botones que empujan a conceder.** «Permitir ubicación», «Permitir
+> siempre», «Permitir notificaciones» y «Revisar mi agenda» son las palabras que Apple no
+> acepta en el botón que abre el diálogo del sistema. Corregidos a «Continuar» el mismo día;
+> el de navegación de esa pantalla pasó a «Siguiente paso» para que no quedaran tres iguales.
+> Cada uno lleva un comentario 🔴 en el código: es exactamente el cambio que alguien revierte
+> dentro de seis meses creyendo que mejora la claridad.
+>
+> **Guideline 1.2 — contenido generado por usuarios.** Y acá está lo que hay que aprender:
+> `REVISION-APPLE.md` §4 decía «✅ Cerrado el 2026-08-24» desde hacía dos semanas. Era verdad a
+> medias. La guía pide **cuatro** cosas y solo se habían contado dos:
+>
+> | | |
+> |---|---|
+> | Denunciar contenido | ✅ existía, y bien — mantener apretado el mensaje (0020) |
+> | Bloquear a alguien | ✅ existía |
+> | **Aceptar los términos antes de registrarse** | 🔴 **no existía**: no había un solo enlace legal en ninguna pantalla de registro o ingreso |
+> | **Un método de filtrado de contenido** | 🔴 **no existía** |
+>
+> **La lección:** un requisito con varias partes se da por cerrado cuando se cumple la parte
+> que uno ya venía construyendo. Al escribir «✅ cerrado» frente a una regla de tienda hay que
+> copiar **la lista completa** de lo que exige y tacharla ítem por ítem.
+>
+> Las dos piezas nuevas: la casilla de aceptación (`src/components/auth/terms-agreement.tsx`,
+> con la versión aceptada guardada por la **migración 0043**) y el filtro de contenido del
+> servidor (**migración 0044**), sobre las cuatro superficies con contenido de usuario —
+> mensajes, mensaje de estado, nombre visible y nombre de grupo.
+>
+> ⚠️ **El filtro es corto a propósito, y eso no es prolijidad.** Busca agresiones dirigidas,
+> no groserías: «se cayó la pared, mierda, hay un herido» **tiene** que poder enviarse. Un
+> filtro de groserías genéricas callaría al usuario en el único momento para el que la app
+> existe. Está escrito en la cabecera de la 0044 y probado con 24 casos, la mitad de ellos
+> justamente para comprobar que **no** bloquea.
+>
+> **Dos fallas que aparecieron probando y no se habrían visto de otra forma:**
+>
+> 1. **«Los maricones» se publicaba.** La comparación exigía palabra exacta y el plural la
+>    esquivaba entera. Ahora admite flexión de género y número, verificando que «Maricarmen»
+>    y «cabrito» siguen pasando. Los plurales que flexionan en la *primera* palabra («hijos de
+>    puta») no los alcanza ninguna regla y están listados uno por uno.
+> 2. **El mensaje rechazado desaparecía sin decir nada.** El outbox ya trataba `23514` como
+>    rechazo definitivo —descartaba y borraba la burbuja, que es correcto— pero en silencio.
+>    Un filtro que no se puede ver actuando tampoco se le puede mostrar a Apple. Ahora
+>    `flushOutbox` devuelve el motivo y el chat lo muestra, devolviendo el texto al campo.
 
 > **2026-09-02 · Se cerró el código para el build 3.** Ya no queda ninguna deuda de cliente
 > abierta: 1.13 y 1.15 se cerraron hoy, 1.11 también (es de servidor), y **1.4 resultó estar
@@ -343,22 +390,27 @@ agenda.
 
 ## 2 · iOS — para mandar a revisión
 
-**No queda nada de código.** Lo que sigue es sitio, teléfono y consola.
+**El código volvió a abrirse el 2026-09-06** por el rechazo de Apple, y ya está cerrado otra
+vez (ver la nota de la cabecera). Lo que sigue es sitio, teléfono, consola — y **el video**.
 
 ### 2.a · Lo que falta
 
 | # | Qué | Dónde |
 |---|---|---|
-| 2.1 | 🔴 **Build de producción posterior al 2026-08-28** | Los arreglos del 27 y del 28 son **JavaScript**: si el build es anterior, los cuatro bugs de interfaz y la grilla nueva **no viajan**. Se compila con `eas build --profile production --platform ios` y se sube con `eas submit` |
+| 2.1 | 🔴 **Build de producción posterior al 2026-09-06** | Los arreglos del 27 y del 28 de agosto son **JavaScript**, y los del rechazo —botones de permiso, casilla de términos, aviso del filtro— también. Se compila con `eas build --profile production --platform ios` y se sube con `eas submit`. ⚠️ **EAS no tiene ningún build de producción todavía**: el 11 que Apple revisó salió de Xcode. El contador remoto nunca se inicializó, así que al primer build de producción EAS va a preguntar con qué número arrancar y tiene que ser **12 o más** |
+| 2.15 | 🔴 **El video que pidió Apple** | Grabado en **teléfono físico**, con el enlace pegado en *App Review Information → Notes* y dejado ahí para todos los envíos futuros. Tiene que mostrar: los términos presentados **antes** de registrarse (con el botón apagado y encendiéndose al marcar la casilla), denunciar un mensaje, y bloquear a una persona. Conviene sumar el filtro rechazando un insulto — no lo pidieron grabar, pero es la pieza más difícil de creer sin verla. El guion está en `REVISION-APPLE.md` §6 |
+| 2.16 | 🔴 **Subir el sitio ANTES que el build** | Los términos pasaron a **v1.3** (§5.1, con el filtro) y la app enlaza ahí. Si el build sale primero, el revisor toca el enlace y lee una versión que no menciona el filtro que la nota le promete. Y `TERMS_VERSION` de `src/lib/config.ts` tiene que seguir coincidiendo con la cabecera de `terminos/index.html` — hoy las dos dicen `1.3` |
+| 2.17 | 🔴 **`is_premium` de la cuenta demo vuelve a `false`** | Está en `true` desde las pruebas. Con Premium activo el revisor **no ve el paywall** que tiene que revisar, y las notas le dicen otra cosa de la que ve. La cuenta de testers de Android (`todosbienapp+testers@gmail.com`) sí se queda en `true` a propósito |
 | ~~2.1.b~~ | ✅ **Ya no aplica. El numerado lo lleva EAS.** | 🔧 **Reescrita entera el 2026-09-03.** Esta fila describía un flujo de **compilación local con Xcode**, y el proyecto no compila así: `eas.json` tiene `cli.appVersionSource: "remote"` y `build.production.autoIncrement: true`. Con eso **el contador vive en el servidor de EAS**, `ios.buildNumber` y `android.versionCode` de `app.json` se **ignoran**, y EAS incrementa solo en cada build de producción. Por eso el dueño los borró de `app.json` el 2026-09-03, que es lo correcto: dejarlos ahí solo invita a creer que mandan. **No hay nada que sincronizar a mano, ni en `app.json` ni en el `Info.plist`.** Y como `/ios` y `/android` están en `.gitignore`, EAS hace su propio `prebuild` desde `app.json` — el `ios/` de disco solo sirve para correr en local o en simulador, y su `CFBundleVersion` no viaja a ningún lado. *(El texto anterior, y el desajuste 3 contra 2 del 2026-09-02, eran ciertos **para builds locales**. Dejaron de serlo al mover los builds a EAS.)* |
 | 2.4 | **Nutrition Labels** | Respuestas listas, dato por dato, en `PRIVACIDAD-APP-STORE.md`. Falta pegarlas. 🟢 **Revisadas con los grupos el 2026-09-03**: los tres datos nuevos caen en categorías ya declaradas y **no agregan ninguna casilla**. Lo que cambió es la política publicada, no el formulario — y por eso la política tiene que subir primero (Bloque 1) |
 | 2.5 | **Justificación de ubicación en segundo plano, en inglés** | Escrita en `PRIVACIDAD-APP-STORE.md` §4. Falta pegarla |
-| 2.7.b | 🔴 **Notas para el revisor** | El texto está en `REVISION-APPLE.md` §2. ⚠️ **Tenía el correo equivocado** de la cuenta demo hasta el 2026-08-28; usar la versión corregida. 🔴 **Y dos afirmaciones falsas hasta el 2026-09-03**, las dos sobre la guía 1.2: decían que los chats son «strictly one-to-one» —el revisor ve un chat de grupo y deja de creerle a la nota entera— y que el bloqueado no puede escribir «not even in an existing conversation», sin acotarlo a los grupos. Corregidas, con un bloque **HOW TO REVIEW GROUPS** nuevo porque la cuenta demo tiene **cero grupos** y la ficha ahora los vende |
+| 2.7.b | 🔴 **Notas para el revisor** | El texto está en `REVISION-APPLE.md` §2. ⚠️ **Tenía el correo equivocado** de la cuenta demo hasta el 2026-08-28; usar la versión corregida. 🔴 **Y dos afirmaciones falsas hasta el 2026-09-03**, las dos sobre la guía 1.2: decían que los chats son «strictly one-to-one» —el revisor ve un chat de grupo y deja de creerle a la nota entera— y que el bloqueado no puede escribir «not even in an existing conversation», sin acotarlo a los grupos. Corregidas, con un bloque **HOW TO REVIEW GROUPS** nuevo porque la cuenta demo tiene **cero grupos** y la ficha ahora los vende. 🟢 **Ampliadas el 2026-09-06** con dos bloques que responden el rechazo: **TERMS OF USE ACCEPTANCE** (dónde está la casilla, que el botón queda apagado, y que la versión aceptada se guarda) y **AUTOMATED CONTENT FILTERING** (que corre en la base y no en la app, con la palabra exacta a escribir para verlo actuar, y por qué el filtro deja pasar «mierda») |
 | 2.8 | **Capturas de pantalla** | Ahora son **ocho**, con qué tiene que verse en cada una, en `FICHA-APP-STORE.md` §5. La tercera es nueva (**grupos**, con el desglose «Casa 4/5» y el chat) y la de simulacro **tiene que mostrar la franja amarilla** — sin ella parece una alerta falsa, que es justo lo que los términos §4 prohíben |
 | 2.12 | Revisión legal de términos y limitación de responsabilidad | spec §18. 🟢 **Los grupos entraron el 2026-09-03** —términos §5.2 y privacidad §1/§3/§6/§7/§9—, que era el hueco que impedía que la declaración de App Privacy coincidiera con lo publicado. Lo que sigue pendiente es la revisión por un abogado, no el contenido |
 | 2.13 | **Disponibilidad territorial: Perú + América + Japón** | Guardián se le vende a la diáspora, así que restringirlo a Perú deja fuera al que paga. **España e Italia quedan afuera por ahora** — distribuir en la UE exige declarar *trader status* y Apple publica nombre, dirección y teléfono del desarrollador |
 | 2.6.d | 🟡 **Small Business Program de Apple** | Baja la comisión del 30 % al 15 % con menos de un millón de dólares al año. Es un formulario y duplica el margen |
-| 2.14 | 🟢 **Corrido entero el 2026-09-02** sobre el build 3 | Quedan **tres** confirmaciones sobre el build siguiente: `9f.16.bis`, `9f.17` (arreglados hoy, sin compilar) y `0b.1` (instalar encima de una versión anterior, imposible sobre una instalación limpia). Ninguna es trabajo nuevo: es mirar tres pantallas una vez que el build exista |
+| 2.14 | 🟢 **Corrido entero el 2026-09-02** sobre el build 3 | Quedan **tres** confirmaciones sobre el build siguiente: `9f.16.bis`, `9f.17` (arreglados hoy, sin compilar) y `0b.1` (instalar encima de una versión anterior, imposible sobre una instalación limpia). Ninguna es trabajo nuevo: es mirar tres pantallas una vez que el build exista. **Se suman cuatro del 2026-09-06**, todas de una pasada al grabar el video: que el botón «Crear cuenta» esté apagado hasta marcar la casilla; que los enlaces legales abran el sitio desde registro y desde ingreso; que un insulto en el chat muestre el aviso y devuelva el texto al campo; y que el bloque legal del ingreso se alcance sin pelearse con el scroll **en el teléfono más chico disponible** |
+| 2.18 | 🟡 **El mapa de la ficha del contacto, en pantalla** | El arreglo de `location-map.tsx` (2026-09-04) es de los que se verifican mirando: con una alerta activa, tocar «Actualizar mi ubicación» y que el mapa **salte** al punto nuevo. Antes se quedaba en la cuadra anterior sin ninguna señal de que estaba viejo. Vale la pena caminar un par de cuadras primero: con 3 km de encuadre, un movimiento chico no se nota |
 
 ### 2.b · Lo que ya está cerrado
 
@@ -442,9 +494,10 @@ sean de Google.
 
 ---
 
-## Orden sugerido — actualizado el 2026-08-28
+## Orden sugerido — actualizado el 2026-09-06
 
-**Quedan tres bloques y ninguno es de código.**
+**Quedan cuatro bloques y ninguno es de código.** El cuarto lo agregó el rechazo: **el video**,
+que va después de compilar porque hay que grabarlo sobre el build que se envía.
 
 ### Bloque 1 · Subir el sitio
 
@@ -456,7 +509,7 @@ sean de Google.
    | `index.html` | Reescrita entera el 2026-09-02/03: sin WhatsApp, banner simplificado, tarjetas cortas, grilla 3+4, títulos centrados, móvil arreglado, FAQ 15 sobre grupos. Antes traía una **afirmación falsa** sobre lo que es gratis |
    | `css/styles.css` | La grilla de 12 columnas y `.section-head.center` |
    | `js/main.js` | El menú móvil reescrito |
-   | `terminos/index.html` | §2, §5 y §5.1 corregidos, **§5.2 nuevo** con las reglas de los grupos. Versión **1.2** |
+   | `terminos/index.html` | §2, §5 y §5.1 corregidos, **§5.2 nuevo** con las reglas de los grupos. 🔴 **§5.1 ampliada el 2026-09-06** con el filtro automático y por qué deja pasar «mierda». Versión **1.3** |
    | `privacidad/index.html` | §1, §3, §6, §7 y §9. Versión **1.2** |
    | `eliminar-cuenta/index.html` | Qué pasa con los grupos al borrar la cuenta |
 
@@ -468,11 +521,26 @@ sean de Google.
    ficha: si el formulario declara contenido de grupo y la página en vivo no lo menciona, la
    contradicción está a un clic del revisor.
 
+   🔴 **Y desde el 2026-09-06 los términos tienen que subir antes que el build**, por lo mismo
+   pero con la app de por medio: la pantalla de registro enlaza a esa URL, y la nota del
+   revisor le promete un filtro que solo la v1.3 menciona.
+
 ### Bloque 2 · Compilar
 
-2. `npx expo prebuild -p ios --clean` si se tocó algo nativo, subir `ios.buildNumber`,
-   compilar en Xcode y `eas submit`. **El build tiene que ser posterior a los arreglos del
-   27-28**: son JavaScript y viajan dentro del bundle.
+2. `eas build --profile production --platform ios` y `eas submit`. **El build tiene que ser
+   posterior al 2026-09-06**: los arreglos del rechazo —botones de permiso, casilla de
+   términos, aviso del filtro— son JavaScript y viajan dentro del bundle.
+
+   ⚠️ **EAS no tiene ningún build de producción**: el 11 que Apple revisó salió de Xcode. El
+   contador remoto nunca se inicializó, así que EAS va a preguntar con qué número arrancar y
+   tiene que ser **12 o más** — Apple rechaza un número que no supere al ya subido.
+
+### Bloque 2.b · El video, sobre el build ya compilado
+
+2b. En **teléfono físico**, una sola toma. El guion completo está en `REVISION-APPLE.md` §6;
+   en corto: registro con el botón apagado → marcar la casilla → abrir los términos →
+   denunciar un mensaje → bloquear a alguien → y de yapa, un insulto rechazado por el filtro.
+   Sube a YouTube **como no listado** y pega el enlace en *App Review Information → Notes*.
 
 ### Bloque 3 · El teléfono, lo que queda
 
@@ -491,8 +559,13 @@ sean de Google.
 ### Y en paralelo, la consola
 
 4. **App Store Connect**: Nutrition Labels (2.4), justificación de ubicación en segundo plano
-   (2.5), **notas del revisor con el correo corregido** (2.7.b), capturas (2.8), disponibilidad
-   territorial (2.13) y Small Business Program (2.6.d).
+   (2.5), **notas del revisor con el correo corregido y los dos bloques nuevos de la guía 1.2**
+   (2.7.b), el **enlace del video** (2.15), capturas (2.8), disponibilidad territorial (2.13) y
+   Small Business Program (2.6.d).
+
+5. **Base de datos**: bajar `is_premium` a `false` en `todosbienapp@gmail.com` (2.17). Es un
+   `update` de una línea y es lo último que conviene hacer, porque con Premium apagado se
+   pierde la forma cómoda de mirar Guardián.
 
 ### Y recién ahí
 
@@ -500,7 +573,16 @@ sean de Google.
 6. Después, dos frentes que no conviene mezclar: **Android** (3.1 a 3.3) y el **inglés**, si
    alguna vez se decide vender fuera de la comunidad peruana.
 
-> **Ya no hay ningún ítem marcado como rechazo probable pendiente.** Los cuatro riesgos de
-> `REVISION-APPLE.md` §4 están cerrados: moderación (1.2), pie del paywall (3.1.2), borrar la
-> cuenta (5.1.1(v)) y «no pudimos probar la función principal» (2.1, cubierto por el
-> simulacro). Lo que queda es ejecución.
+> 🔴 **Este párrafo decía «ya no hay ningún rechazo probable pendiente», y el 2026-09-05 Apple
+> rechazó por dos.** Se deja la corrección a la vista en vez de reescribirlo en silencio,
+> porque el error de método vale más que la conclusión: daba por cerrada la guía 1.2 contando
+> **dos** de sus **cuatro** requisitos.
+>
+> Los **cinco** riesgos de `REVISION-APPLE.md` §4 están cerrados al 2026-09-06: moderación
+> (1.2, ahora con las cuatro partes), botones de permiso (5.1.1(iv)), pie del paywall (3.1.2),
+> borrar la cuenta (5.1.1(v)) y «no pudimos probar la función principal» (2.1, cubierto por el
+> simulacro).
+>
+> Que estén cerrados **en el código** no es lo mismo que estén cerrados **ante Apple**: falta
+> el build, el video y volver a enviar. Lo que queda es ejecución, pero esta vez sin dar por
+> hecho el resultado.

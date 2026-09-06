@@ -62,18 +62,23 @@ export function SubscriptionManager() {
   }, [refresh]);
 
   const restaurar = useCallback(async () => {
+    if (!userId) return;
+
     setBusy(true);
     setAviso(null);
 
     try {
-      const info = await restorePurchases();
+      // `userId` va como argumento porque `restorePurchases` identifica el SDK
+      // antes de restaurar: restaurar con el SDK anónimo ata la compra a un id
+      // que el webhook no puede mapear. Ver `lib/purchases.ts`.
+      const info = await restorePurchases(userId);
 
       if (!hasPremiumEntitlement(info)) {
         setAviso('No encontramos compras anteriores con este ID de Apple.');
         return;
       }
 
-      const aplicado = userId ? await waitForPremiumFlag(userId) : false;
+      const aplicado = await waitForPremiumFlag(userId);
       await refresh();
 
       if (!aplicado) {

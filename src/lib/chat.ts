@@ -363,12 +363,20 @@ export async function readCachedMessages(conversationId: string): Promise<ChatMe
  * la burbuja seguía mostrando que no. Ahora la subida la dispara quien llama,
  * que es el único que puede refrescar la pantalla al terminar.
  */
+/**
+ * Devuelve el `clientId` con el que quedó encolado el mensaje.
+ *
+ * Lo necesita quien llama para poder reconocer **su** mensaje entre los que
+ * `flushOutbox` haya rechazado: sin eso, un rechazo del filtro de contenido
+ * (migración 0044) borraría la burbuja sin decir por qué, y quien escribió
+ * vería su mensaje desaparecer sin explicación.
+ */
 export async function sendMessage(input: {
   conversationId: string;
   senderId: string;
   body: string;
   isDrill: boolean;
-}): Promise<void> {
+}): Promise<string> {
   const clientId = Crypto.randomUUID();
   const createdAt = new Date().toISOString();
 
@@ -391,6 +399,8 @@ export async function sendMessage(input: {
     isDrill: input.isDrill,
     createdAt,
   });
+
+  return clientId;
 }
 
 export async function markConversationRead(conversationId: string, userId: string): Promise<void> {

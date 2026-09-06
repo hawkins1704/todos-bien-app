@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, TextInput } from 'react-native';
 
 import { AuthField } from '@/components/auth/auth-field';
 import { AuthScreen } from '@/components/auth/auth-screen';
+import { LegalLinks, TermsAgreement } from '@/components/auth/terms-agreement';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/auth';
@@ -23,13 +24,23 @@ export default function SignUpScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Guía 1.2 de App Store Review: nace en `false` y no hay forma de crear la
+  // cuenta sin tocarla. Marcarla por defecto sería exactamente lo que Apple no
+  // acepta —una aceptación que nadie dio— y además haría invisible el paso en
+  // el video que piden con el reenvío.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   // Los avisos aparecen recién cuando el campo tiene algo escrito: marcar en
   // rojo un campo vacío que la persona todavía no llenó es ruido, no ayuda.
   const passwordIssue = password ? passwordProblem(password) : null;
   const repeatIssue = repeat && repeat !== password ? 'Las dos contraseñas no coinciden.' : null;
 
   const valid =
-    isEmail(email) && !passwordProblem(password) && password.length > 0 && repeat === password;
+    isEmail(email) &&
+    !passwordProblem(password) &&
+    password.length > 0 &&
+    repeat === password &&
+    acceptedTerms;
 
   const submit = async () => {
     if (!valid || submitting) return;
@@ -114,6 +125,9 @@ export default function SignUpScreen() {
         invalid={Boolean(repeatIssue)}
         hint={repeatIssue ?? undefined}
       />
+
+      <TermsAgreement accepted={acceptedTerms} onToggle={setAcceptedTerms} />
+      <LegalLinks />
 
       {error ? (
         <Text variant="footnote" tone="danger">

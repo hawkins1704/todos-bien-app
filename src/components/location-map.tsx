@@ -149,7 +149,7 @@ export function LocationMap({
  * dos pantallas quedan exactamente como estaban: con el botón que abre la app de
  * mapas. En iOS es siempre `true`, porque Apple Maps no lleva key.
  */
-const androidMapsReady =
+export const androidMapsReady =
   Platform.OS !== 'android' ||
   (Constants.expoConfig?.plugins ?? []).some(
     (plugin) =>

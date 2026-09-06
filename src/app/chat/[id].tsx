@@ -26,6 +26,7 @@ import {
   syncMessages,
   type ChatMessage,
 } from '@/lib/chat';
+import { readCircleMember } from '@/lib/db/circle';
 import { elapsedShort } from '@/lib/format';
 import { setOpenConversation } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
@@ -45,14 +46,30 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [tituloGrupal, setTituloGrupal] = useState<string | null>(null);
+  const [otro, setOtro] = useState<{ id: string; nombre: string } | null>(null);
 
   // Sale de la caché local, así que el título aparece sin red y sin esperar.
   useEffect(() => {
     if (!conversationId) return;
     void readCachedConversations()
-      .then((todas) => {
+      .then(async (todas) => {
         const esta = todas.find((c) => c.id === conversationId);
         setTituloGrupal(esta?.kind === 'group' ? esta.title : null);
+
+        // En un chat individual el título es el nombre de la otra persona. Hace
+        // falta un segundo salto a la caché porque `conversations_cache` guarda
+        // el id y no el nombre — el nombre vive en `circle`, que es donde se
+        // actualiza cuando alguien se lo cambia.
+        if (esta?.kind === 'direct' && esta.otherUserId) {
+          const miembro = await readCircleMember(esta.otherUserId).catch(() => null);
+          const nombre = miembro?.displayName?.trim();
+
+          // Sin nombre en la caché el encabezado se queda en «Chat», como antes,
+          // y **sin** la flecha: un «Chat ›» tocable promete un perfil detrás de
+          // una palabra que no es el nombre de nadie. Pasa solo si la caché de la
+          // red todavía no se escribió, así que dura hasta la primera sincronía.
+          if (nombre) setOtro({ id: esta.otherUserId, nombre });
+        }
       })
       .catch(() => null);
   }, [conversationId]);
@@ -149,7 +166,12 @@ export default function ChatScreen() {
     if (!body || !conversationId || !userId) return;
 
     setDraft('');
-    await sendMessage({ conversationId, senderId: userId, body, isDrill: isDrilling });
+    const clientId = await sendMessage({
+      conversationId,
+      senderId: userId,
+      body,
+      isDrill: isDrilling,
+    });
 
     // La burbuja aparece ya, con el reloj de pendiente: eso es lo optimista.
     setMessages(await readCachedMessages(conversationId));
@@ -157,8 +179,15 @@ export default function ChatScreen() {
     // Y el reloj se apaga en cuanto el servidor la acepta, sin depender de que
     // el eco de Realtime llegue. Si no hay red, `flushOutbox` vuelve sin
     // haberla subido y el reloj se queda puesto — que es la verdad.
+    // El motivo por el que el servidor haya rechazado ESTE mensaje, si lo
+    // rechazó. Se avisa después de repintar, no antes: si no, la alerta sale
+    // encima de una burbuja que todavía se ve y el mensaje parece haberse
+    // enviado y desaparecido.
+    let rechazo: string | null = null;
+
     try {
-      await flushOutbox();
+      const { rechazos } = await flushOutbox();
+      rechazo = rechazos.find((r) => r.clientId === clientId)?.motivo ?? null;
     } catch {
       // Que la subida falle no cambia lo que hay que pintar: la burbuja ya está
       // en la caché con su reloj de pendiente, que es la verdad. Sin este
@@ -167,16 +196,52 @@ export default function ChatScreen() {
       // hasta el refresco siguiente.
     }
     setMessages(await readCachedMessages(conversationId));
+
+    // El filtro de contenido de la 0044. La burbuja ya se borró sola —lo hace
+    // `flushOutbox` con todo rechazo definitivo—, así que sin este aviso el
+    // mensaje se esfumaba sin que nadie supiera por qué.
+    if (rechazo) {
+      setDraft(body);
+      Alert.alert('Ese mensaje no se envió', rechazo);
+    }
   };
 
   return (
     <Screen tone="plain">
-      {/* En una conversación grupal el título es lo único que dice en cuál
-          estás: sin él, tres conversaciones distintas se ven idénticas. Las
-          individuales se quedan con «Chat» — su nombre exigiría cruzar el
-          `otherUserId` contra la red, y ahí ya se ve con quién estás hablando
-          por las burbujas. */}
-      <Stack.Screen options={{ title: tituloGrupal ?? 'Chat' }} />
+      {/* El título dice con quién estás hablando, y en el chat individual además
+          lleva a su perfil.
+
+          Antes decía «Chat» a secas, con el argumento de que las burbujas ya lo
+          dejaban claro. No lo dejaban: en un chat individual **todas** las
+          burbujas ajenas son de la misma persona y ninguna trae su nombre, así
+          que el encabezado era el único lugar donde podía estar y decía una
+          palabra genérica. Corregido el 2026-09-06 a pedido del dueño.
+
+          Que se toque para ir al perfil es lo que uno espera de cualquier app de
+          mensajes, y acá lleva a algo que hace falta: es la pantalla donde se
+          bloquea y se denuncia a esa persona. */}
+      <Stack.Screen
+        options={{
+          title: tituloGrupal ?? otro?.nombre ?? 'Chat',
+          headerTitle: otro
+            ? () => (
+                <Pressable
+                  onPress={() => router.push(`/contact/${otro.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${otro.nombre}. Ver su perfil.`}
+                  hitSlop={8}
+                  style={({ pressed }) => (pressed ? styles.pressed : null)}>
+                  <View style={styles.tituloTocable}>
+                    <Text variant="headline" numberOfLines={1}>
+                      {otro.nombre}
+                    </Text>
+                    <MaterialIcons name="chevron-right" size={18} color={colors.textTertiary} />
+                  </View>
+                </Pressable>
+              )
+            : undefined,
+        }}
+      />
 
       {/*
         El teclado en Android con edge-to-edge tiene su propia historia, y vive
@@ -315,6 +380,10 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  // `maxWidth` para que un nombre largo se recorte con «…» en vez de empujar los
+  // botones del header. El chevron va pegado al nombre y no al borde: así el
+  // conjunto se lee como una sola cosa tocable.
+  tituloTocable: { alignItems: 'center', flexDirection: 'row', gap: 2, maxWidth: 220 },
   list: { gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg },
   // Sin `transform`: ya no vive dentro de la lista invertida.
   empty: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg },

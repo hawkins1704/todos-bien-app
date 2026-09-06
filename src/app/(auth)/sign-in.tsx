@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, TextInput } from 'react-native';
 
 import { AuthField } from '@/components/auth/auth-field';
 import { AuthScreen } from '@/components/auth/auth-screen';
+import { LegalLinks } from '@/components/auth/terms-agreement';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useAuth } from '@/context/auth';
@@ -74,6 +75,20 @@ export default function SignInScreen() {
         invalid={Boolean(error)}
       />
 
+      {/* Pegado al campo que resuelve, y no al pie de la pantalla: quien no se
+          acuerda de su contraseña lo descubre **acá**, escribiendo. */}
+      <Pressable
+        onPress={() => router.push('/forgot-password')}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.forgot, pressed ? styles.pressed : null]}>
+        <Text variant="footnote" tone="accent" center weight="600">
+          ¿Olvidaste tu contraseña?
+        </Text>
+      </Pressable>
+
+      {/* El error se queda pegado al botón que lo produjo. De paso queda justo
+          debajo del enlace de recuperar, que es lo que suele hacer falta cuando
+          lo que falló fue la contraseña. */}
       {error ? (
         <Text variant="footnote" tone="danger">
           {error}
@@ -90,15 +105,6 @@ export default function SignInScreen() {
       />
 
       <Pressable
-        onPress={() => router.push('/forgot-password')}
-        accessibilityRole="button"
-        style={({ pressed }) => (pressed ? styles.pressed : null)}>
-        <Text variant="footnote" tone="accent" center weight="600">
-          ¿Olvidaste tu contraseña?
-        </Text>
-      </Pressable>
-
-      <Pressable
         onPress={() => router.push('/sign-up')}
         accessibilityRole="button"
         style={({ pressed }) => [styles.signUp, pressed ? styles.pressed : null]}>
@@ -109,12 +115,27 @@ export default function SignInScreen() {
           </Text>
         </Text>
       </Pressable>
+
+      {/* Acá NO va la casilla: quien entra ya aceptó al registrarse, y volver a
+          pedírselo cada vez sería ruido. Pero la nota de Apple dice «before
+          registering **or logging in**», así que los términos tienen que estar
+          a la vista y a un toque también en esta pantalla.
+          Al pie es donde corresponde —es la convención de toda pantalla de
+          ingreso— y a Apple le da igual la posición: lo que pide es que estén,
+          no dónde. La aceptación que de verdad se exige es la casilla de
+          `sign-up.tsx`, que sí bloquea el botón. */}
+      <Text variant="caption" tone="tertiary" center style={styles.legal}>
+        Al entrar aceptas los Términos de uso y la Política de privacidad.
+      </Text>
+      <LegalLinks />
     </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  forgot: { marginTop: Spacing.xs },
   cta: { marginTop: Spacing.sm },
   signUp: { marginTop: Spacing.sm },
+  legal: { marginTop: Spacing.lg },
   pressed: { opacity: 0.6 },
 });

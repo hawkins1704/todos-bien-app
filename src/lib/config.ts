@@ -6,6 +6,33 @@
 export const APP_WEBSITE_URL = 'https://todosbien.app';
 
 /**
+ * Los legales, que la app tiene que poder abrir desde el registro.
+ *
+ * No son un adorno del pie: Apple rechazó el build 11 por la guía 1.2 pidiendo
+ * que el EULA se **presente antes de registrarse o entrar**, y que sus términos
+ * digan explícitamente que no hay tolerancia con el contenido ofensivo. Eso
+ * último ya lo dice la sección 5.1 de la página publicada; lo que faltaba era
+ * el camino desde la app hasta ella.
+ *
+ * La barra final importa: el sitio es estático y sin ella responde con una
+ * redirección extra.
+ */
+export const TERMS_URL = `${APP_WEBSITE_URL}/terminos/`;
+export const PRIVACY_URL = `${APP_WEBSITE_URL}/privacidad/`;
+
+/**
+ * Versión de los términos que la persona aceptó al crear su cuenta.
+ *
+ * Se guarda junto a la fecha en `user_settings`. Sirve para dos cosas: poder
+ * demostrarle a Apple que hubo aceptación, y saber a quién habría que volver a
+ * pedírsela el día que los términos cambien de forma sustantiva.
+ *
+ * ⚠️ Tiene que coincidir con lo que dice la cabecera de `terminos/index.html`
+ * («Versión 1.2»). Si allá sube, acá también.
+ */
+export const TERMS_VERSION = '1.3';
+
+/**
  * Mensaje para compartir la app. **No lleva código de invitación.**
  *
  * El MVP salió sin códigos: se conecta gente por el match de agenda de la spec

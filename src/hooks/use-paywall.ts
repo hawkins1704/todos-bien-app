@@ -3,7 +3,7 @@ import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 import { useAppData } from '@/context/app-data';
 import { useAuth } from '@/context/auth';
-import { purchasesEnabled, waitForPremiumFlag } from '@/lib/purchases';
+import { ensurePurchasesUser, purchasesEnabled, waitForPremiumFlag } from '@/lib/purchases';
 
 /**
  * Abrir el paywall de RevenueCat desde cualquier parte.
@@ -33,6 +33,11 @@ export type PaywallResultado =
   | 'cerrado'
   /** No se pudo abrir o la tienda falló. */
   | 'error'
+  /**
+   * No se pudo atar la compra a esta cuenta, así que **no se abrió el paywall**.
+   * Es distinto de `error` porque nadie pagó nada y el consejo es otro.
+   */
+  | 'sin-identidad'
   /** La app se compiló sin clave de RevenueCat. */
   | 'no-disponible';
 
@@ -51,6 +56,17 @@ export function usePaywall(): {
 
     setAbriendo(true);
     try {
+      /**
+       * 🔴 Identificar ANTES de vender. No es una comprobación defensiva de más:
+       * el 2026-09-06 una compra entró a RevenueCat con un id anónimo y el
+       * webhook no tuvo a qué cuenta aplicarla — se cobró y no se entregó nada.
+       * El detalle completo está en `ensurePurchasesUser`.
+       *
+       * Sin sesión tampoco se abre: una compra sin usuario es exactamente el
+       * caso que produce el id anónimo.
+       */
+      if (!userId || !(await ensurePurchasesUser(userId))) return 'sin-identidad';
+
       const resultado = await RevenueCatUI.presentPaywall();
 
       if (resultado === PAYWALL_RESULT.PURCHASED || resultado === PAYWALL_RESULT.RESTORED) {

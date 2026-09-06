@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { androidMapsReady } from '@/components/location-map';
 import { MagnitudeLegend } from '@/components/magnitude-legend';
 import { PremiumCta } from '@/components/premium-cta';
+import { QuakeMap } from '@/components/quake-map';
 import { QuakeRow } from '@/components/quake-row';
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
@@ -76,6 +78,19 @@ export default function NewsScreen() {
   const [scope, setScope] = useState<QuakeFeedScope>('nacional');
   const [feed, setFeed] = useState<Feed | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Lista o mapa. Arranca en lista y **no se recuerda entre sesiones**: la
+   * lista responde «qué pasó» —lo más reciente arriba, que es la pregunta
+   * normal— y el mapa responde «dónde», que es una consulta puntual. Abrir en
+   * mapa porque la última vez se miró un mapa haría empezar por la pregunta
+   * menos frecuente.
+   *
+   * Sí sobrevive al cambio de Nacional/Global a propósito: quien está mirando
+   * el mapa del Perú y toca Global quiere el mapa del mundo, no volver a la
+   * lista.
+   */
+  const [vista, setVista] = useState<'lista' | 'mapa'>('lista');
 
   /**
    * Lo traído de cada scope. Va en un ref y no en estado a propósito: si `load`
@@ -208,7 +223,50 @@ export default function NewsScreen() {
   return (
     <Screen>
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-        <Text variant="title2">Noticias sísmicas</Text>
+        <View style={styles.tituloFila}>
+          <Text variant="title2">Noticias sísmicas</Text>
+
+          {/* El interruptor de vista va acá y NO junto a Nacional/Global: son dos
+              preguntas distintas —qué sismos y cómo verlos— y mezclarlas en un
+              solo control obligaría a cuatro botones para dos decisiones.
+
+              Se esconde en la vista bloqueada: ahí las filas son muestras
+              inventadas, y un mapa de sismos que no existen sería peor que la
+              lista ofuscada, que al menos se ve como lo que es. */}
+          {!bloqueado && androidMapsReady ? (
+            <View style={[styles.viewToggle, { backgroundColor: colors.surfaceSunken }]}>
+              {(
+                [
+                  { key: 'lista' as const, icon: 'format-list-bulleted' as const, label: 'Lista' },
+                  { key: 'mapa' as const, icon: 'map' as const, label: 'Mapa' },
+                ]
+              ).map((opcion) => {
+                const activo = vista === opcion.key;
+
+                return (
+                  <Pressable
+                    key={opcion.key}
+                    onPress={() => setVista(opcion.key)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: activo }}
+                    accessibilityLabel={`Ver en ${opcion.label.toLowerCase()}`}
+                    style={[
+                      styles.viewOption,
+                      activo
+                        ? { backgroundColor: colors.surface, borderColor: colors.border }
+                        : null,
+                    ]}>
+                    <MaterialIcons
+                      name={opcion.icon}
+                      size={18}
+                      color={activo ? colors.accent : colors.textTertiary}
+                    />
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
 
         {/* La pestaña Global se muestra SIEMPRE, aunque no sea premium: se
             bloquea el contenido, nunca se esconde la opción. */}
@@ -300,6 +358,18 @@ export default function NewsScreen() {
             Sin sismos registrados en los últimos 7 días
           </Text>
         </ScrollView>
+      ) : vista === 'mapa' ? (
+        // Sin `paddingBottom`: el mapa ocupa todo lo que le queda y la tab bar se
+        // dibuja encima, que es lo que uno espera de un mapa. El contador y el
+        // pull-to-refresh no viajan acá — para refrescar está la lista, y tirar
+        // hacia abajo sobre un mapa es desplazarlo, no recargarlo.
+        <View style={styles.mapa}>
+          <QuakeMap
+            quakes={quakes}
+            scope={scope}
+            onSelect={(quakeId) => router.push(`/quake/${quakeId}`)}
+          />
+        </View>
       ) : (
         <FlatList
           data={quakes}
@@ -400,6 +470,22 @@ function ListaBloqueada() {
 
 const styles = StyleSheet.create({
   header: { gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
+  tituloFila: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  viewToggle: { borderRadius: Radius.pill, flexDirection: 'row', gap: 2, padding: 3 },
+  viewOption: {
+    alignItems: 'center',
+    borderColor: 'transparent',
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 32,
+    justifyContent: 'center',
+    width: 40,
+  },
+  mapa: { flex: 1, overflow: 'hidden' },
   segmented: {
     borderRadius: Radius.md,
     flexDirection: 'row',

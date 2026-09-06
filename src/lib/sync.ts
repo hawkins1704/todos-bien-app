@@ -233,12 +233,38 @@ function esRechazoDefinitivo(error: unknown): boolean {
   return typeof code === 'string' && RECHAZOS_DEFINITIVOS.has(code);
 }
 
-export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
-  if (flushing) return { sent: 0, failed: 0 };
+/**
+ * El subconjunto de `23514` que viene del filtro de contenido de la 0044.
+ *
+ * Se distingue por el `hint`, no por el código: `23514` es cualquier CHECK que
+ * no pasó —el largo del mensaje, un estado fuera de la lista— y esos no llevan
+ * un texto que se le pueda mostrar a nadie. El disparador de moderación pone
+ * `hint = 'moderacion'` justamente para poder separarlos acá.
+ */
+function esRechazoDeModeracion(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { code, hint } = error as { code?: unknown; hint?: unknown };
+  return code === '23514' && hint === 'moderacion';
+}
+
+/** Si el servidor no mandó texto, algo hay que decir. */
+const MODERACION_FALLBACK =
+  'No podemos publicar eso. Los términos de Todos Bien no permiten insultos, discriminación ni amenazas.';
+
+/** Un envío que el servidor rechazó por contenido, para que la pantalla avise. */
+export type RechazoDeContenido = { clientId?: string; motivo: string };
+
+export async function flushOutbox(): Promise<{
+  sent: number;
+  failed: number;
+  rechazos: RechazoDeContenido[];
+}> {
+  if (flushing) return { sent: 0, failed: 0, rechazos: [] };
   flushing = true;
 
   let sent = 0;
   let failed = 0;
+  const rechazos: RechazoDeContenido[] = [];
 
   try {
     const pending = await readPending();
@@ -289,6 +315,23 @@ export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
             );
           }
 
+          // Los rechazos del filtro de contenido (0044) se anuncian, no se
+          // tragan. Los demás definitivos no: a quien está bloqueado no se le
+          // avisa que lo está —eso convertiría el bloqueo en una notificación
+          // para el bloqueado— y un payload mal formado no es asunto suyo.
+          //
+          // Sin esto, escribir un insulto se veía exactamente igual que
+          // escribirlo bien: la burbuja aparecía y desaparecía sola. Un filtro
+          // que no se puede ver actuando tampoco se le puede mostrar a Apple.
+          if (esRechazoDeModeracion(error)) {
+            rechazos.push({
+              clientId: item.kind === 'message'
+                ? (item.payload as MessageOutboxPayload).clientId
+                : undefined,
+              motivo: (error as { message?: string }).message ?? MODERACION_FALLBACK,
+            });
+          }
+
           failed += 1;
           continue;
         }
@@ -301,7 +344,7 @@ export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
     flushing = false;
   }
 
-  return { sent, failed };
+  return { sent, failed, rechazos };
 }
 
 /**

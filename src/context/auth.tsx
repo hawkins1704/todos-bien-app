@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { fetchMySettings } from '@/lib/api';
+import { TERMS_VERSION } from '@/lib/config';
 import { wipeLocalCache } from '@/lib/db';
 import { KV, kvGet, kvSet } from '@/lib/db/kv';
 import { supabase } from '@/lib/supabase';
@@ -111,6 +112,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email: normalizeEmail(email),
       password,
+      // La versión de los términos que la casilla de `sign-up.tsx` acaba de
+      // aceptar. Viaja acá y no en una escritura aparte porque con confirmación
+      // por correo todavía NO hay sesión: el cliente no podría escribir en
+      // `user_settings`, y dejarlo para después de confirmar perdería el dato de
+      // quien nunca confirma. El disparador `handle_new_user` (migración 0043)
+      // lo copia en la misma transacción que crea el perfil, y la fecha la pone
+      // el servidor.
+      options: { data: { terms_version: TERMS_VERSION } },
     });
     if (error) throw error;
 

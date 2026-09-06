@@ -124,8 +124,12 @@ export function ContactMatcher({ onChanged }: { onChanged?: () => void }) {
             guarda en nuestros servidores.
           </Text>
 
+          {/* 🔴 NO volver a poner "Revisar mi agenda". Apple rechazó el build 11
+              por la guía 5.1.1(iv): este botón abre el diálogo de contactos del
+              sistema, así que tiene que ser neutro. La explicación de qué se
+              hace con la agenda está justo arriba, que es donde corresponde. */}
           <Button
-            title="Revisar mi agenda"
+            title="Continuar"
             onPress={() => void scan()}
             variant="secondary"
             style={styles.gapTopLg}

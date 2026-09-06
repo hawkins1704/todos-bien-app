@@ -35,10 +35,17 @@ export function PremiumCta() {
 
     if (resultado === 'pendiente') {
       setAviso(
-        'Tu compra quedó registrada. Puede tardar unos minutos en activarse; si no la ves, cerrá y volvé a abrir la app.',
+        'Tu compra quedó registrada. Puede tardar unos minutos en activarse; si no la ves, cierra y vuelve a abrir la app.',
+      );
+    } else if (resultado === 'sin-identidad') {
+      // No se abrió el paywall y nadie pagó nada. El texto lo dice con esas
+      // palabras a propósito: «no pudimos conectarnos con la tienda» haría
+      // pensar que quizá la compra salió a medias.
+      setAviso(
+        'No pudimos preparar tu compra. No se cobró nada. Revisa tu conexión e intenta de nuevo; si sigue pasando, cierra sesión y vuelve a entrar.',
       );
     } else if (resultado === 'error') {
-      setAviso('No pudimos conectarnos con la tienda. Revisá tu conexión e intentá de nuevo.');
+      setAviso('No pudimos conectarnos con la tienda. Revisa tu conexión e intenta de nuevo.');
     }
   }, [abrirPaywall]);
 

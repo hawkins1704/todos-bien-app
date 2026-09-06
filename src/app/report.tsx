@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -55,6 +55,29 @@ export default function ReportScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nombreDelCirculo, setNombreDelCirculo] = useState<string | null>(null);
+
+  /**
+   * Llevar «Qué pasó» por encima del teclado, a mano.
+   *
+   * `KeyboardAvoider` **encoge el contenedor**, y eso es lo correcto, pero
+   * encoger no mueve el scroll: el campo se queda donde estaba, que ahora es
+   * debajo del teclado. Es el último campo de un formulario largo, así que en
+   * iOS quedaba tapado por completo — reportado el 2026-09-06.
+   *
+   * Se resuelve desplazando a la posición medida del campo, y no con
+   * `scrollToEnd()`: el alto del bloque que va debajo cambia según haya error o
+   * no, así que «el final» no es un lugar fijo. Con la `y` medida, el campo
+   * queda arriba de todo sin importar cuánto mida el teclado ni qué haya abajo.
+   *
+   * Lo que NO se hizo: `react-native-keyboard-controller`, que es lo que Expo
+   * recomienda para esto y trae `KeyboardAwareScrollView` con el scroll
+   * automático. Es una dependencia **nativa** nueva, y meterla el día antes de
+   * compilar para arreglar una pantalla no vale el riesgo de que el arranque
+   * reviente. Si algún día hacen falta más pantallas con este problema, esa es
+   * la salida buena.
+   */
+  const scrollRef = useRef<ScrollView>(null);
+  const yDelDetalle = useRef(0);
 
   // Desde el chat no viene el nombre —la burbuja solo sabe quién la mandó—, así
   // que se busca en la caché local. Es una lectura de SQLite, no de red.
@@ -132,6 +155,7 @@ export default function ReportScreen() {
 
       <KeyboardAvoider style={styles.flex}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xl }]}
           keyboardShouldPersistTaps="handled">
           <Text variant="body" tone="secondary">
@@ -180,13 +204,29 @@ export default function ReportScreen() {
             })}
           </Card>
 
-          <View style={styles.detail}>
+          <View
+            style={styles.detail}
+            onLayout={(event) => {
+              yDelDetalle.current = event.nativeEvent.layout.y;
+            }}>
             <Text variant="footnote" tone="secondary" weight="600">
               QUÉ PASÓ (OPCIONAL)
             </Text>
             <TextInput
               value={detail}
               onChangeText={setDetail}
+              // El retraso no es un número mágico al azar: hay que dejar que el
+              // teclado termine de aparecer y que `KeyboardAvoider` encoja el
+              // contenedor. Desplazar antes deja el scroll en un sitio calculado
+              // sobre un alto que ya cambió.
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollRef.current?.scrollTo({
+                    y: Math.max(0, yDelDetalle.current - Spacing.lg),
+                    animated: true,
+                  });
+                }, 250);
+              }}
               placeholder="Agrega lo que nos ayude a entender el caso"
               placeholderTextColor={colors.textTertiary}
               multiline

@@ -94,6 +94,50 @@ export async function syncPurchasesUser(userId: string | null): Promise<void> {
 }
 
 /**
+ * ¿El SDK está identificado como ESTE usuario? Si no, lo intenta y lo dice.
+ *
+ * ## Por qué hace falta, y qué costó no tenerlo
+ *
+ * 🔴 **2026-09-06, en sandbox.** Una compra entró a RevenueCat con
+ * `app_user_id = "$RCAnonymousID:c2fd7f83…"` en vez del UUID de Supabase. El
+ * webhook no tenía a qué fila de `user_settings` aplicarla, así que **nadie
+ * recibió Premium**: la tienda cobró y el permiso no se otorgó. Peor: el evento
+ * llegó como `TRANSFER` y le **quitó** Premium a la cuenta que sí lo tenía,
+ * porque el mismo Apple ID de prueba había comprado antes desde ella.
+ *
+ * `syncPurchasesUser` ya llamaba a `logIn`, pero con dos agujeros:
+ *
+ *   1. corre en un `useEffect` suelto y **se traga los errores** —solo avisa en
+ *      `__DEV__`—, así que un fallo de red al arrancar dejaba el SDK anónimo sin
+ *      que nada en la app lo supiera;
+ *   2. nadie lo comprobaba antes de vender. El paywall se abría igual.
+ *
+ * La lección: `logIn` no es una tarea de arranque que se lanza y se olvida. Es
+ * una **precondición de la compra**, y hay que verificarla en el momento de
+ * comprar, no minutos antes.
+ *
+ * Devuelve `false` cuando no pudo, y quien vende tiene que respetarlo: es
+ * preferible no cobrar a cobrar sin poder entregar.
+ */
+export async function ensurePurchasesUser(userId: string): Promise<boolean> {
+  if (!purchasesEnabled) return false;
+  configurePurchases();
+
+  try {
+    if ((await Purchases.getAppUserID()) === userId) return true;
+
+    const { customerInfo } = await Purchases.logIn(userId);
+    // No se confía en que `logIn` haya resuelto: se vuelve a preguntar. Si el
+    // SDK quedó anónimo igual, la respuesta honesta es `false`.
+    void customerInfo;
+    return (await Purchases.getAppUserID()) === userId;
+  } catch (caught) {
+    if (__DEV__) console.warn('[purchases] no se pudo identificar al usuario', caught);
+    return false;
+  }
+}
+
+/**
  * ¿El SDK ve algún entitlement activo en este dispositivo?
  *
  * Se usa para elegir qué mostrar en la app, no para otorgar beneficios: eso lo
@@ -129,8 +173,18 @@ export async function getCustomerInfo(): Promise<CustomerInfo | null> {
  * rechaza la app. El paywall de RevenueCat trae su propio botón, pero este vive
  * en Mi cuenta, que es donde alguien que ya pagó va a buscarlo.
  */
-export async function restorePurchases(): Promise<CustomerInfo> {
+export async function restorePurchases(userId: string): Promise<CustomerInfo> {
   configurePurchases();
+
+  // Restaurar con el SDK anónimo tiene el mismo final que comprar con el SDK
+  // anónimo: la compra queda atada a un `$RCAnonymousID` y el webhook no sabe a
+  // quién dársela. Por eso la identidad es un **argumento obligatorio** y se
+  // verifica acá adentro, y no una llamada previa que el próximo sitio que use
+  // esta función se pueda olvidar de hacer.
+  if (!(await ensurePurchasesUser(userId))) {
+    throw new Error('No pudimos identificar tu cuenta para restaurar la compra.');
+  }
+
   return Purchases.restorePurchases();
 }
 

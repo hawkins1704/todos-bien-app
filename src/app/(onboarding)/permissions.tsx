@@ -163,9 +163,15 @@ export default function OnboardingPermissionsScreen() {
             que la abriste.
           </Text>
 
+          {/* 🔴 NO volver a poner "Permitir…" en el botón de abajo. Apple
+              rechazó el build 11 por la guía 5.1.1(iv): el botón que dispara el
+              diálogo del sistema no puede empujar a conceder, tiene que ser
+              neutro ("Continue" o "Next" son las palabras que pide la nota). El
+              texto que explica para qué sirve el permiso va arriba, en la
+              tarjeta, que es donde Apple sí lo quiere. */}
           {locationLevel === 'background' ? null : (
             <Button
-              title={locationLevel === 'none' ? 'Permitir ubicación' : 'Permitir siempre'}
+              title="Continuar"
               onPress={() => void askLocation()}
               loading={busy === 'location'}
               variant="secondary"
@@ -213,9 +219,10 @@ export default function OnboardingPermissionsScreen() {
             está bien. Puedes apagar cada tipo por separado en Ajustes.
           </Text>
 
+          {/* Mismo motivo que el de ubicación: neutro por la guía 5.1.1(iv). */}
           {notificationsGranted ? null : (
             <Button
-              title="Permitir notificaciones"
+              title="Continuar"
               onPress={() => void askNotifications()}
               loading={busy === 'notifications'}
               variant="secondary"
@@ -224,7 +231,10 @@ export default function OnboardingPermissionsScreen() {
           )}
         </Card>
 
-        <Button title="Continuar" onPress={() => router.push('/contacts')} size="lg" />
+        {/* "Siguiente paso" y no "Continuar" para que no haya tres botones con
+            la misma palabra: los dos de arriba tienen que decir "Continuar" por
+            la guía 5.1.1(iv), y este es el único que de verdad navega. */}
+        <Button title="Siguiente paso" onPress={() => router.push('/contacts')} size="lg" />
 
         {locationLevel !== 'background' ? (
           <Text variant="caption" tone="tertiary" center>

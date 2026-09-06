@@ -254,6 +254,34 @@ during an earthquake, so showing a position on a calm day would turn the app int
 history, which is exactly what we promise not to be. Run the drill above to see statuses,
 the status ring and the location card exactly as a real alert shows them.
 
+TERMS OF USE ACCEPTANCE (guideline 1.2)
+New users must actively agree to our terms before an account can be created. On the sign-up
+screen there is an unchecked checkbox reading "Acepto los Términos de uso y la Política de
+privacidad. Entiendo que no se tolera el contenido ofensivo ni el acoso, y que las cuentas que
+incumplan pueden ser suspendidas o eliminadas." The "Crear cuenta" button stays DISABLED until
+it is ticked. Both documents are one tap away from that screen and from the sign-in screen.
+The accepted version and the date are stored on the account.
+
+  Terms: https://todosbien.app/terminos  (zero tolerance is section 5.1)
+  Privacy: https://todosbien.app/privacidad
+
+AUTOMATED CONTENT FILTERING (guideline 1.2)
+Every piece of user-generated content is checked on the SERVER before it is stored: chat
+messages, the message attached to a status, display names and group names. Text containing
+directed insults, discriminatory slurs or threats is rejected outright -- it is never stored
+and never delivered -- and the author is told why, on the spot.
+
+The check runs in the database (a trigger), not in the app, so it cannot be bypassed by a
+modified client.
+
+To see it: open any chat, send the word "conchatumadre" (a common insult in Peru). The message
+is rejected with an explanation and the text is returned to the input box.
+
+Note on scope: the filter targets aggression, not profanity. During an earthquake people write
+things like "se cayó la pared, mierda, hay un herido" ("the wall came down, shit, someone is
+hurt") and that must go through -- blocking it would silence the user in the exact minutes this
+app exists for. Our terms explain this distinction in section 5.1.
+
 REPORTING AND BLOCKING (guideline 1.2)
 Users can report objectionable content and block other users:
   - Report a message: long-press any message from the other person in a chat -> "Denunciar".
@@ -273,6 +301,11 @@ Users can report objectionable content and block other users:
 Reports are reviewed within 24 hours. Our terms of service state a zero-tolerance policy for
 abusive content: https://todosbien.app/terminos (section 5.1). Contact for reports and
 support: todosbienapp@gmail.com
+
+SCREEN RECORDING (requested in the September 5, 2026 review)
+A recording captured on a physical device, showing the terms agreement presented before
+registration, the mechanism to flag content, and the mechanism to block a user:
+[PEGAR ACÁ EL ENLACE DE YOUTUBE — no listado]
 
 MESSAGING MODEL — no strangers, in either kind of chat
   - One-to-one chat: only between two people who BOTH explicitly accepted the connection.
@@ -319,20 +352,46 @@ match that language.
 
 ## 4 · Los rechazos probables de esta app, en orden
 
-Ninguno es hipotético: los cuatro salen de reglas escritas de Apple y de cómo está construida
-la app hoy.
+Ninguno es hipotético: los cinco salen de reglas escritas de Apple y de cómo está construida
+la app hoy. **Y dos dejaron de ser probables el 2026-09-05: pasaron a ocurridos.**
 
 | # | Riesgo | Por qué aplica acá | Estado |
 |---|---|---|---|
-| 1 | **Guideline 1.2 — contenido generado por usuarios sin moderación** | Hay chat entre personas. Apple pide: forma de denunciar, forma de bloquear, canal de contacto publicado y compromiso de actuar en 24 h | ✅ **Cerrado el 2026-08-24.** Denunciar desde el chat y desde el contacto (migración 0020), bloquear con «Quitar de mi red», contacto en `/soporte`, y las 24 h escritas en los términos §5.1 y sostenidas por el chequeo diario del runbook |
-| 2 | **Guideline 3.1.2 — paywall sin Términos ni Privacidad** | El paywall vive en RevenueCat, y ahí es un campo que se olvida | ✅ **Cerrado el 2026-08-28.** Los dos enlaces y «Restaurar compras» están en el pie |
-| 3 | **Guideline 5.1.1(v) — borrar la cuenta** | La app crea cuentas | ✅ Hecho, y la ruta está en §2 |
-| 4 | **Guideline 2.1 — no pudimos probar la función principal** | Requiere un sismo real | ✅ Cubierto por la nota del simulacro |
+| 1 | **Guideline 1.2 — contenido generado por usuarios sin moderación** | Hay chat entre personas | 🔴 **Rechazado el 2026-09-05 sobre el build 11**, después de que esta misma fila lo diera por cerrado. ✅ Reabierto y cerrado de verdad el 2026-09-06 — ver el recuadro de abajo |
+| 2 | **Guideline 5.1.1(iv) — botones que empujan a conceder un permiso** | La app pide ubicación y contactos con una pantalla propia antes del diálogo del sistema | 🔴 **Rechazado el 2026-09-05.** ✅ Corregido el mismo día: los tres botones que Apple citó dicen «Continuar» |
+| 3 | **Guideline 3.1.2 — paywall sin Términos ni Privacidad** | El paywall vive en RevenueCat, y ahí es un campo que se olvida | ✅ **Cerrado el 2026-08-28.** Los dos enlaces y «Restaurar compras» están en el pie |
+| 4 | **Guideline 5.1.1(v) — borrar la cuenta** | La app crea cuentas | ✅ Hecho, y la ruta está en §2 |
+| 5 | **Guideline 2.1 — no pudimos probar la función principal** | Requiere un sismo real | ✅ Cubierto por la nota del simulacro |
 
-> **Los cuatro están cerrados al 2026-08-28.** El que quedaba vivo era el 2, y era el más
-> barato de todos: dos campos de texto en RevenueCat. Vale la pena mirar el pie del paywall en
-> el teléfono antes de enviar (`VERIFICACION-EN-DISPOSITIVO.md` 8.3) — que el campo esté
-> guardado en la consola y que se **vea** en la pantalla no son lo mismo.
+> 🔴 **Qué faltaba en la 1.2, y por qué esta tabla decía lo contrario.**
+>
+> Hasta el 2026-09-05 la fila 1 decía «✅ Cerrado el 2026-08-24». Era verdad a medias, y la
+> mitad que faltaba costó un rechazo entero.
+>
+> Apple pide **cuatro** cosas, no dos. Denunciar y bloquear estaban, y estaban bien. Las otras
+> dos no existían:
+>
+> | Lo que pide la guía | Estado el 2026-09-05 |
+> |---|---|
+> | Denunciar contenido | ✅ existía — mantener apretado el mensaje, migración 0020 |
+> | Bloquear a alguien | ✅ existía |
+> | **Aceptar los términos antes de registrarse**, y que digan tolerancia cero | 🔴 **no existía.** No había un solo enlace legal en ninguna pantalla de registro o ingreso |
+> | **Un método de filtrado de contenido** | 🔴 **no existía** |
+>
+> **La lección, que es la misma que ya cuesta caro en este archivo:** un requisito con varias
+> partes se da por cerrado cuando se cumple la parte que uno ya estaba construyendo. La fila
+> decía «denunciar y bloquear existen» y de ahí saltaba a «cerrado», sin volver a leer la guía
+> entera. Al escribir «✅ cerrado» conviene copiar **la lista completa** de lo que exige la
+> regla y tacharla ítem por ítem.
+>
+> Cerrado el 2026-09-06 con la casilla de aceptación (`sign-up.tsx` + migración 0043) y el
+> filtro de contenido del servidor (migración 0044).
+
+> **Guideline 5.1.1(iv), en una línea, para que no vuelva.** El botón que dispara el diálogo de
+> permisos del sistema **no puede llamar a conceder**: nada de «Permitir ubicación» ni «Revisar
+> mi agenda», solo palabras neutras como «Continuar». La explicación de para qué sirve el
+> permiso va en el texto de arriba, que es donde Apple sí la quiere. Hay un comentario 🔴 en
+> cada uno de los tres botones para que nadie los «mejore» de vuelta.
 
 ---
 
@@ -346,8 +405,49 @@ la app hoy.
 - [ ] La contraseña de la cuenta demo está pegada en el formulario (no en git)
 - [x] `qa.simulador@example.com` borrado — 2026-08-28
 - [x] El paywall de RevenueCat tiene los enlaces a Términos y Privacidad — 2026-08-28
-- [x] Decidido qué se hace con la moderación de §4.1 — denunciar y bloquear existen
+- [x] Decidido qué se hace con la moderación de §4.1 — **las cuatro partes**, no dos:
+      denunciar, bloquear, aceptar términos y filtrar. Las dos últimas se agregaron el
+      2026-09-06 tras el rechazo
 - [ ] La nota le explica al revisor **por qué la red se ve quieto** y lo manda al
       simulacro. Sin eso, la app parece vacía en un día sin sismos
 - [ ] El build subido es **posterior a los arreglos del 2026-08-27/28**: los textos de permiso
       viajan en el `Info.plist`, y los cuatro bugs de interfaz viajan en el bundle de JS
+
+### Lo que agregó el rechazo del 2026-09-05
+
+- [ ] 🔴 **El sitio está subido ANTES que el build.** Los términos pasaron a **v1.3** (sección
+      5.1, con el filtro) y la app enlaza ahí. Si el build sale primero, el revisor toca el
+      enlace y lee la versión sin el filtro que la nota le promete
+- [ ] 🔴 **`TERMS_VERSION` de `src/lib/config.ts` coincide con la cabecera de
+      `terminos/index.html`.** Hoy las dos dicen `1.3`. Se mueven juntas o la aceptación queda
+      registrando una versión que no existe
+- [ ] 🔴 **El video está grabado en un teléfono físico y su enlace está pegado en las notas.**
+      Apple lo pidió explícitamente y pide dejarlo para todos los envíos futuros. Tiene que
+      mostrar: los términos presentados **antes** de registrarse (con el botón apagado y
+      encendiéndose al marcar la casilla), denunciar un mensaje, y bloquear a una persona.
+      Conviene sumar el filtro rechazando un insulto: no lo pidieron grabar, pero es la pieza
+      más difícil de creer sin verla
+- [ ] En el teléfono más chico disponible, el bloque legal de la pantalla de ingreso se alcanza
+      sin pelearse con el scroll
+- [ ] `is_premium` de la cuenta demo vuelve a **`false`**. Con Premium activo el revisor no ve
+      el paywall que tiene que revisar, y la nota le dice otra cosa de la que ve
+
+---
+
+## 6 · El guion del video
+
+**Teléfono físico, no simulador.** Una sola toma de ~90 segundos. Empezar con la app
+desinstalada o con la sesión cerrada, porque la primera escena es el registro.
+
+| # | Toma | Por qué esa y no otra |
+|---|---|---|
+| 1 | Abrir → «Crear mi cuenta» → llenar correo y contraseña. **Quedarse quieto unos segundos con «Crear cuenta» apagado.** Marcar la casilla y que se vea encenderse | El contraste **es** la toma. Una casilla ya marcada no demuestra nada: lo que Apple quiere ver es que sin aceptar no se puede seguir |
+| 2 | Tocar «Términos de uso» y que se abra la página. Volver | Prueba que el documento existe y es alcanzable, no solo que hay una frase |
+| 3 | Entrar a un chat, **mantener apretado** un mensaje ajeno → «Denunciar mensaje» → motivo → enviar | «A method for users to flag objectionable content» |
+| 4 | Pestaña **Red** → un contacto → «Bloquear» → confirmar. Y mostrar **Ajustes → Personas bloqueadas** | «A mechanism to block abusive users». Lo segundo prueba que es reversible, que es lo que evita la pregunta siguiente |
+| 5 | En un chat, escribir **`conchatumadre`** y enviar. Sale el aviso y el texto vuelve al campo. Después mandar algo normal | No lo pidieron grabar. Es la precaución más difícil de creer sin verla, y mostrarla contesta la pregunta antes de que la hagan |
+
+**Tres detalles que deciden si la aceptan:** dispositivo físico, rótulos **en inglés** sobre
+cada sección —la app está en español y el revisor no lo lee— y subirla a YouTube **como no
+listada**, que el formulario acepta. El enlace va en *App Review Information → Notes* y **se
+queda ahí para todos los envíos futuros**: la nota de Apple lo pide explícitamente.
