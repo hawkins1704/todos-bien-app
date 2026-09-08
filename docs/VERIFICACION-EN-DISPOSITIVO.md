@@ -326,6 +326,22 @@ order by le_llega desc;
 > físicamente ya está probado en 7.1 y 7b.4. El bloque de SQL está en el historial de la sesión;
 > lo que hay que recordar es la forma — un `pg_temp` que deja a B sin reportar y lo hace reportar,
 > se corre una vez por caso cambiando un solo ajuste, y `rollback` al final.
+
+> 🔴 **No busques la evidencia de todo esto en la base: la borramos nosotros.** El 2026-09-06 se
+> limpiaron los sismos sembrados —`prueba-fg`, `prueba-bg` y **`verif-guardian-0901-a/b`**, que
+> son literalmente los de 7b.4— junto con 9 notificaciones. Hoy `alert_deliveries` tiene **3
+> filas en total, de agosto**, y `contact_is_safe` no aparece **ni una vez** en
+> `notification_deliveries`.
+>
+> **Eso NO significa que Guardián no funcione.** Significa que el rastro se fue con la limpieza,
+> que era lo correcto antes de mandar el build a Apple. El 2026-09-08 este cero hizo pensar por
+> un momento que la notificación insignia de Premium nunca había salido — y lo que la desmiente
+> es esta misma tabla: 7b.4 ✅ la vio salir en dos teléfonos, «2 s después del reporte», y 7b.7
+> y 7b.9 cierran la puerta por los dos lados.
+>
+> **La lección, para la próxima limpieza:** contar filas en `notification_deliveries` **no sirve**
+> para saber si un tipo de aviso funciona. Los datos de prueba se borran a propósito y el contero
+> queda mintiendo hacia abajo. Lo que vale es esta tabla, y el cuerpo de la función.
 | 7b.12 | `select private.fan_out_quake('<id>')` dos veces sobre el mismo sismo | No se duplica: `alert_deliveries_unique` y `dedupe_key` |
 > **Cómo montar 7b.13 sin conseguir un teléfono más** (2026-09-02): borrar la fila de
 > `push_tokens` de un contacto —`delete from public.push_tokens where user_id = '<id>'`— es

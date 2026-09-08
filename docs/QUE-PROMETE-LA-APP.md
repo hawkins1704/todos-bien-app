@@ -270,8 +270,9 @@ argumento, no una concesión.
 > era falsa en la dirección contraria.** Dentro de tu propio sismo el «está bien» de un
 > contacto **no llegaba nunca**, ni pagando: colgaba de haber recibido la apertura de Guardián,
 > que solo reciben los que están **fuera** de la zona. El resultado era al revés de lo que
-> cualquiera esperaría —alguien en Madrid con Premium recibía «María está bien», y quien estaba
-> en el mismo terremoto que María, no—, y dejaba a la persona que más lo necesita recibiendo
+> cualquiera esperaría —alguien **fuera de la zona** con Premium recibía «María está bien», y
+> quien estaba en el mismo terremoto que María, no—, y dejaba a la persona que más lo necesita
+> recibiendo
 > **solo malas noticias**: «necesita ayuda» sí es gratis e incondicional desde siempre.
 >
 > **Y va gratis, no en Premium, por una razón que conviene tener escrita:** ponerlo detrás del
@@ -282,9 +283,10 @@ argumento, no una concesión.
 
 La frase corta —«la señal de que algo salió mal siempre es gratis»— **es cierta solo entre
 quienes compartieron el sismo**. `notify_silent_contacts` manda «X no responde» únicamente a
-quien tiene entrega de alerta de ese mismo sismo, así que quien está en Madrid **no recibe
-nada** por el canal gratuito. Decir la frase sin esa condición es prometerle a alguien de la
-diáspora justo lo que no va a llegarle.
+quien tiene entrega de alerta de ese mismo sismo, así que **quien está fuera de la zona no
+recibe nada** por el canal gratuito. Decir la frase sin esa condición es prometerle justo lo
+que no va a llegarle a quien está lejos — en Lima mirando a Arequipa, o en Miami mirando a
+Lima: la condición no es geográfica, es **haber recibido la alerta de ese sismo**.
 
 **Lo que sí es gratis para el que está lejos**, y conviene decirlo porque suena a Premium y no
 lo es: al abrir la app, un contacto que está dentro de un sismo vivo aparece con **su aro de

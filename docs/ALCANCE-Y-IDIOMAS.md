@@ -11,10 +11,22 @@ ningún lado y **la app asume Perú en cuatro lugares del código**, no solo en 
 
 ## 1 · La decisión
 
+> 🔄 **Revisado por `MONETIZACION.md` §6 el 2026-09-08, y en dos puntos.**
+>
+> 1. **Idiomas: solo español.** El inglés sirve para venderle a un mercado que la app hoy no
+>    puede atender (§6.1 de aquel documento: fuera del Perú la detección depende del USGS, que
+>    llega 16-18 minutos tarde). Esta tabla dice «español e inglés» desde el 2026-08-24 y esa
+>    parte está superada.
+> 2. **Mercados: el foco es el Perú.** La lista de abajo sigue siendo la de disponibilidad
+>    —publicar en nueve tiendas no cuesta nada y no hay razón para retirarse— pero **dejó de
+>    ser la estrategia**. El comprador vive en el Perú: está en Lima y su gente está en
+>    provincia. Antes se asumía que era la diáspora, y eso movía el precio, la landing y este
+>    documento detrás de un mercado que no era.
+
 | | |
 |---|---|
-| **Mercados** | Latinoamérica, Estados Unidos y países de Asia |
-| **Idiomas** | Español e inglés. Nada más, por ahora |
+| **Mercados** | Latinoamérica, Estados Unidos y países de Asia — como **disponibilidad**, no como foco |
+| **Idiomas** | ~~Español e inglés~~ · **solo español** (ver el recuadro) |
 | **Primer envío a App Store** | **Solo Perú** — ver §4, que es la parte importante |
 
 ---

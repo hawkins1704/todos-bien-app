@@ -106,8 +106,15 @@ donde la app está disponible» y no la toques aparte.
 | **México, Brasil, Canadá** | El resto de América con comunidad peruana |
 | **Japón** | Comunidad peruana históricamente grande |
 
-La razón de abrir fuera de Perú es **Guardián**: se le vende a quien tiene familia allá y
-vive afuera. Restringir a Perú dejaría fuera justamente a quien paga.
+> 🔄 **Reescrito el 2026-09-08.** Acá decía: *«La razón de abrir fuera de Perú es Guardián: se
+> le vende a quien tiene familia allá y vive afuera. Restringir a Perú dejaría fuera justamente
+> a quien paga»*. **El foco pasó a ser el mercado peruano** (`MONETIZACION.md` §6): el que paga
+> está en Lima con su gente en provincia, no en Miami.
+
+**La lista de países no cambia, y el motivo ahora es otro:** publicar en nueve tiendas no
+cuesta nada ni obliga a mantener nada, y de paso recoge al peruano que sí vive afuera. Es
+alcance gratis, no la tesis del negocio. Retirarse tampoco tendría sentido — el trabajo ya
+está hecho.
 
 ### Los que NO van todavía
 
@@ -200,7 +207,7 @@ venta más fuerte que tiene el producto; y es lo que le deja claro a un revisor 
 > que te toca a ti, y el aviso de que alguien de tu red no respondió, son gratis y siempre
 > lo van a ser»*. La segunda mitad era **falsa** para el caso que más importa:
 > `notify_silent_contacts` manda «X no responde» solo a quien tiene entrega de alerta de ese
-> mismo sismo (migración 0020), así que quien está en Madrid nunca lo recibe.
+> mismo sismo (migración 0020), así que quien está **fuera de la zona** nunca lo recibe.
 >
 > La versión nueva dice lo mismo sin mentir, y encima **explica qué se compra** en la misma
 > frase: gratis cubre entero el sismo que te toca; Premium es para el que no. Prometer en el

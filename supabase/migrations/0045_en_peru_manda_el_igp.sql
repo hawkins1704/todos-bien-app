@@ -23,10 +23,17 @@
 -- ## Por qué NO se escondió Perú del feed global
 --
 -- Era la otra opción y se descartó por producto. El feed nacional filtra por el
--- país **detectado** (`coalesce(mi_pais, 'PE')`), así que un peruano en Madrid
--- tiene «Nacional» mostrando España: para él Perú solo existe en Global. Y es a
--- quien `MONETIZACION.md` §6 le vende Guardián. Esconder Perú de Global le
--- borraría un M7 en Lima de la pantalla — al que paga, y al que más le importa.
+-- país **detectado** (`coalesce(mi_pais, 'PE')`), así que un peruano fuera del
+-- país tiene «Nacional» mostrando donde vive: para él Perú **solo existe en
+-- Global**. Esconderlo de ahí le borraría un M7 en Lima de la pantalla.
+--
+-- ⚠️ **Revisado el 2026-09-08 y la decisión NO cambia.** Este párrafo decía que
+-- ese usuario era «a quien `MONETIZACION.md` §6 le vende Guardián». Desde esa
+-- fecha el foco es el mercado peruano y la diáspora dejó de ser el comprador
+-- principal, así que ese argumento ya no aplica — pero el arreglo se sostiene
+-- igual con uno más barato: sigue siendo un usuario real, mostrarle su país no
+-- le cuesta nada a nadie, y para quien está en Perú los sismos peruanos en
+-- Global son redundantes pero inofensivos. **No hay nada que revertir acá.**
 --
 -- ## Dos trampas que aparecieron al probarlo, y que definen la forma del arreglo
 --

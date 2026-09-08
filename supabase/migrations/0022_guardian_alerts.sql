@@ -4,8 +4,12 @@
 -- El hueco que cierra, y que es el producto entero de Premium
 -- (docs/MONETIZACION.md §3.1):
 --
---   Son las 3 AM en Madrid. Tiembla M6,8 en Lima. Tu mamá está ahí.
+--   Son las 3 AM. Estás en Lima. Tiembla M6,8 en Arequipa, y tu mamá está ahí.
 --   Hoy no te llega NADA hasta el minuto 20, y solo si ella no reporta.
+--
+-- (Escenario reformulado el 2026-09-08: decía «las 3 AM en Madrid». El foco
+--  comercial pasó a ser el mercado peruano y mil kilómetros dan lo mismo desde
+--  Arequipa que desde Madrid. **Solo cambió el ejemplo, no el comportamiento.**)
 --
 -- El reparto de alertas mira **solo la posición propia** (`quake_applies`), así
 -- que quien está lejos no recibe nada aunque medio círculo esté en la zona. Lo

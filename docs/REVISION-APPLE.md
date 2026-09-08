@@ -140,6 +140,76 @@ duplicar nada.
 
 Va en **App Review Information → Notes**. En inglés, que es lo que lee el equipo de revisión.
 
+> 🔴 **El campo tiene un tope de 4.000 caracteres, y el texto de referencia de abajo mide
+> 8.467.** Descubierto el 2026-09-06 preparando el reenvío. Pegado tal cual, App Store Connect
+> lo corta o rechaza el guardado, y lo que se pierde es **el final** — que es justo donde
+> estaban el modelo de mensajería, el borrado de cuenta y la ubicación en segundo plano.
+>
+> Por eso ahora hay **dos** bloques: §2.1 es el que se pega, medido y con margen; §2.2 queda
+> como referencia larga, para consultar y para contestar si Apple repregunta. **Cada vez que se
+> toque §2.1 hay que volver a medirlo**, contando que el enlace del video y la contraseña se
+> pegan encima de los marcadores.
+
+### 2.1 · Para pegar — reenvío del 2026-09-06 · **3.911 caracteres**
+
+El orden no es casual: el revisor de un reenvío busca primero la respuesta al rechazo, así que
+el video y las dos guías van arriba de todo, antes incluso de la cuenta demo.
+
+```
+RESUBMISSION — response to the September 5, 2026 rejection of build 11.
+
+SCREEN RECORDING (as requested). Physical iPhone, English captions: the terms agreement shown before registration, flagging content, and blocking a user.
+[PEGAR EL ENLACE DE YOUTUBE — NO LISTADO]
+
+5.1.1(iv) — FIXED
+The three buttons that trigger a system permission prompt no longer ask the user to grant it: they now read "Continuar" (Continue) and "Siguiente paso" (Next step). Why the permission is needed stays in the text above the button.
+
+1.2 — FOUR PRECAUTIONS, TWO OF THEM NEW IN THIS BUILD
+
+1) TERMS AGREEMENT BEFORE REGISTRATION (new)
+An UNCHECKED checkbox on the sign-up screen states that the user accepts the Terms and Privacy Policy and understands that offensive content and harassment are not tolerated, and that offending accounts may be suspended or deleted. "Crear cuenta" stays DISABLED until it is ticked. Both documents are one tap away from the sign-up and sign-in screens; the accepted version and date are stored on the account.
+https://todosbien.app/terminos (zero tolerance: section 5.1)
+https://todosbien.app/privacidad
+
+2) AUTOMATED CONTENT FILTERING (new)
+Chat messages, status messages, display names and group names are checked on the SERVER before storage. Directed insults, slurs and threats are rejected outright — never stored, never delivered — and the author is told why. It is a database trigger, so a modified client cannot bypass it.
+TO SEE IT: in any chat, send "conchatumadre" (a common Peruvian insult). It is rejected and the text returns to the input box. The filter targets aggression, not profanity: during an earthquake "se cayo la pared, mierda, hay un herido" must go through.
+
+3) FLAG CONTENT
+Message: LONG-PRESS any message from the other person -> "Denunciar". Person: "Red" tab -> tap the contact -> "Denunciar a esta persona". Reviewed within 24 hours: todosbienapp@gmail.com
+
+4) BLOCK USERS
+"Red" tab -> tap the contact -> "Bloquear a esta persona", also offered right after a report. A blocked user cannot message you, send connection requests, or see your status or location, and is removed from every group you own (and you from theirs). Reversible from Ajustes -> "Personas bloqueadas"; the blocked user cannot undo it.
+
+NO STRANGERS: one-to-one chat requires that BOTH people accepted the connection; in a group only the owner adds members, and only their own contacts. No public content, no way to find a stranger.
+
+DEMO ACCOUNT
+todosbienapp@gmail.com / [PEGAR LA CONTRASEÑA]
+4 accepted contacts, 2 groups with chats, and an action plan, so every screen has content.
+
+HOW TO REVIEW THE MAIN FEATURE WITHOUT AN EARTHQUAKE
+Alerts arrive minutes AFTER an event published by Peru's IGP or the USGS: this is not an early-warning app. Use the built-in drill:
+Ajustes (Settings) -> "PRACTICA" -> "Hacer un simulacro" -> "Solo yo" -> "Empezar simulacro".
+The real Home enters alert mode with a 5-step guided tour, and a yellow "SIMULACRO" strip stays on every screen. EXIT: Ajustes -> "PRACTICA" -> "Salir del modo simulacro". A solo drill sends nothing to anyone.
+
+NOT DEFECTS
+- Outside an active earthquake the app hides everyone's status and location by design; we only store where someone was during a quake. The drill shows them.
+- All 4 demo contacts show "No recibe notificaciones": seeded profiles with no device. It is a working safety warning.
+
+ALSO IN THIS BUILD: a map view for the earthquake list, and fixes to the Android location map, the chat header and the report form.
+
+PURCHASES: Premium is optional, the safety core is free. Paywall (RevenueCat): Ajustes -> "Obtener Premium". Please use a sandbox account.
+
+BACKGROUND LOCATION: a silent push tied to a verified earthquake wakes a task that reads the position EXACTLY ONCE. No continuous updates, geofencing or significant-change monitoring; only the latest reading is stored, visible only to accepted contacts.
+```
+
+**Lo que se sacó para entrar, en orden de reposición** si el campo admitiera más: el borrado de
+cuenta (`Ajustes → tarjeta de perfil → SEGURIDAD → «Borrar mi cuenta»`, guía 5.1.1(v)), la línea
+que explica que la cuenta demo usa sus 2 grupos gratis y por eso «Nuevo grupo» abre el paywall,
+y la justificación larga de ubicación de `PRIVACIDAD-APP-STORE.md` §4.
+
+### 2.2 · Referencia larga — **no entra en el campo**
+
 > 🔴 **Reescritas el 2026-09-01, y no por gusto: mandaban al revisor a un sitio que ya no
 > existe.** Decían «Home tab → Simulacro», y desde la 0035 el simulacro se convoca desde
 > Ajustes → PRÁCTICA. Un revisor que sigue una instrucción y no encuentra el botón no
@@ -398,7 +468,9 @@ la app hoy. **Y dos dejaron de ser probables el 2026-09-05: pasaron a ocurridos.
 ## 5 · Antes de tocar «Submit for Review»
 
 - [x] La cuenta demo existe, entra, y tiene red, plan y chat sembrados — **repuesto el
-      2026-08-28**; volver a contarlo el día del envío con la consulta de §1
+      2026-08-28**; volver a contarlo el día del envío con la consulta de §1. **Contado el
+      2026-09-06: 4 contactos aceptados, 2 grupos, 7 mensajes.** Los cuatro contactos siguen sin
+      dispositivo, así que los cuatro muestran «No recibe notificaciones» — la nota lo explica
 - [ ] **El correo de la cuenta demo en las notas es `todosbienapp@gmail.com`.** Hasta el
       2026-08-28 este documento decía `appreview@todosbien.app`, que **no existe**: pegado tal
       cual, era el rechazo «no pudimos entrar» garantizado
@@ -415,10 +487,12 @@ la app hoy. **Y dos dejaron de ser probables el 2026-09-05: pasaron a ocurridos.
 
 ### Lo que agregó el rechazo del 2026-09-05
 
-- [ ] 🔴 **El sitio está subido ANTES que el build.** Los términos pasaron a **v1.3** (sección
+- [x] 🔴 **El sitio está subido ANTES que el build.** Los términos pasaron a **v1.3** (sección
       5.1, con el filtro) y la app enlaza ahí. Si el build sale primero, el revisor toca el
-      enlace y lee la versión sin el filtro que la nota le promete
-- [ ] 🔴 **`TERMS_VERSION` de `src/lib/config.ts` coincide con la cabecera de
+      enlace y lee la versión sin el filtro que la nota le promete — **comprobado el 2026-09-06
+      contra la URL pública**: `https://todosbien.app/terminos` sirve «Versión 1.3» y su §5.1
+      describe el filtro automático
+- [x] 🔴 **`TERMS_VERSION` de `src/lib/config.ts` coincide con la cabecera de
       `terminos/index.html`.** Hoy las dos dicen `1.3`. Se mueven juntas o la aceptación queda
       registrando una versión que no existe
 - [ ] 🔴 **El video está grabado en un teléfono físico y su enlace está pegado en las notas.**
@@ -429,8 +503,16 @@ la app hoy. **Y dos dejaron de ser probables el 2026-09-05: pasaron a ocurridos.
       más difícil de creer sin verla
 - [ ] En el teléfono más chico disponible, el bloque legal de la pantalla de ingreso se alcanza
       sin pelearse con el scroll
-- [ ] `is_premium` de la cuenta demo vuelve a **`false`**. Con Premium activo el revisor no ve
-      el paywall que tiene que revisar, y la nota le dice otra cosa de la que ve
+- [x] `is_premium` de la cuenta demo vuelve a **`false`**. Con Premium activo el revisor no ve
+      el paywall que tiene que revisar, y la nota le dice otra cosa de la que ve — **verificado
+      el 2026-09-06: `false`**. Quedó así solo, y no por prolijidad: el `TRANSFER` de RevenueCat
+      del 2026-09-06 le arrancó el Premium a esta cuenta al mover la compra. El bug de la
+      identidad anónima arregló de rebote la casilla que hacía falta tachar
+- [ ] 🟡 **El `display_name` de la cuenta demo es «Carlos», y uno de sus cuatro contactos es
+      «Carlos Medina»** (comprobado el 2026-09-06; este documento dice «Renzo» en §1 y está
+      desactualizado). No es un rechazo, pero el revisor se ve a sí mismo con el mismo nombre
+      que el contacto que a propósito está **sin confirmar y sin ubicación** — que es la mitad
+      del producto que tiene que entender. Renombrarlo a «Renzo» es un `update` de una línea
 
 ---
 

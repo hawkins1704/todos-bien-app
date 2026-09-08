@@ -7,7 +7,7 @@
 -- su círculo ya se lo muestra). El encadenamiento de las dos reglas producía
 -- esto:
 --
---   Alguien en Madrid, con Premium ......... recibe «Paolo está bien»
+--   Alguien FUERA de la zona, con Premium .. recibe «Paolo está bien»
 --   Vos, en el MISMO terremoto que Paolo ... no recibís nada, nunca
 --
 -- O sea: adentro de tu propio sismo la app solo te mandaba malas noticias

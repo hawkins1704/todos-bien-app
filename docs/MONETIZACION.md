@@ -2,6 +2,17 @@
 
 Escrito el **2026-08-25**. Es la decisión de producto detrás de Premium.
 
+> 🔴 **Revisado a fondo el 2026-09-08, y el cambio es de tesis, no de detalle.** El documento
+> estaba construido sobre la diáspora —el comprador vivía en Madrid o Miami— y **el foco pasó a
+> ser el mercado peruano**. Lo que se movió: §2 (quién paga), §3.1 (el escenario que sostiene
+> el precio), §6 (de «multipaís» a «Perú primero»), y §10 ítem 6, descartado.
+>
+> Se agregó §7 con la decisión sobre **mochilas de emergencia**, que empezó como «qué le
+> regalamos a los Premium» y terminó en lo contrario: no se regala, se vende.
+>
+> **Nada de esto tocó código.** Los precios, el corte gratis/Premium y las migraciones siguen
+> igual — lo que cambió es a quién se le vende y con qué argumento.
+
 `QUE-PROMETE-LA-APP.md` §7 dice qué se puede **afirmar** sobre Premium en público; este
 archivo dice **por qué está cortado así**. Si cambia el corte, cambia primero acá y después
 allá.
@@ -26,7 +37,13 @@ excepciones, aunque sea la que mejor convertiría.
 ## 2 · El error que hay que no repetir: el que paga no es el que está protegido
 
 El adolescente no paga. El padre de 70 años no paga. La que paga es **la que se queda
-mirando el teléfono**: la madre, el hijo que vive afuera, la que armó el grupo familiar.
+mirando el teléfono**: la madre, **el hijo que se mudó a Lima**, la que armó el grupo familiar.
+
+> **Revisado el 2026-09-08.** Este párrafo decía «el hijo que vive afuera» y con eso el
+> documento entero se fue detrás de la diáspora. El comprador de verdad está **dentro del
+> Perú**: es el que se vino a Lima y dejó a sus papás en Arequipa, Cusco, Piura o Trujillo.
+> Es el mismo dolor —no enterarte de que tembló donde está tu gente— pero el mercado es de
+> otro tamaño, y no exige que la app se venda en nueve tiendas para funcionar. Ver §6.
 
 Esa persona **ya tiene la necesidad** antes de que le vendas nada. No hay que fabricársela —
 y en una app de seguridad, fabricar necesidad es fabricar miedo, que se paga con
@@ -192,10 +209,68 @@ manda «X no responde» **solo a quien tiene entrega de alerta de ESE mismo sism
 | | Contacto **cerca** de ti | Contacto **lejos** de ti |
 |---|---|---|
 | **Gratis** | Alerta propia, «no responde» a los 20 min, y «está bien» cuando reporta | **Nada** |
-| **Premium** | Igual | Aviso al minuto 0 y el cierre |
+| **Premium** | Igual | «Está bien» y «no responde» — **los mismos dos avisos, cruzando la zona** |
 
 Este documento afirmaba antes que el aviso de los 20 minutos llegaba siempre. **Para el
-escenario de Madrid —el que abre §3.1— es falso: no llega nada.**
+escenario que abre §3.1 —Lima mirando a Arequipa— es falso: no llega nada.**
+
+> 🔴 **Esta tabla se contradecía con §3.3 desde el 2026-08-31, y se corrigió el 2026-09-08.**
+> La celda de abajo a la derecha decía **«Aviso al minuto 0 y el cierre»**, o sea prometía el
+> aviso *«tembló cerca de María»* — que la migración **0030 eliminó**, y que §3.3 de este mismo
+> documento explica largamente por qué se quitó.
+>
+> **Cómo pasó:** la tabla se escribió el 2026-08-27 verificando el código, y la 0030 llegó
+> cuatro días después. Nadie volvió a esta celda. Es la trampa exacta que ya cuesta caro en este
+> archivo: **una tabla verificada con fecha envejece igual que una sin verificar**, y la fecha
+> de arriba («Verificado el 2026-08-27») la hacía parecer confiable.
+>
+> Lo bueno: `QUE-PROMETE-LA-APP.md` §7 —que es lo que manda en público— **nunca lo prometió**.
+> El error vivió solo acá.
+
+#### Inventario exacto de notificaciones, verificado en la base el 2026-09-08
+
+Leído de los cuerpos de las funciones vivas, no de estos documentos. **Premium agrega
+exactamente tres cosas**, y ninguna es un tipo de aviso nuevo:
+
+| Notificación | ¿Premium? | Condición real |
+|---|---|---|
+| La **alerta del sismo** (modo emergencia) | Gratis | `quake_applies`: tu país + M ≥ umbral nacional, **o** dentro de tu radio + M ≥ tu mínima |
+| «X **necesita ayuda**» | Gratis, **sin condición** | Red entera. No mira zona ni plan (`on_status_needs_help`) |
+| «X **está bien**» · `contact_reported` | Gratis | Solo a quien recibió la alerta de **ese** sismo |
+| 🔒 «X **está bien**» · `contact_is_safe` | **Premium** | Solo a quien **NO** la recibió, y `is_premium` |
+| «X **no responde**» (20 min) | **Las dos** | Gratis si recibiste esa alerta · Premium si no (`notify_silent_contacts`) |
+| Noticia **nacional** M ≥ 4,5 | Gratis | Tu país, si no te alertó ya |
+| 🔒 Noticia **mundial** M ≥ 6,0 | **Premium** | `is_premium` + país distinto |
+| Chat, solicitudes, «te sumaron a un grupo», simulacros | Gratis | — |
+
+**La forma del corte, en una línea:** los dos avisos de estado existen en gratis y en Premium
+con el mismo texto. Lo que se compra es que **crucen la frontera de la zona del sismo**. Por eso
+en la base son dos tipos distintos con dos interruptores distintos.
+
+> **Cuidado con confundir la alerta con la noticia** — comparten la palabra «mundial» y no son
+> lo mismo:
+>
+> - **La alerta** (`quake_applies`) enciende el modo emergencia: tembló cerca de ti o fuerte en
+>   tu país. Es **idéntica** en gratis y en Premium, a propósito, y es la promesa central de la
+>   app. Premium no la toca.
+> - **La noticia** (`notify_quake_news`) es enterarte de un sismo que **no** te tocó. Tu país
+>   gratis; el resto del mundo, **Premium**.
+>
+> El aviso mundial pasa por **dos llaves en serie**: `is_premium` dentro de `notify_quake_news`,
+> y el interruptor «Sismos en el mundo» de Ajustes, que es `notification_preferences.
+> quake_worldwide` y lo aplica `enqueue_notifications`. Las dos existen y funcionan. La columna
+> `user_settings.alert_worldwide_enabled` **no es ninguna de las dos**: está huérfana y no la lee
+> nadie (deuda 1.17 de `QUE-FALTA.md`).
+
+**Y lo que Premium NO hace, por si alguna vez tienta prometerlo:** no hay ningún aviso al minuto
+0. `notify_guardians` **ya no existe en la base** — se comprobó buscándola. Premium avisa
+**cuando la persona reporta**, no cuando tiembla.
+
+> ⚠️ **`contact_is_safe` tiene cero filas en `notification_deliveries`, y eso NO es un
+> problema.** Los datos de la verificación del 2026-09-01 se borraron el 2026-09-06 con la
+> limpieza de sismos sembrados. La prueba de que funciona es `VERIFICACION-EN-DISPOSITIVO.md`
+> **7b.4** —vista en dos teléfonos— más 7b.7 y 7b.9, que cierran el corte por los dos lados.
+> **Contar filas de esa tabla no sirve para saber si un aviso funciona**; el detalle está allá.
 
 > **La casilla de arriba a la izquierda se completó el 2026-08-28** (migración 0027), y hasta
 > entonces le faltaba la mitad buena. Con el sismo alcanzándote a ti, «X no responde» llegaba
@@ -208,7 +283,8 @@ escenario de Madrid —el que abre §3.1— es falso: no llega nada.**
 > exactamente la clase de tranquilidad por la que alguien paga— y habría vuelto falsa la
 > frase que este proyecto acababa de corregir en cuatro lugares públicos: *«cuando el sismo te
 > toca a ti, todo es gratis»*. El precio no se sostiene sobre lo que le sacas a alguien que
-> está en una emergencia; se sostiene sobre el escenario de Madrid, que sigue intacto.
+> está en una emergencia; se sostiene sobre el escenario de la distancia (§3.1), que sigue
+> intacto.
 
 Las consecuencias son dos, y van en direcciones opuestas:
 
@@ -216,20 +292,36 @@ Las consecuencias son dos, y van en direcciones opuestas:
    existe** para enterarte de un sismo que a ti no te alcanzó. Eso sostiene los S/ 79,90.
 2. **En contra de la promesa pública.** La frase «la señal de que algo salió mal siempre es
    gratis» hay que decirla completa: es gratis **entre quienes compartieron el sismo**.
-   Escribirla sin esa condición es venderle a alguien de la diáspora exactamente lo que no va
-   a recibir. Ya se corrigió en `QUE-PROMETE-LA-APP.md` §7, que es la fuente de las
-   afirmaciones públicas.
+   Escribirla sin esa condición es venderle a quien está lejos —en Lima o en Miami, da igual—
+   exactamente lo que no va a recibir. Ya se corrigió en `QUE-PROMETE-LA-APP.md` §7, que es la
+   fuente de las afirmaciones públicas.
 
 ### 3.1 · El hueco de 20 minutos, que es el producto entero
 
 El reparto de alertas se dispara **solo por la posición propia** (`0010_alert_fanout.sql`,
 `private.quake_applies`). Consecuencia hoy:
 
-> Son las 3 AM en Madrid. Tiembla M6,8 en Lima. Tu mamá está ahí.
-> **No recibís absolutamente nada** hasta el minuto 20, y solo si ella no reporta.
+> Son las 3 AM. Vives en Lima. Tiembla M6,8 en **Arequipa**, y tu mamá está ahí.
+> **No recibes absolutamente nada** hasta el minuto 20, y solo si ella no reporta.
 
 Gratis te dice cuando algo salió mal. Premium te deja **acompañar el evento** desde el
 minuto 0. Nadie puede acusar al producto de esconder lo importante detrás del pago.
+
+> **El escenario se reescribió el 2026-09-08, y el cambio no es cosmético.** Antes abría con
+> *«son las 3 AM en Madrid»*. Es el mismo mecanismo —mil kilómetros son mil kilómetros, y un
+> sismo en Arequipa no llega a Lima igual que no llega a Madrid— pero **Lima↔provincia es el
+> mercado y Madrid es el caso raro**, no al revés.
+>
+> Importa porque este párrafo es el que sostiene el precio: si el único comprador imaginable
+> vive afuera, Premium depende de vender en nueve tiendas y de que la diáspora encuentre la
+> app. Con la versión doméstica, el mismo producto se vende **en el Perú, en español, a quien
+> ya vive acá**. No cambió una línea de código: cambió a quién describe.
+>
+> **Dónde quedó el escenario viejo.** `0022_guardian_alerts.sql` y `0027_reportes_en_zona.sql`
+> ya se reformularon (solo el ejemplo del comentario; ninguna toca comportamiento). Las
+> entradas de la bitácora de `ESTADO-DEL-PROYECTO.md` anteriores al 2026-09-08 **se dejan
+> hablando de Madrid a propósito**: eran ciertas cuando se escribieron y reescribir un
+> registro con fecha es falsearlo. El cambio está anotado en la bitácora del 2026-09-08.
 
 ### 3.2 · Dos límites que van escritos en el paywall, no escondidos
 
@@ -299,10 +391,32 @@ adquirir usuarios — **es el marketing**.
 
 ---
 
-## 6 · Multipaís sí, multilenguaje no
+## 6 · Perú primero — y qué queda del multipaís
 
-**El que paga es peruano.** Vive en Madrid, Miami o Santiago, pero lee español. La diáspora
-no necesita una línea traducida: necesita **poder instalar la app desde su tienda**.
+> 🔴 **Reescrito el 2026-09-08.** Este capítulo se llamaba «Multipaís sí, multilenguaje no» y
+> ponía a la diáspora en el centro. **El foco es el mercado peruano**, y la diáspora pasa de
+> tesis a rendimiento extra.
+>
+> **Por qué importa más de lo que parece un cambio de énfasis:** con la diáspora de tesis, el
+> negocio dependía de nueve fichas de tienda, de que un peruano en Miami buscara «sismos Perú»
+> en inglés, y de una adquisición que este proyecto no sabe hacer ni tiene con qué pagar. Con
+> Perú de tesis, el canal es un país donde **cada sismo real es la campaña** (§5) y donde el
+> boca a boca ocurre entre gente que se ve.
+>
+> **Lo que NO cambia, y conviene decirlo para no romper nada:** la disponibilidad territorial
+> de §6.2 se queda como está —estar publicado en nueve tiendas no cuesta nada y no hay razón
+> para retirarse—, y el español sigue siendo el único idioma. Lo que se cae de la lista de
+> pendientes es **escribir fichas distintas para las tiendas de afuera** (§10, ítem 6): eso era
+> trabajo al servicio de la tesis vieja.
+>
+> **Y una consecuencia técnica que ya estaba tomada:** `0045_en_peru_manda_el_igp.sql` cita
+> este §6 para justificar que Perú **siga visible en el feed Global**. La decisión no cambia
+> —para el usuario en Perú es redundante pero inofensivo, y para el que sí está afuera es lo
+> único que le muestra su país— así que **no hay código que tocar**. Se anota acá para que
+> nadie «limpie» esa migración leyendo el §6 nuevo.
+
+**El que paga es peruano y vive en el Perú.** Está en Lima y su gente está en provincia, o al
+revés. Lee español y no necesita ninguna traducción.
 
 Traducir al inglés sirve para un mercado distinto —venderle a japoneses o estadounidenses
 una app de sismos locales— y hoy eso no se puede cumplir (ver abajo). Son dos apuestas
@@ -314,14 +428,25 @@ distintas y no hay que mezclarlas. **v1 sale solo en español.** Esto revisa lo 
 Fuera de Perú la alerta propia depende del USGS, que este proyecto ya midió: **3 sismos
 detectados contra 23** del IGP, y publicados **16-18 minutos** tarde (ESTADO §1.6.3).
 
-Por eso la app **no se abre «al mundo»**. En las tiendas fuera de Perú la ficha vende lo que
-la app de verdad hace ahí:
+> **Esta medición es, además, el mejor argumento a favor de Perú primero.** La app es
+> excelente en un solo país y mediocre en todos los demás, porque su ventaja es una fuente de
+> datos nacional que nadie más integra. Enfocarse en el Perú no es replegarse: es dejar de
+> vender fuera del único sitio donde el producto es claramente el mejor.
 
-> **Para peruanos en el exterior.** Enterate cuando tiemble donde está tu familia en Perú,
-> en el momento, y mirá quién ya respondió.
+Por eso la app **no se abre «al mundo»**. Si un español la instala esperando una app de sismos
+para España, recibe un producto malo y deja una reseña que no se borra.
 
-Si un español la instala esperando una app de sismos para España, recibe un producto malo y
-deja una reseña que no se borra.
+> **La ficha aparte para las tiendas de afuera quedó descartada el 2026-09-08** (§10, ítem 6).
+> Se guarda acá el texto que se había escrito, por si alguna vez se retoma — pero escribirlo y
+> mantenerlo era trabajo al servicio de la tesis de la diáspora, y las tiendas de afuera hoy
+> muestran la misma ficha peruana:
+>
+> > *Para peruanos en el exterior. Entérate cuando tiemble donde está tu familia en Perú, en el
+> > momento, y mira quién ya respondió.*
+>
+> El riesgo que esto deja abierto es real y se acepta a sabiendas: un usuario fuera del Perú lee
+> una ficha que le habla de sismos en el Perú y puede esperar cobertura local. Lo acota que la
+> app está **solo en español** y que su nombre y su copy hablan del Perú.
 
 ### 6.2 · Disponibilidad territorial
 
@@ -342,18 +467,132 @@ casilla, no un release.
 
 ---
 
-## 7 · Lo que NO se va a hacer
+## 7 · La mochila de emergencia: qué conviene y qué no
+
+Evaluado el **2026-09-08**, con una cotización real de **S/ 40** por pack (mochila + botiquín).
+La idea original era regalarlo a los suscriptores Premium, quizá a cambio de referidos.
+
+### 7.1 · El número que decide todo
+
+Lo que entra por una venta **no es el precio de lista**. Descontando IGV y comisión de tienda
+con Small Business Program (§4):
+
+| | Cliente paga | −IGV 18 % | −Comisión 15 % | **Entra** |
+|---|---|---|---|---|
+| Mensual | S/ 9,90 | 1,51 | 1,26 | **S/ 7,13** |
+| Anual | S/ 59,90 | 9,14 | 7,61 | **S/ 43,15** |
+| **De por vida** | S/ 79,90 | 12,19 | 10,16 | **S/ 57,55** |
+
+Y lo que sale **no son S/40**, porque el pack tiene que llegar a una puerta:
+
+| | Lima | Provincia |
+|---|---|---|
+| Mochila + botiquín | 40 | 40 |
+| Envío (motorizado / Shalom · Olva) | 14 | 22 |
+| Empaque y etiqueta | 3 | 3 |
+| **Costo puesto en la puerta** | **S/ 57** | **S/ 65** |
+
+> ### 🔴 El pack cuesta lo mismo que gana la venta más cara del catálogo
+>
+> **S/57–65 de costo contra S/57,55 de ingreso neto por vitalicio.** Regalar un pack por
+> suscriptor no es margen bajo: es margen **cero o negativo**, y encima con trabajo de
+> logística encima. El anual (S/43,15) no alcanza ni para pagar el pack.
+>
+> Esto no se arregla negociando el pack a S/35. Se arregla **no regalándolo**.
+
+⚠️ **Verificar el supuesto del IGV antes de decidir precios finales.** El cálculo asume que el
+precio de tienda incluye el IGV peruano del 18 % y que la tienda lo remite. La cifra exacta
+está en la columna **Proceeds** de App Store Connect: si ahí dice otra cosa, toda esta tabla se
+recalcula. El orden de magnitud —el pack cuesta cerca del 100 % del ingreso— no cambia.
+
+### 7.2 · Las cinco formas de hacerlo mal
+
+| | Por qué no |
+|---|---|
+| **Incluirlo en un plan** | §7.1. Y rompe §1: un botiquín **es** equipo de seguridad, así que ponerlo detrás del pago es exactamente lo que este documento prohíbe en su primera línea |
+| **Regalarlo por 1 referido** | 2 vitalicios dejan S/115,10 y el pack se lleva S/57: **la mitad del negocio** por una venta que quizá igual ocurría |
+| **Prometerlo dentro del vitalicio** | Es una obligación de entrega **sin fecha de vencimiento**. 500 vitalicios vendidos con mochila incluida son 500 reclamos el día que no puedas despachar, y en el Perú eso llega a Indecopi |
+| **Venderlo por compra in-app** | Apple 3.1.5(a) prohíbe bienes físicos por IAP. Tiene que ser checkout web — que además está permitido enlazar desde la app |
+| **Ponerlo en el paywall como razón para suscribirse** | Apple puede leer la suscripción como compra parcial de un bien físico, y te crea deber de entrega frente a **todos** los que compren |
+
+### 7.3 · Lo que sí conviene, en el orden en que conviene
+
+**Ahora — sorteo mensual entre suscriptores Premium.** Cero código.
+
+Una mochila al mes. El costo es **fijo en S/57–65 mensuales tengas 50 o 50 000 suscriptores**,
+que es exactamente lo contrario de un beneficio por suscriptor. Se paga con **una sola venta
+vitalicia extra al mes** (57,55 ≈ el costo de un pack).
+
+Lo que de verdad compra no es conversión, es **prueba social**: §4.1 dice que la app se lanza
+*«sin una sola reseña»*, y una foto al mes de alguien real recibiendo su mochila es el
+contenido que hoy no existe. El ganador sale de la base a mano y la dirección se pide por
+correo — **no hace falta ni la pantalla de reclamo**.
+
+**Después — venderla, con descuento Premium.** Cuando haya volumen que justifique inventario.
+
+| | Precio | Costo | Margen |
+|---|---|---|---|
+| Público | S/ 129 | 57 | **S/ 72** |
+| **Premium** | S/ 89 | 57 | **S/ 32** |
+
+*(Provincias +S/10, que cubre la diferencia de envío.)*
+
+El argumento de venta es aritmético, que es como se argumenta en este proyecto: **Premium
+cuesta S/79,90 una sola vez y el descuento del pack es S/40. Con dos mochilas, Premium ya se
+pagó solo.**
+
+Y pasa la prueba de §2.1 —la que descartó el modelo de red compartida— mejor que cualquier
+función: **mientras más gente te importa, más packs necesitas**. Uno para tu mamá en Arequipa,
+otro para tu hermana en Trujillo. El beneficio **escala con el tamaño de tu red**, en vez de
+ser un premio fijo que se cobra una vez y deja de motivar.
+
+**Al final — referidos, y nunca por menos de dos.**
+
+| Requisito | Ventas | Ingreso | −pack | Margen |
+|---|---|---|---|---|
+| 1 referido | 2 vitalicios | S/ 115,10 | 57 | S/ 58 (50 %) |
+| **2 referidos** | 3 vitalicios | S/ 172,65 | 57 | **S/ 116 (67 %)** |
+| 3 referidos | 4 vitalicios | S/ 230,20 | 57 | S/ 173 (75 %) |
+
+El fraude no es el problema: para cobrarte un pack de S/57 alguien tendría que pagar dos
+vitalicios de verdad, así que el esquema se protege solo. **El problema es la participación.**
+En una app que se abre tres veces al mes, un programa de referidos lo completa el 1-3 %:
+construir códigos, atribución, pantalla de reclamo y logística son semanas de trabajo para
+mover del orden de quince ventas al año. Es la pieza más cara y la que menos mueve, y por eso
+va última — cuando haya datos que digan si esta gente invita.
+
+### 7.4 · Por qué el pack encaja con Perú primero
+
+Con la tesis vieja (§6) el comprador estaba en Miami y mandarle una mochila era absurdo. Con
+el foco doméstico, **el que paga y el que la recibe están los dos en el Perú**, y el regalo
+tiene la misma forma que el producto:
+
+> **Tú estás en Lima. La mochila llega a la casa de tu mamá, en Arequipa.**
+
+Es lo único tangible que el que se fue puede mandarle a los que se quedaron, y ataca el mismo
+dolor que vende Guardián: la culpa de estar lejos. Por eso se **vende** bien y se **regala**
+mal — la gente paga con gusto un regalo para su madre, y no valora lo que le cae encima por
+suscribirse.
+
+> ⚠️ **El pack es la marca hecha objeto.** Un kit de S/40 que se ve barato le hace más daño a
+> una app de seguridad que no tener kit. Antes de comprometer nada en público: arma uno,
+> déjalo un mes en tu casa, y ábrelo como si acabara de temblar.
+
+---
+
+## 8 · Lo que NO se va a hacer
 
 | | Por qué |
 |---|---|
 | **Limitar la red gratis** | Es la jugada obvia de la categoría (Life360 la hace) y acá es literalmente cobrar seguridad. Además la landing ya promete red ilimitada |
-| **Anuncios** | Ver §8 |
+| **Anuncios** | Ver §9 |
 | **Alertas más rápidas para Premium** | Ni es posible ni sería decente |
 | **Paywall durante la emergencia** | Ver §5 |
+| **Mochila incluida en Premium** | Ver §7.1 — cuesta más de lo que deja la venta |
 
 ---
 
-## 8 · Anuncios: evaluados y descartados el 2026-08-25
+## 9 · Anuncios: evaluados y descartados el 2026-08-25
 
 **El argumento que manda es aritmético, no moral.** Esta app es de uso deliberadamente bajo:
 se abre cuando tiembla. La publicidad monetiza tiempo de atención, y acá casi no hay. Con
@@ -384,7 +623,7 @@ dos.
 
 ---
 
-## 9 · Trabajo pendiente
+## 10 · Trabajo pendiente
 
 | # | Qué | Estado |
 |---|---|---|
@@ -393,8 +632,11 @@ dos.
 | 3 | **Planes de acción múltiples** — tabla propia, tope en el servidor | ✅ 2026-08-25. Migración `0024`, **15/15 aserciones**. Recorrido: `VERIFICACION-EN-DISPOSITIVO.md` §9.c |
 | 4 | Precios nuevos + Small Business Program + Términos/Privacidad en el paywall | ⚙️ |
 | 5 | Disponibilidad territorial (§6.2) | ⚙️ |
-| 6 | Ficha distinta para las tiendas de afuera (§6.1) | ✍️ |
+| ~~6~~ | ~~Ficha distinta para las tiendas de afuera (§6.1)~~ | ❌ **Descartado el 2026-09-08.** Era trabajo al servicio de la tesis de la diáspora. Ver §6 |
 | 7 | Landing: sacar «planes familiares con cupos», poner Guardián de titular | ✍️ |
+| 8 | **Confirmar el neto real por venta** en la columna *Proceeds* de App Store Connect — toda la aritmética de §7 se apoya en un supuesto de IGV | ✍️ |
+| 9 | **Armar un pack de muestra** y vivir con él un mes antes de prometerlo en público (§7.4) | ✍️ |
+| 10 | **Bases legales del sorteo** — en el Perú una promoción con sorteo las pide publicadas. Confirmar el trámite ante Indecopi antes de anunciar el primero | ✍️ |
 
 **Fuera de alcance de v1:** inglés, RTL, formatos de moneda, husos horarios.
 </content>
