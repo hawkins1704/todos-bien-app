@@ -17,7 +17,22 @@ type Slide = {
   body: string;
 };
 
-/** Spec §10, parte 1: explicación de valor en pantallas cortas. */
+/**
+ * Spec §10, parte 1: explicación de valor en pantallas cortas.
+ *
+ * ## El orden no es casual, y la diapositiva de preparación va ÚLTIMA
+ *
+ * Es tentador abrir con el Centro de Preparación —es lo que la landing y la
+ * ficha ponen primero— pero acá es al revés a propósito: **es la única función
+ * de pago de las cuatro**, y abrir la presentación de una app de seguridad con
+ * algo que se cobra contradice la frase que sostiene el producto entero, que es
+ * «lo que te protege es gratis» (`MONETIZACION.md` §1).
+ *
+ * Primero las tres cosas que cualquiera tiene sin pagar, y recién entonces lo
+ * que se puede sumar. Por eso también su texto **dice «Con Premium» con todas
+ * las letras**: quien llega al paywall una semana después no puede sentir que se
+ * enteró tarde.
+ */
 const SLIDES: Slide[] = [
   {
     key: 'circle',
@@ -39,6 +54,13 @@ const SLIDES: Slide[] = [
     title: 'Funciona aunque la red esté mal',
     body:
       'La información de tu red se guarda en tu teléfono. Si te quedas sin señal, sigues viendo la última copia, y lo que reportes se envía solo cuando vuelva la conexión.',
+  },
+  {
+    key: 'preparacion',
+    icon: 'backpack',
+    title: 'Y prepara a tu casa antes',
+    body:
+      'La mochila de emergencia del INDECI, el punto de encuentro y quién hace qué, en una sola pantalla que toda tu casa ve y completa junta. Con Premium, y paga una sola persona.',
   },
 ];
 

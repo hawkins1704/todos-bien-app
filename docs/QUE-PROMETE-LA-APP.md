@@ -473,7 +473,7 @@ código otra vez. **Si se toca uno, se revisa contra este documento.**
 | Dónde | Qué afirma |
 |---|---|
 | **`app.json`** → plugins `expo-location` y `expo-contacts` | **El texto del diálogo del sistema.** Es el primero de la lista por dos razones: es lo que Apple muestra en el momento del consentimiento y lo que declara el Nutrition Label, y **viaja dentro del binario**, así que corregirlo tarde obliga a un build nuevo. Se sumó acá el 2026-08-24, después de que la auditoría del 21/08 lo pasara por alto y quedara con las dos frases retiradas |
-| `src/app/(auth)/welcome.tsx` | Las 3 diapositivas de valor y el descargo de emergencias |
+| `src/app/(auth)/welcome.tsx` | Las **4** diapositivas de valor y el descargo de emergencias. ⚠️ La cuarta (Centro de Preparación) **dice «Con Premium» con todas las letras** y va última a propósito: es la única de pago, y abrir la presentación de una app de seguridad con algo que se cobra contradice «lo que te protege es gratis» |
 | `src/app/(onboarding)/permissions.tsx` | Qué hace la app con la ubicación y con las notificaciones — **el texto más sensible de todos**, porque es donde se pide el consentimiento |
 | `src/app/settings.tsx` | La nota de privacidad de ubicación, el descargo legal, y el aviso de «sin posición guardada». ⚠️ **Se movió fuera de `(tabs)` el 2026-09-10**: Ajustes dejó de ser pestaña para hacerle sitio a Preparación, y se abre desde el engranaje de Inicio. La ruta `/settings` no cambió |
 | `src/app/(tabs)/preparacion.tsx` | Qué es el Centro y qué incluye — el texto de venta de la pestaña |
@@ -482,6 +482,7 @@ código otra vez. **Si se toca uno, se revisa contra este documento.**
 | `src/components/daily-tip-card.tsx` | El consejo del día y su fuente |
 | `src/components/permissions-checklist.tsx` | Qué se pierde con cada permiso que falta |
 | `src/app/drill.tsx` | Cómo se vería una alerta real |
+| `src/app/(onboarding)/ready.tsx` | Que el Centro existe y qué trae. **No vende**: no hay paywall al terminar el registro |
 | `src/components/premium-cta.tsx` | Qué queda gratis |
 | `supabase/functions/send-alerts/index.ts` → `buildMessage()` | El texto del aviso de sismo |
 
@@ -503,6 +504,32 @@ código otra vez. **Si se toca uno, se revisa contra este documento.**
   > por ambigua: que una app no alcance a quien no la tiene es una tautología, y como
   > concesión no se leía honesta sino de relleno. Si alguna vez se repone la idea, tiene que
   > ser con una limitación que el lector no dé por descontada.
+
+- **El orden de las secciones de la landing**, reordenado el 2026-09-10. Queda anotado acá
+  porque el orden *es* una afirmación: dice qué es la app antes de que nadie lea una línea.
+
+  `hero` → franja de confianza → misión → **`#como-funciona`** → **`#preparacion`** →
+  `#comparativa` → `#funciones` → modo tranquilo → `#privacidad` → lo que no hace →
+  `#requisitos` → `#premium` → `#planes` → **`#descargar`** → **`#preguntas`**
+
+  Tres decisiones dentro de ese orden:
+
+  1. **`#preparacion` subió** desde el fondo hasta justo después de los pasos, porque es la
+     sección que expande el paso 02. El argumento viejo —«va antes de `#premium` porque hace
+     entendible el precio»— no se pierde: `#premium` sigue pegado a `#planes`, que es donde
+     de verdad hace falta.
+  2. **Los pasos pasaron de cuatro a cinco**, y el 02 es el Centro. Va segundo y no primero
+     porque necesita que los tuyos ya estén en la app, y **dice «Premium» con todas las
+     letras**: es el único paso que se cobra.
+  3. **`#preguntas` bajó debajo del CTA de instalación**, y su título es ahora literalmente
+     «Preguntas frecuentes». Quien ya decidió no las necesita; quien duda las encuentra con
+     los botones de descarga todavía arriba.
+
+- **Las tarjetas de `#funciones` bajaron de ocho a seis** el 2026-09-10. ⚠️ **Guardián dejó
+  de tener tarjeta, pero no dejó de existir**: se cuenta entero en `#premium`, en la tabla de
+  `#planes` y en la pregunta 11. Lo mismo el Centro, que ahora tiene su propia sección encima.
+  La tercera baja fue una fusión: «escribe sin señal» y «ve tu red sin internet» eran la misma
+  promesa partida en dos.
 - **La ficha de App Store**: el texto ya está escrito y contado en `FICHA-APP-STORE.md`, con
   cada afirmación trazada a este documento. Falta pegarlo en App Store Connect.
 - **Las capturas de pantalla.** El texto que va encima de una captura es una afirmación

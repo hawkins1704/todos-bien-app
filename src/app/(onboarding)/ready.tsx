@@ -92,6 +92,31 @@ export default function OnboardingReadyScreen() {
           </Text>
         </Card>
 
+        {/* Que el Centro EXISTE, no una venta.
+            🔴 Acá no va un paywall, y es deliberado. Esta pantalla es el final
+            del registro: la persona todavía no tiene ni un contacto, así que el
+            argumento del Centro —«tu casa entera preparándose junta»— no se
+            entiende todavía, y una pantalla de pago al terminar de registrarse
+            en una app de SEGURIDAD contradice de frente la promesa que sostiene
+            el producto: lo que te protege es gratis (`MONETIZACION.md` §1).
+            El paywall vive donde el valor ya se siente: la pestaña misma. */}
+        <Card tone="sunken">
+          <View style={styles.cardHeader}>
+            <View style={[styles.icon, { backgroundColor: colors.accentSoft }]}>
+              <MaterialIcons name="backpack" size={22} color={colors.accent} />
+            </View>
+            <Text variant="headline" style={styles.flex}>
+              El simulacro es uno de cinco
+            </Text>
+          </View>
+
+          <Text variant="subhead" tone="secondary" style={styles.cardBody}>
+            En la pestaña <Text weight="600">Preparación</Text> están los otros cuatro: la mochila
+            de emergencia, el punto de encuentro de tu casa, quién hace qué y qué hacer cuando
+            tiemble. Cuando tengas a los tuyos en la app, empieza por ahí.
+          </Text>
+        </Card>
+
         {error ? (
           <Text variant="footnote" tone="danger" center>
             {error}

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Todos Bien",
     "slug": "todos-bien",
-    "version": "1.1.0",
+    "version": "2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "todosbien",
@@ -12,7 +12,9 @@
       "bundleIdentifier": "com.renzoarroyo.todos-bien",
       "appleTeamId": "3S8A8U48YR",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "es",
+        "CFBundleLocalizations": ["es"]
       }
     },
     "android": {
