@@ -41,7 +41,7 @@ corren igual.
 | Campo | Valor | Largo |
 |---|---|---|
 | **Nombre de la app** | `Todos Bien` | 10 / 30 |
-| **Descripción corta** | `Avisa a los tuyos que estás bien tras el sismo, y ve quién respondió.` | 69 / 80 |
+| **Descripción corta** | `Prepara la mochila de tu casa antes del sismo, y avisa a los tuyos después.` | 75 / 80 |
 | **Categoría** | Herramientas (*Tools*) | — |
 | **Etiquetas** | Hasta 5, elegidas de la lista fija de Google. Las que aplican: *Utilidades*, *Seguridad*, *Comunicación* | — |
 | **Correo de contacto** | `todosbienapp@gmail.com` | — |
@@ -58,6 +58,12 @@ no hace.
 **La descripción corta es el campo más importante de Play.** Es lo que se lee en los resultados de
 búsqueda, antes de que nadie despliegue nada. Dice qué hace y qué se obtiene, en ese orden.
 
+> **Reescrita el 2026-09-10.** Decía *«Avisa a los tuyos que estás bien tras el sismo, y ve quién
+> respondió»*, que describía la mitad del producto. La nueva abre con **«mochila»**, que es la
+> palabra con más intención de descarga que tiene esta app en Perú —y en Play, donde no hay campo
+> de keywords, la descripción corta **también indexa**. Sigue nombrando el después, porque una
+> app de preparación a secas no explica por qué pide contactos ni ubicación.
+
 > **En Play no hay campo de keywords: el índice de búsqueda es la descripción completa.** Por eso
 > los términos que en Apple viven en las 100 caracteres de keywords —sismo, terremoto, temblor,
 > IGP, simulacro, familia, emergencia— tienen que aparecer **naturalmente** dentro del texto de §2.
@@ -69,7 +75,9 @@ búsqueda, antes de que nadie despliegue nada. Dice qué hace y qué se obtiene,
 > → *«cuando un temblor entra en tus criterios»*—, que suma el término sin gastar caracteres ni
 > quitarle nada a la ficha de Apple, donde «temblor» ya vivía en las keywords.
 >
-> Se comprueba con el mismo script de abajo; los siete términos tienen que dar `True`.
+> Se comprueba con el mismo script de abajo. **Comprobado el 2026-09-10** con la descripción
+> nueva: `sismo`, `terremoto`, `temblor`, `IGP`, `simulacro`, `familia`, `emergencia` y, desde el
+> Centro, también **`mochila`** e **`INDECI`** — que en Perú se busca por su nombre.
 
 ---
 
@@ -88,7 +96,8 @@ se pueden comparar a ojo.
 |---|---|---|
 | Viñeta de «LO QUE NO HACE» | `No garantiza la entrega: Apple entrega las notificaciones con el mejor esfuerzo.` | `No garantiza la entrega: Google entrega las notificaciones con el mejor esfuerzo.` |
 
-Una sola sustitución. **3964 / 4000** caracteres resultantes.
+Una sola sustitución. **3919 / 4000** caracteres resultantes — regenerado y contado el
+2026-09-10, después de reescribir la descripción para el Centro de Preparación.
 
 Para generarla:
 
@@ -124,7 +133,10 @@ Verificado contra la documentación de Google el 2026-09-03.
 olvida: sin ella no se puede publicar, y es la portada de la app en las colecciones promocionales.
 Es un lienzo de 1024 × 500 **sin transparencia** — hay que diseñarla, no recortarla de una captura.
 
-**Las capturas son las mismas ocho de `FICHA-APP-STORE.md` §5**, reencuadradas a 9:16. Google
+**Las capturas son las mismas ocho de `FICHA-APP-STORE.md` §5**, reencuadradas a 9:16 — con el
+Centro de Preparación primero y la alerta segunda desde el 2026-09-10. En Play importa todavía
+más que en Apple: Google muestra las primeras dos o tres en el resultado de búsqueda, así que la
+que abre es prácticamente la única que mucha gente ve. Google
 recomienda al menos **cuatro** de 1080 px o más para entrar en las secciones de recomendación de
 formato grande, así que las ocho ya cumplen de sobra.
 

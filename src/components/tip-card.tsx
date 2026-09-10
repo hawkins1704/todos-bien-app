@@ -10,17 +10,23 @@ import type { Tip } from '@/types/domain';
 
 export type TipCardProps = {
   tip: Tip;
-  /**
-   * 'compact' para modo alerta (una línea, sin robar espacio al banner).
-   * 'expanded' para la Home en calma: mini artículo (spec §5.2 y §11).
-   */
-  variant?: 'compact' | 'expanded';
-  onNext?: () => void;
 };
 
-export function TipCard({ tip, variant = 'compact', onNext }: TipCardProps) {
+/**
+ * El consejo en **modo alerta**: una tarjeta sobria de una línea.
+ *
+ * Antes tenía dos variantes y un botón de «otro tip». Las dos se fueron el
+ * 2026-09-10: en calma manda `DailyTipCard`, que es un banner de color con el
+ * detalle detrás de un toque, y el consejo pasó a ser **uno por día**, así que
+ * un botón para cambiarlo contradiría la idea entera.
+ *
+ * Acá no hay color ni foto a propósito. Esta versión se ve mientras la Home está
+ * en modo sismo, y ahí el color es información —los cuatro estados— no adorno.
+ * Una lámina verde al lado de «necesita ayuda» le roba fuerza al único rojo que
+ * importa.
+ */
+export function TipCard({ tip }: TipCardProps) {
   const { colors } = useTheme();
-  const expanded = variant === 'expanded';
 
   return (
     <Card>
@@ -31,25 +37,14 @@ export function TipCard({ tip, variant = 'compact', onNext }: TipCardProps) {
             {PHASE_LABEL[tip.phase]}
           </Text>
         </View>
-
-        {onNext ? (
-          <Pressable
-            onPress={onNext}
-            accessibilityRole="button"
-            accessibilityLabel="Ver otro tip"
-            hitSlop={10}
-            style={({ pressed }) => (pressed ? styles.pressed : null)}>
-            <MaterialIcons name="refresh" size={20} color={colors.textSecondary} />
-          </Pressable>
-        ) : null}
       </View>
 
-      <Text variant={expanded ? 'title3' : 'headline'} style={styles.title}>
+      <Text variant="headline" style={styles.title}>
         {tip.title}
       </Text>
 
-      <Text variant={expanded ? 'callout' : 'subhead'} tone="secondary">
-        {expanded ? (tip.longBody ?? tip.body) : tip.body}
+      <Text variant="subhead" tone="secondary">
+        {tip.body}
       </Text>
 
       <Pressable

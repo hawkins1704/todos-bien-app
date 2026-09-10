@@ -30,7 +30,7 @@ import { FREE_DRILL_LIMIT } from '@/types/domain';
 export default function DrillScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
+  const { colors, modules } = useTheme();
   const { groups, mySettings } = useAppData();
   const { start } = useDrill();
 
@@ -128,8 +128,9 @@ export default function DrillScreen() {
                   key={grupo.id}
                   seleccionada={elegido === grupo.id}
                   onPress={() => setElegido(grupo.id)}
-                  icon="groups"
-                  titulo={grupo.name}
+                  icon={grupo.isHousehold ? 'home' : 'groups'}
+                  paleta={grupo.isHousehold ? modules.hogar : undefined}
+                  titulo={grupo.isHousehold ? `${grupo.name} · tu hogar` : grupo.name}
                   detalle={`Les llega un aviso que dice que es un simulacro, y practican contigo. Son ${grupo.members.length - 1} ${grupo.members.length - 1 === 1 ? 'persona' : 'personas'}.`}
                 />
               ))}
@@ -191,6 +192,7 @@ function Opcion({
   titulo,
   detalle,
   primera = false,
+  paleta,
 }: {
   seleccionada: boolean;
   onPress: () => void;
@@ -198,8 +200,12 @@ function Opcion({
   titulo: string;
   detalle: string;
   primera?: boolean;
+  /** El hogar trae su propio color, para que se reconozca acá igual que en Mi red. */
+  paleta?: { bg: string; ink: string };
 }) {
   const { colors } = useTheme();
+  const pozoFondo = paleta ? paleta.bg : seleccionada ? colors.accentSoft : colors.surfaceSunken;
+  const pozoTinta = paleta ? paleta.ink : seleccionada ? colors.accent : colors.textSecondary;
 
   return (
     <Pressable
@@ -214,16 +220,8 @@ function Opcion({
           : { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth },
         pressed ? styles.pressed : null,
       ]}>
-      <View
-        style={[
-          styles.opcionIcono,
-          { backgroundColor: seleccionada ? colors.accentSoft : colors.surfaceSunken },
-        ]}>
-        <MaterialIcons
-          name={icon}
-          size={20}
-          color={seleccionada ? colors.accent : colors.textSecondary}
-        />
+      <View style={[styles.opcionIcono, { backgroundColor: pozoFondo }]}>
+        <MaterialIcons name={icon} size={20} color={pozoTinta} />
       </View>
 
       <View style={styles.opcionCopy}>

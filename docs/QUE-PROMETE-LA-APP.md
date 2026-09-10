@@ -10,20 +10,47 @@ Los otros documentos son distintos: `ESTADO-DEL-PROYECTO.md` explica *cómo* fun
 qué* se decidió así; `QUE-FALTA.md` es el índice de trabajo pendiente. **Acá solo va lo que
 se puede afirmar en público, y con qué palabras.**
 
-Última revisión: **2026-09-03**.
+Última revisión: **2026-09-10** — Centro de Preparación (migraciones 0048-0053).
 
 ---
 
 ## 1 · En una frase
 
-> **Todos Bien no es una alarma sísmica. Es una app de coordinación para los minutos
-> después del sismo.**
+> **Todos Bien no es una alarma sísmica. Es la app que prepara a tu casa antes, y coordina a
+> tu gente después.**
 
-Toda la honestidad del producto sale de entender esa diferencia. Una alarma te avisa *antes*
-para que reacciones. Esta app te avisa *después* para que tu gente sepa de vos.
+Toda la honestidad del producto sale de entender esa diferencia. Una alarma te avisa *antes de
+que tiemble* para que reacciones. Esta app **no hace eso y nunca lo va a hacer**: te prepara
+con semanas de anticipación, y te avisa unos minutos después para que tu gente sepa de ti.
 
 Confundir las dos es el único error de comunicación que puede hundir el producto, porque es
 el que un usuario descubre en el peor momento posible.
+
+### 1.1 · Las tres fases, y cuál de ellas hace la app
+
+Desde el **2026-09-10** la app cubre las tres. Pero no las cubre de la misma manera, y la
+diferencia es exactamente lo que separa una promesa defendible de una denuncia:
+
+| Fase | Qué hace la app | Desde |
+|---|---|---|
+| **Antes** | Centro de Preparación: la mochila del hogar, el punto de encuentro, quién hace qué, el minicurso y los simulacros | 2026-09-10 |
+| **Durante** | 🔴 **Nada, y no puede.** Lo que hace es **haberte enseñado y hecho practicar** para esos segundos | — |
+| **Después** | El aviso del sismo, los estados, la ubicación, el chat, Guardián | desde siempre |
+
+> 🔴 **«Cubrimos el durante» es la frase más peligrosa de todo este documento, y hay que
+> escribirla con cuidado.**
+>
+> La app no detecta el sismo mientras ocurre, no registra dónde estabas, no hace **nada** en
+> esos segundos. El aviso llega ~8 minutos después (§2), y §6 existe entera porque prometer
+> «durante» ya fue vender humo una vez.
+>
+> Lo que sí es cierto, y es más fuerte: **el «durante» lo resuelve la persona, no la app, y la
+> app es lo que la entrenó**. Los 12 consejos del minicurso están repartidos en *Antes*,
+> *Durante* y *Después*, y el simulacro es literalmente ensayar el durante. Vender el
+> conocimiento y la práctica es cierto; vender una capacidad técnica en esos segundos, no.
+>
+> **Regla para escribir:** *«qué hacer durante»* ✅ · *«te acompaña durante»* ✅ ·
+> *«te protege durante»* ❌ · *«sabemos qué pasa durante»* ❌.
 
 ---
 
@@ -165,6 +192,9 @@ que pagar para que le avisen que tembló donde está. Vender eso sería vender e
 | **Planes de acción** | 1 | **hasta 5**, cada uno con su nombre |
 | **Grupos** — Casa, Familia, Trabajo, cada uno con su chat | 2 | **ilimitados** |
 | Simulacros — solo o con un grupo | 3 | ilimitados |
+| **Centro de Preparación** — el hogar, la mochila, el punto de encuentro, las tareas y el minicurso | ❌ | ✅ **la casa entera** |
+| El consejo del día en Inicio, con su fuente | ✅ | ✅ **igual** |
+| El estado de preparación en Inicio — plan, red, simulacros | ✅ | ✅ **igual** |
 
 **Sobre los simulacros, y lo que hay que decir para no asustar a nadie.** Un simulacro enciende
 la app entera como si acabara de temblar: aparece la alerta, reportas tu estado, ves a los tuyos
@@ -256,6 +286,60 @@ argumento, no una concesión.
 > ti el sismo no te haya tocado. Y como ya no hay aviso de apertura que dé contexto, **cada uno
 > de esos avisos nombra el sismo** (magnitud y lugar): sin eso sería un sobresalto en vez de
 > una tranquilidad.
+
+### 7.1 · El Centro de Preparación — qué se puede afirmar
+
+**Qué es, en una línea:** la pestaña donde una casa arma su mochila de emergencia, escribe su
+punto de encuentro, se reparte quién hace qué, aprende qué hacer y practica un simulacro —
+todos viendo lo mismo y sumando al mismo porcentaje.
+
+**Lo que se puede prometer sin asterisco:**
+
+1. **«Paga una persona y entra tu casa completa.»** Cierto y verificado en la base el
+   2026-09-10. Basta con que **uno cualquiera** de los integrantes tenga Premium (migración
+   0053) — no tiene que ser quien creó el hogar.
+2. **«Sin límite de personas.»** Cierto. Hay un tope técnico de 20 contra abuso automatizado,
+   pero no es un límite de producto y no se anuncia como una cifra de plan.
+3. **«Lo que marca uno lo ven todos.»** Cierto: el progreso es del hogar, no de cada quien.
+4. **«El contenido es del INDECI, la Cruz Roja Peruana y el IGP.»** Cierto, y **cada consejo
+   lleva el enlace a su fuente dentro de la app**. No hay una sola línea de consejo escrita
+   por nosotros.
+
+**Lo que hay que decir con la letra chica:**
+
+| Afirmación | La condición |
+|---|---|
+| «Tu casa entera» | Una persona pertenece a **un solo hogar**. No se puede estar en dos, ni prestarle el hogar a otra familia |
+| «Todos ven lo mismo» | Solo los integrantes del hogar. No es tu red entera: el hogar es un grupo aparte, el que marcas como tal |
+| «El minicurso» | Son los **12 consejos que ya existían** en Inicio, ordenados por fase y con avance por persona. No es material nuevo escrito por un especialista |
+
+**🔴 Lo que NO se puede prometer, y es la excepción a la regla de todo este documento:**
+
+> **Si se vence el Premium, el Centro se cierra.** Los datos siguen guardados y no se borra
+> nada — vuelve a Premium y aparece todo tal como estaba— pero **mientras tanto no se ven**.
+
+Esto **contradice** lo que este mismo documento afirma de los planes de acción y de los grupos
+(«si se vence, los cinco siguen ahí y la red los sigue viendo»), y la contradicción es
+deliberada, no un descuido. Hay que saber decir la diferencia:
+
+- Los planes y los grupos son **información de tu red**, y esconderlos degradaría la seguridad
+  de terceros que no eligieron nada.
+- El Centro es **preparación previa**, que se compró como un producto entero. Cerrarlo no deja
+  a nadie peor de lo que estaba antes de comprarlo: la alerta, los estados, la ubicación, el
+  chat y el consejo del día siguen exactamente igual.
+
+**Y hay un filo que conviene tener escrito antes de que lo escriba una reseña:** entre lo que
+se cierra está **el punto de encuentro del hogar**. Si tiembla el día que se venció la tarjeta,
+esa familia no puede leerlo en la app. Se asumió a sabiendas el 2026-09-10 — la decisión es que
+la presión comercial vale ese riesgo. **Si aparecen reseñas por esto, el primer ajuste es dejar
+el punto de encuentro legible bajo el candado**, que es un cambio chico y no toca el resto.
+
+> ⚠️ **Y una que no se puede decir de ninguna manera:** que el Centro te avise cuando algo de
+> la mochila vence. No existe. El agua se rota cada seis meses y las medicinas caducan, y la
+> app **no lo controla** — está en `QUE-FALTA.md` como el primer candidato de la v2. Cualquier
+> texto que sugiera «te avisamos cuando haya que renovar» es falso hoy.
+
+---
 
 **El corte que hay que saber defender**, dicho con precisión (verificado en el código el
 2026-08-31, no deducido de la intención):
@@ -351,6 +435,10 @@ Elegimos no hacerlo.»* Es un argumento de venta, no una limitación.
 | «Funciona siempre, incluso cerrada» | «El aviso llega siempre. La ubicación automática necesita los permisos activados» |
 | «Nunca más te quedes incomunicado» | «Un toque para decir que estás bien, sin depender de que entre la llamada» |
 | «Detectamos sismos en tiempo real» | «Seguimos el catálogo del IGP y del USGS» |
+| «Te protegemos antes, durante y después» | «Te prepara antes, te acompaña después» — o, si se quiere nombrar las tres: «**Aprende** qué hacer antes, **sabe** qué hacer durante, **avisa** a tu gente después». El verbo de la fase del medio es de la persona, no de la app (§1.1) |
+| «La app te acompaña durante el sismo» | «Practicaste para esos segundos» — la app no hace nada mientras tiembla |
+| «Tu mochila de emergencia siempre lista» | «La lista del INDECI, marcada entre todos» — la app no controla vencimientos (§7.1) |
+| «Toda tu familia con un solo pago» | ✅ se puede decir tal cual. Basta con que **una** persona del hogar tenga Premium |
 
 **Una línea que conviene tener en la landing, textual:**
 
@@ -387,7 +475,11 @@ código otra vez. **Si se toca uno, se revisa contra este documento.**
 | **`app.json`** → plugins `expo-location` y `expo-contacts` | **El texto del diálogo del sistema.** Es el primero de la lista por dos razones: es lo que Apple muestra en el momento del consentimiento y lo que declara el Nutrition Label, y **viaja dentro del binario**, así que corregirlo tarde obliga a un build nuevo. Se sumó acá el 2026-08-24, después de que la auditoría del 21/08 lo pasara por alto y quedara con las dos frases retiradas |
 | `src/app/(auth)/welcome.tsx` | Las 3 diapositivas de valor y el descargo de emergencias |
 | `src/app/(onboarding)/permissions.tsx` | Qué hace la app con la ubicación y con las notificaciones — **el texto más sensible de todos**, porque es donde se pide el consentimiento |
-| `src/app/(tabs)/settings.tsx` | La nota de privacidad de ubicación, el descargo legal, y el aviso de «sin posición guardada» |
+| `src/app/settings.tsx` | La nota de privacidad de ubicación, el descargo legal, y el aviso de «sin posición guardada». ⚠️ **Se movió fuera de `(tabs)` el 2026-09-10**: Ajustes dejó de ser pestaña para hacerle sitio a Preparación, y se abre desde el engranaje de Inicio. La ruta `/settings` no cambió |
+| `src/app/(tabs)/preparacion.tsx` | Qué es el Centro y qué incluye — el texto de venta de la pestaña |
+| `src/components/centro-bloqueado.tsx` | **«Tus datos siguen aquí»**, con el Premium vencido. Es la afirmación más comprometida de la app nueva: promete que no se borró nada. Si algún día el borrado deja de ser cierto, este texto es mentira |
+| `src/app/preparacion/curso.tsx` | Que los consejos son del INDECI, la Cruz Roja y el IGP, y que cada uno lleva su fuente |
+| `src/components/daily-tip-card.tsx` | El consejo del día y su fuente |
 | `src/components/permissions-checklist.tsx` | Qué se pierde con cada permiso que falta |
 | `src/app/drill.tsx` | Cómo se vería una alerta real |
 | `src/components/premium-cta.tsx` | Qué queda gratis |
@@ -434,3 +526,6 @@ código otra vez. **Si se toca uno, se revisa contra este documento.**
 | El aviso visible llega en los cuatro estados | Documentación de Apple + verificado en dispositivo (ESTADO §3.7) |
 | Tras reiniciar el teléfono no hay captura hasta abrir la app | Dos pruebas controladas, 2026-08-21 (ESTADO §3.8.2) |
 | 30 min de vida del aviso | `TTL_SECONDS` en `supabase/functions/send-alerts/index.ts` |
+| «Basta con que uno de la casa tenga Premium» | `private.household_premium()` tras la migración 0053. Probado en transacción revertida el 2026-09-10 con el hogar real: dueño libre + otro integrante pagando ⇒ `true` |
+| «Si se vence, los datos siguen ahí» | Probado el 2026-09-10 quitando el Premium a la cuenta real: la RPC sigue devolviendo el hogar, las 16 filas de la mochila y las 8 marcadas siguen existiendo; las escrituras devuelven 0 filas o `42501` |
+| «Los 12 consejos son del INDECI, la Cruz Roja y el IGP» | Sembrados con su `source_name` y `source_url` en la migración 0005 — 6 del INDECI, 4 de la Cruz Roja, 2 del IGP |

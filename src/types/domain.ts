@@ -64,6 +64,16 @@ export type Group = {
   conversationId: string | null;
   /** Incluye al dueño, que no tiene fila en `group_members`. */
   members: GroupMember[];
+  /**
+   * `true` si este grupo es **el hogar**: las personas con las que vives
+   * (migración 0048).
+   *
+   * No es una etiqueta más. Es la puerta del Centro de Preparación, y se rige
+   * por una regla que los demás grupos no tienen: **una persona pertenece a un
+   * solo hogar**, sea porque lo creó o porque la sumaron. Lo enforcea el
+   * servidor, no esta pantalla.
+   */
+  isHousehold: boolean;
 };
 
 /**
@@ -271,3 +281,117 @@ export function isDrillQuakeId(quakeId: string | null | undefined): boolean {
  * migración.
  */
 export const ACTIVE_ALERT_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+// ---------------------------------------------------------------------------
+// Centro de Preparación (migraciones 0048-0050)
+// ---------------------------------------------------------------------------
+//
+// La regla, en una línea: **el hogar es la unidad que paga**. Todo lo de acá se
+// desbloquea si el DUEÑO del hogar tiene Premium, y sus integrantes entran con
+// él sin pagar nada. Ver `docs/MONETIZACION.md`.
+//
+// Lo compartido y lo individual no es una regla de cobro, es qué es cada cosa:
+// la mochila y los roles son de la casa —hay una sola mochila en el pasillo— y
+// el minicurso es de cada quien, porque nadie aprende por otro.
+
+/** Una mochila del hogar. Son varias a propósito: una familia grande necesita más de una. */
+export type EmergencyKit = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  items: KitItem[];
+};
+
+export type KitItem = {
+  id: string;
+  label: string;
+  detail: string | null;
+  /** `null` = todavía no está. La fecha además dice cuándo se marcó. */
+  checkedAt: string | null;
+  /**
+   * Quién lo marcó. No es auditoría: es para que la casa vea que alguien más
+   * está aportando, que es la mitad de lo que hace funcionar el progreso
+   * compartido.
+   */
+  checkedBy: string | null;
+  isCustom: boolean;
+  sortOrder: number;
+};
+
+/**
+ * Una tarea de alguien de la casa. **Varias por persona** (migración 0052).
+ *
+ * La 0049 imponía una sola con el argumento de que repartir con varias etiquetas
+ * por cabeza «deja de ser un reparto». No se sostiene en una casa real: el mismo
+ * que cierra el gas es el que carga al bebé. Lo que sigue prohibido es la misma
+ * tarea repetida en la misma persona, que es un doble toque en el botón.
+ *
+ * ⚠️ El progreso cuenta **personas con al menos una tarea**, no filas. Con
+ * `count(*)` una casa de 3 con 5 tareas repartidas habría marcado 167%.
+ */
+export type HouseholdRole = {
+  id: string;
+  memberId: string;
+  label: string;
+  detail: string | null;
+};
+
+/** Sugerencias al asignar una tarea. Se puede escribir cualquier otra: cada casa se reparte lo suyo. */
+export const ROLE_SUGGESTIONS = [
+  'Encargado de la mochila',
+  'Encargado de las mascotas',
+  'Cierra el gas y el agua',
+  'Ayuda a los abuelos',
+  'Ayuda a los niños',
+  'Llama al contacto de fuera de la ciudad',
+  'Revisa la ruta de salida',
+] as const;
+
+/** Un módulo del Centro, tal como lo devuelve `get_household_preparedness()`. */
+export type PreparednessModule = {
+  pct: number;
+  done?: number;
+  total?: number;
+};
+
+/**
+ * El progreso del hogar. Cinco áreas, **cada una vale lo mismo**.
+ *
+ * Sin ponderaciones a propósito: el reparto tiene que poder explicarse en una
+ * línea o la barra deja de significar algo.
+ *
+ * Es `null` cuando la persona todavía no tiene hogar.
+ */
+export type Preparedness = {
+  householdId: string;
+  householdName: string;
+  /** Solo el dueño suma gente (0034), así que solo a él se le ofrece. */
+  isOwner: boolean;
+  /**
+   * Si la casa está pagada. **Lo resuelve el servidor y no se puede calcular
+   * acá**: la RLS de `user_settings` es propia, así que un integrante no puede
+   * leer el `is_premium` del dueño de su hogar.
+   */
+  premium: boolean;
+  members: number;
+  /** 0-100. El número grande de la barra de arriba. */
+  total: number;
+  modules: {
+    kit: PreparednessModule;
+    plan: PreparednessModule;
+    roles: PreparednessModule;
+    course: PreparednessModule;
+    drill: PreparednessModule;
+  };
+};
+
+/**
+ * Tope de cortesía del hogar, **no un límite de producto**.
+ *
+ * Una casa de ocho es una casa: partir una familia porque «no cabe» es un
+ * mensaje pésimo en una app de seguridad. Lo que impide que esto se convierta
+ * en el modelo de red compartida que `MONETIZACION.md` §2.1 descartó no es el
+ * tamaño, es que **una persona pertenece a un solo hogar** — así la cadena se
+ * corta en un salto. Este número existe solo contra un abuso automatizado.
+ */
+export const HOUSEHOLD_SIZE_LIMIT = 20;

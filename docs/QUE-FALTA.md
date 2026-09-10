@@ -24,7 +24,28 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 - `GUIA-DESPLIEGUE.md` — el procedimiento paso a paso de tiendas y credenciales.
 - `GUIA-CORREO-RESEND.md` — configuración de correo y plantillas.
 
-Última revisión: **2026-09-06**.
+Última revisión: **2026-09-10**.
+
+> ✅ **2026-09-10 · Centro de Preparación entregado.** Migraciones **0047-0053**, una pestaña
+> nueva, Ajustes fuera de la barra, y `app.json` en **1.1.0**. `tsc` y `eslint src/` limpios.
+>
+> | Migración | Qué |
+> |---|---|
+> | 0047 | El plan de acción pasa por el filtro de contenido. **Cierra una deuda de guideline 1.2**: la 0044 lo había excluido con la premisa falsa de que era privado, cuando lo lee el círculo entero |
+> | 0048 | El hogar es un grupo marcado. Una persona pertenece a **un solo hogar** |
+> | 0049 | Mochilas, ítems, tareas y avance del minicurso. **La RLS separa leer de escribir** |
+> | 0050 | El plan del hogar vive en `action_plans` con `group_id`, y la RPC del progreso |
+> | 0051 | La RPC dice además si la casa está pagada — el cliente no puede calcularlo |
+> | 0052 | Un hogar nace con su mochila · varias tareas por persona · el progreso cuenta personas, no filas |
+> | 0053 | **Paga cualquiera de la casa**, no solo el dueño. Sin esto, el candado vendía una compra que no desbloqueaba |
+>
+> **Documentos alineados el mismo día:** `QUE-PROMETE-LA-APP.md` (§1.1 las tres fases y §7.1 el
+> Centro), `MONETIZACION.md` (§1.1 la enmienda a la regla, §2.2 el hogar, §3 el corte),
+> `REVISION-APPLE.md` (§1, §2.1, §2.2, §5 y §6), `FICHA-APP-STORE.md`, `FICHA-PLAY-STORE.md`,
+> `GUIA-SUSCRIPCIONES.md` §4 y la landing.
+>
+> **Y la cuenta demo se rehízo**: Premium, hogar «Casa» de 3 personas, Centro al 51 %, y el
+> `display_name` corregido de «Carlos» a «Renzo».
 
 > 🔴 **2026-09-06 · Apple rechazó el build 1.0 (11). Dos guías, y una de las dos esta lista la
 > daba por cerrada.**
@@ -201,6 +222,9 @@ documentos explican *cómo* y *por qué*, no *qué queda*.
 | 1.6 | Sentry para errores de cliente | Sin esto, un crash en el teléfono de un usuario es invisible |
 | 1.17 | 🟡 **Columna huérfana `user_settings.alert_worldwide_enabled`** | ⚠️ **Leer primero esto, porque el nombre confunde y ya confundió una vez:** el aviso de sismos mundiales **funciona y sí es de Premium**. Lo gobiernan dos llaves en serie que no son esta columna — `is_premium`, exigido dentro de `private.notify_quake_news` en la rama `quake_worldwide` (M ≥ 6,0, país distinto), y el interruptor de Ajustes, que es `notification_preferences.quake_worldwide` y lo respeta `enqueue_notifications`. **Nada de eso está roto.** Lo que sobra es una **tercera** columna, `user_settings.alert_worldwide_enabled`, resto de la 0008: ninguna pantalla la muestra, ninguna función la lee, y `authenticated` tiene su UPDATE **revocado desde la 0009**. Viaja como parámetro `p_worldwide_enabled` hacia `private.quake_applies`, que **no la usa** — igual que `p_is_premium`, y eso último es correcto: la **alerta** (modo emergencia) tiene que ser idéntica para gratis y Premium (`QUE-PROMETE` §7). La trampa es que quien lea la firma de `quake_applies` va a creer que Premium cambia **qué sismos te alertan**, que es justo lo que la app promete que no pasa. Sobra además el escritor de [`api.ts:378`](../src/lib/api.ts), que arma un `patch` para una columna que no puede escribir. **Arreglo de limpieza, sin efecto en el producto:** sacar los dos parámetros muertos de la firma y el escritor del cliente. 🟢 **Señalizado en la base el 2026-09-08 (migración 0046)**: el comentario de la columna decía «Alertas de sismos fuera del país (spec §12: premium)» —o sea afirmaba justo lo que no hace— y ahora dice que está huérfana y dónde vive el corte de verdad; `quake_applies` lleva un comentario que advierte que sus dos parámetros se ignoran y que **no se deduzca de su firma** que Premium cambia qué sismos alertan. La 0046 **solo escribe comentarios**: ni un `create`, ni un `alter`, ni un `grant`. La limpieza real va después de publicar en las dos tiendas, porque toca `fan_out_quake` y `get_active_alert` |
 | 1.7 | Pruebas de carga (spec §16.2) | El fan-out recorre `user_settings` entero por sismo. Con padrón grande hay que medirlo |
+| 1.18 | 🟡 **La mochila no sabe que el agua vence** | Deuda **nueva del 2026-09-10**, y la más valiosa de esta tabla: es lo que convierte al Centro de una lista en un sistema. El agua se rota cada seis meses, las medicinas caducan, las pilas se descargan. Hoy `kit_items` tiene `checked_at` y nada más, así que una casa puede marcar el 100 % en enero y creerse lista en diciembre con el agua podrida. **Es además la razón honesta para volver a abrir la app**, que es exactamente lo que el Centro necesita para no ser una compra de una sola vez. El arreglo tiene forma: una columna `expires_after` en `private.kit_catalog` (nula en lo que no vence), su `expires_at` derivada en `kit_items`, y un aviso mensual — que va como **notificación con interruptor propio**, nunca como alerta. ⚠️ Mientras no exista, **ningún texto público puede sugerir que avisamos de vencimientos**: ya está prohibido explícitamente en `QUE-PROMETE-LA-APP.md` §7.1 y dicho al revés en la landing («revisarlo sigue siendo tuyo») |
+| 1.19 | 🟡 **El Centro no usa la caché offline** | Cada pantalla del Centro llama a `fetchPreparedness()` directo contra el servidor, en vez de pasar por `lib/db` y la cola de `lib/sync.ts` como el resto de la app. **Sin conexión, el Centro no muestra nada** — ni siquiera el punto de encuentro, que es justo lo que querrías leer sin señal después de un sismo. No bloquea el envío porque es una pantalla de calma que se usa con wifi, pero contradice de plano el argumento de «funciona sin señal» que la landing usa para el chat y la red. El camino está hecho: `kit_items` se marca con un `update` de una fila que ya existe, que es exactamente lo que la cola sabe encolar |
+| 1.20 | 🟢 **`user_settings.alert_worldwide_enabled` tiene ahora una hermana** | `Preparedness.isOwner` viaja en la RPC del Centro y **ninguna pantalla lo usa**: se agregó en la 0051 para decidir si se ofrecía sumar gente, y esa decisión terminó viviendo en `group/[id]`, que ya sabía quién es el dueño. No molesta y no miente —el dato es correcto—, pero es un campo muerto en un contrato público, que es como empieza 1.17. Sacarlo es una línea en la RPC y otra en `domain.ts`, y conviene hacerlo antes de que alguien lo lea y crea que el Centro tiene permisos por rol |
 | 1.16 | 🟡 **El bloqueo no alcanza al grupo de un tercero** | Encontrado el 2026-09-03 al escribir los legales. `private.conversation_blocked` filtra por `cv.kind = 'direct'`, así que solo cierra el chat individual. **Lo que sí funciona, y conviene no confundirlo:** el disparador `connections_drop_group_membership` borra la pertenencia en las dos direcciones al pasar de `accepted` a `blocked`, así que el bloqueado sale de los grupos de quien lo bloqueó y viceversa — **comprobado en transacción revertida**. El hueco es **uno**: un grupo cuyo dueño es una **tercera** persona y donde ambos son integrantes; ninguna rama del disparador coincide y el bloqueado sigue escribiendo donde el otro lo lee. **No bloquea el envío** —la guía 1.2 pide poder denunciar y bloquear, y las dos existen; además el remedio de salir del grupo está a un toque— pero es un agujero de moderación real y está **declarado** en los términos §5.1, en la política §7 y en las notas del revisor. El arreglo natural es que `conversation_blocked` mire también los grupos, y hay que decidir **qué significa**: ¿se le esconden los mensajes al que bloqueó, se le prohíbe escribir al bloqueado, o se lo saca del grupo? Las tres son defendibles y solo la tercera es visible para el resto del grupo |
 | ~~1.11~~ | ✅ **Cerrada el 2026-09-02 (migración 0041, aplicada).** `revoke insert, update, delete, truncate … from anon, authenticated` | Venían del `grant all` que Supabase aplica por defecto a las tablas nuevas de `public`, no de una decisión. **No arregla un fallo** —RLS ya bloqueaba las tres primeras y PostgREST no expone TRUNCATE— sino que quita el terreno preparado para el día que alguien agregue una política de escritura por error. Seguro porque los tres únicos caminos que tocan la tabla se verificaron antes: el cliente solo hace `.select()` (`api.ts:698`), la ingesta usa `service_role`, y el fan-out son funciones `security definer`. Sembrar sismos de prueba sigue funcionando: corre como `postgres` |
 | 1.12 | **Fortaleza del hash de teléfono** | La sal está hardcodeada en `src/lib/phone.ts` (`todosbien.v1`). El espacio de números peruanos es chico: con la sal conocida, la tabla de `phone_hash` es reversible por fuerza bruta. No bloquea el MVP; sí hay que resolverlo antes de tener padrón grande. 🔴 **Revisado el 2026-09-02: NO se arregla cambiando la sal.** El propio comentario de `phone.ts:46-58` ya lo dice — la sal **no es un secreto**, viaja en el bundle, y una sal nueva es igual de extraíble; lo único que se ganaría es invalidar todos los hashes guardados a cambio de nada. **El arreglo real es un *pepper* en el servidor:** el cliente sigue mandando `v1 = sha256(sal:e164)` y el servidor guarda `v2 = hmac(pepper, v1)`, con el pepper fuera del alcance del teléfono. Lo elegante es que **el backfill se calcula desde lo ya guardado** —`v2 = hmac(pepper, v1)` con el `v1` que ya está en la tabla— sin necesidad de conocer ni un solo número. Deja de ser un ataque offline sobre un volcado y pasa a ser uno online contra un RPC, que se puede limitar por tasa. **Por qué no entró en el build 3:** toca el **único** camino de conexión que tiene la app —el match de agenda, desde que se quitaron los códigos de invitación— y eso no se mete el día de compilar |
@@ -389,10 +413,16 @@ agenda.
 
 ---
 
-## 2 · iOS — para mandar a revisión
+## 2 · iOS — **publicada**, y lo que falta para la 1.1.0
 
-**El código volvió a abrirse el 2026-09-06** por el rechazo de Apple, y ya está cerrado otra
-vez (ver la nota de la cabecera). Lo que sigue es sitio, teléfono, consola — y **el video**.
+> ✅ **La app está en el App Store**: `https://apple.co/4xiQE5e`. La landing ya apunta ahí, en
+> el hero y en el CTA final, con el rótulo «Descárgala en» y sin `aria-disabled`. Google Play
+> sigue en «Próximamente» en los dos sitios; cuando Play apruebe, se cambian igual — el
+> comentario del HTML dice exactamente dónde.
+>
+> **Lo de abajo pasó a ser la lista de la versión 1.1.0** (el Centro de Preparación), no la del
+> primer envío. Lo que ya se cerró queda tachado en vez de borrado: la mitad de estas filas son
+> trampas que ya costaron un ciclo.
 
 ### 2.a · Lo que falta
 
@@ -401,12 +431,14 @@ vez (ver la nota de la cabecera). Lo que sigue es sitio, teléfono, consola — 
 | 2.1 | 🔴 **Build de producción posterior al 2026-09-06** | Los arreglos del 27 y del 28 de agosto son **JavaScript**, y los del rechazo —botones de permiso, casilla de términos, aviso del filtro— también. Se compila con `eas build --profile production --platform ios` y se sube con `eas submit`. ⚠️ **EAS no tiene ningún build de producción todavía**: el 11 que Apple revisó salió de Xcode. El contador remoto nunca se inicializó, así que al primer build de producción EAS va a preguntar con qué número arrancar y tiene que ser **12 o más** |
 | 2.15 | 🔴 **El video que pidió Apple** | Grabado en **teléfono físico**, con el enlace pegado en *App Review Information → Notes* y dejado ahí para todos los envíos futuros. Tiene que mostrar: los términos presentados **antes** de registrarse (con el botón apagado y encendiéndose al marcar la casilla), denunciar un mensaje, y bloquear a una persona. Conviene sumar el filtro rechazando un insulto — no lo pidieron grabar, pero es la pieza más difícil de creer sin verla. El guion está en `REVISION-APPLE.md` §6 |
 | 2.16 | 🔴 **Subir el sitio ANTES que el build** | Los términos pasaron a **v1.3** (§5.1, con el filtro) y la app enlaza ahí. Si el build sale primero, el revisor toca el enlace y lee una versión que no menciona el filtro que la nota le promete. Y `TERMS_VERSION` de `src/lib/config.ts` tiene que seguir coincidiendo con la cabecera de `terminos/index.html` — hoy las dos dicen `1.3` |
-| 2.17 | 🔴 **`is_premium` de la cuenta demo vuelve a `false`** | Está en `true` desde las pruebas. Con Premium activo el revisor **no ve el paywall** que tiene que revisar, y las notas le dicen otra cosa de la que ve. La cuenta de testers de Android (`todosbienapp+testers@gmail.com`) sí se queda en `true` a propósito |
+| ~~2.17~~ | 🔴 **INVERTIDA el 2026-09-10: ahora tiene que estar en `true`.** ~~`is_premium` de la cuenta demo vuelve a `false`.~~ El criterio viejo era que sin Premium el revisor ve el paywall. Con la pestaña Preparación se dio vuelta: una cuenta libre abre **la función principal de la versión** y solo encuentra el candado, que es el rechazo *«we were unable to review»*. El paywall sigue alcanzable desde el engranaje → «Obtener Premium», y las notas lo dicen. **Verificado el 2026-09-10: `true`, con hogar «Casa» y el Centro al 51 %.** ⚠️ Un `TRANSFER` de RevenueCat ya le arrancó el Premium una vez (2026-09-06): **contarlo el día del envío**, no darlo por puesto |
+| 2.19 | 🔴 **Notas del revisor y guion del video, rehechos** | `REVISION-APPLE.md` §2.1 (3.802 caracteres, 198 de margen) y §6, con dos tomas nuevas. **Ninguna ruta puede decir «Ajustes» como pestaña**: se abre desde el engranaje de Inicio desde el 2026-09-10, y ese error exacto —una ruta que la nota da por buena y la app ya no tiene— es el que costó el ciclo del 05/09, repetido con otra pantalla |
+| 2.20 | 🔴 **Subir la landing otra vez, antes del build** | Cambió entera con el Centro: hero, sección `#preparacion`, menú, dos preguntas nuevas, y los enlaces reales de App Store. Vale la misma regla de 2.16 — si el build sale primero, el revisor lee un sitio que describe otra app |
 | ~~2.1.b~~ | ✅ **Ya no aplica. El numerado lo lleva EAS.** | 🔧 **Reescrita entera el 2026-09-03.** Esta fila describía un flujo de **compilación local con Xcode**, y el proyecto no compila así: `eas.json` tiene `cli.appVersionSource: "remote"` y `build.production.autoIncrement: true`. Con eso **el contador vive en el servidor de EAS**, `ios.buildNumber` y `android.versionCode` de `app.json` se **ignoran**, y EAS incrementa solo en cada build de producción. Por eso el dueño los borró de `app.json` el 2026-09-03, que es lo correcto: dejarlos ahí solo invita a creer que mandan. **No hay nada que sincronizar a mano, ni en `app.json` ni en el `Info.plist`.** Y como `/ios` y `/android` están en `.gitignore`, EAS hace su propio `prebuild` desde `app.json` — el `ios/` de disco solo sirve para correr en local o en simulador, y su `CFBundleVersion` no viaja a ningún lado. *(El texto anterior, y el desajuste 3 contra 2 del 2026-09-02, eran ciertos **para builds locales**. Dejaron de serlo al mover los builds a EAS.)* |
 | 2.4 | **Nutrition Labels** | Respuestas listas, dato por dato, en `PRIVACIDAD-APP-STORE.md`. Falta pegarlas. 🟢 **Revisadas con los grupos el 2026-09-03**: los tres datos nuevos caen en categorías ya declaradas y **no agregan ninguna casilla**. Lo que cambió es la política publicada, no el formulario — y por eso la política tiene que subir primero (Bloque 1) |
 | 2.5 | **Justificación de ubicación en segundo plano, en inglés** | Escrita en `PRIVACIDAD-APP-STORE.md` §4. Falta pegarla |
 | 2.7.b | 🔴 **Notas para el revisor** | El texto está en `REVISION-APPLE.md` §2. ⚠️ **Tenía el correo equivocado** de la cuenta demo hasta el 2026-08-28; usar la versión corregida. 🔴 **Y dos afirmaciones falsas hasta el 2026-09-03**, las dos sobre la guía 1.2: decían que los chats son «strictly one-to-one» —el revisor ve un chat de grupo y deja de creerle a la nota entera— y que el bloqueado no puede escribir «not even in an existing conversation», sin acotarlo a los grupos. Corregidas, con un bloque **HOW TO REVIEW GROUPS** nuevo porque la cuenta demo tiene **cero grupos** y la ficha ahora los vende. 🟢 **Ampliadas el 2026-09-06** con dos bloques que responden el rechazo: **TERMS OF USE ACCEPTANCE** (dónde está la casilla, que el botón queda apagado, y que la versión aceptada se guarda) y **AUTOMATED CONTENT FILTERING** (que corre en la base y no en la app, con la palabra exacta a escribir para verlo actuar, y por qué el filtro deja pasar «mierda») |
-| 2.8 | **Capturas de pantalla** | Ahora son **ocho**, con qué tiene que verse en cada una, en `FICHA-APP-STORE.md` §5. La tercera es nueva (**grupos**, con el desglose «Casa 4/5» y el chat) y la de simulacro **tiene que mostrar la franja amarilla** — sin ella parece una alerta falsa, que es justo lo que los términos §4 prohíben |
+| 2.8 | **Capturas de pantalla** | Siguen siendo **ocho** pero **cambió el orden el 2026-09-10** (`FICHA-APP-STORE.md` §5): el **Centro de Preparación pasa a ser la 1** y la alerta a la 2. Un limeño que ve urgencia en la primera imagen la asocia con SASPe y sigue de largo. Entra además la **mochila** como captura 3; salen los ajustes de radio y la lista de sismos. ⚠️ La 1 tiene que llevar el Centro **abierto**, nunca el candado: la primera imagen de una tienda no puede ser una pared de pago. Y la de simulacro **tiene que mostrar la franja amarilla** — sin ella parece una alerta falsa, que es justo lo que los términos §4 prohíben |
 | 2.12 | Revisión legal de términos y limitación de responsabilidad | spec §18. 🟢 **Los grupos entraron el 2026-09-03** —términos §5.2 y privacidad §1/§3/§6/§7/§9—, que era el hueco que impedía que la declaración de App Privacy coincidiera con lo publicado. Lo que sigue pendiente es la revisión por un abogado, no el contenido |
 | 2.13 | **Disponibilidad territorial: Perú + América + Japón** | 🔄 **Motivo reescrito el 2026-09-08.** Decía que «Guardián se le vende a la diáspora, así que restringirlo a Perú deja fuera al que paga»; el foco pasó a ser el mercado peruano (`MONETIZACION.md` §6). **La lista no cambia**: publicar en nueve tiendas no cuesta nada y recoge de paso al peruano de afuera. Lo que cambió es que ya no es la tesis del negocio. **España e Italia quedan afuera por ahora** — distribuir en la UE exige declarar *trader status* y Apple publica nombre, dirección y teléfono del desarrollador |
 | 2.6.d | 🟡 **Small Business Program de Apple** | Baja la comisión del 30 % al 15 % con menos de un millón de dólares al año. Es un formulario y duplica el margen |
@@ -564,9 +596,17 @@ que va después de compilar porque hay que grabarlo sobre el build que se envía
    (2.7.b), el **enlace del video** (2.15), capturas (2.8), disponibilidad territorial (2.13) y
    Small Business Program (2.6.d).
 
-5. **Base de datos**: bajar `is_premium` a `false` en `todosbienapp@gmail.com` (2.17). Es un
-   `update` de una línea y es lo último que conviene hacer, porque con Premium apagado se
-   pierde la forma cómoda de mirar Guardián.
+5. **Base de datos**: 🔴 **al revés desde el 2026-09-10 — `is_premium` de
+   `todosbienapp@gmail.com` tiene que quedar en `true`** (2.17), con su hogar «Casa» sembrado y
+   el Centro en ~51 %. Ya está así; lo que hay que hacer es **contarlo el día del envío**, no
+   cambiarlo:
+
+   ```sql
+   -- con la sesión de la cuenta demo
+   select public.get_household_preparedness() ->> 'total';   -- ~51
+   ```
+
+   Un `TRANSFER` de RevenueCat ya se lo arrancó una vez sin que nadie lo tocara.
 
 ### Y recién ahí
 

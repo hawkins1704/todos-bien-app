@@ -137,8 +137,14 @@ Ampliar después es una casilla, no un envío nuevo.
 
 ## 4 · El paywall en RevenueCat
 
-**El argumento es Guardián**, no «el mundo» (los sismos globales), que es lo que vendía la
-versión original de esta sección.
+**Los argumentos son dos desde el 2026-09-10**, y el orden importa: primero el **Centro de
+Preparación**, después **Guardián**. No es que Guardián haya perdido valor — es que **no se
+puede mostrar**. Es un aviso que ocurre cuando tiembla lejos, puede tardar meses en pasar, y
+en una pantalla de venta no hay nada que enseñar. El Centro se ve entero en una imagen y se usa
+sin que haya pasado nada. Ver `MONETIZACION.md` §3.
+
+Lo que **no** es el argumento: «el mundo» (los sismos globales), que es lo que vendía la versión
+original de esta sección.
 
 > ⚠️ **Distinguir dos paywalls, porque solo uno de ellos está pendiente.** El que ve el usuario
 > dentro de la app se compila desde `src/` y ya está correcto desde el 2026-08-28. Lo de acá es
@@ -148,18 +154,20 @@ versión original de esta sección.
 ### Título
 
 ```
-Sabe de los tuyos, en el momento
+Prepara a tu casa, y entérate de los tuyos
 ```
 
 ### Subtítulo
 
 ```
-Te avisamos cuando alguien de tu red reporta que está bien, y también si no reporta, aunque a ti ese sismo no te haya tocado.
+La mochila, el punto de encuentro y las tareas de tu casa, en un solo sitio. Y cuando tiembla lejos, te avisamos si alguien de tu red reportó que está bien — o si no reportó.
 ```
 
 ### Lista de beneficios
 
 ```
+El Centro de Preparación para toda tu casa: la mochila del INDECI, el punto de encuentro y quién hace qué
+
 Guardián: «María está bien», con la magnitud y el lugar del sismo para que se entienda solo
 
 Y la otra mitad: «María no responde», a los veinte minutos de la alerta
@@ -187,11 +195,22 @@ Simulacros ilimitados
 ### Debajo de los planes, antes del botón
 
 ```
-Tu familia no paga nada ni necesita enterarse. Premium es tuyo, y sirve para saber de ellos.
+Pagas tú y entra tu casa completa, sin límite de personas. Nadie más tiene que pagar nada.
 ```
 
-Esa línea desarma la objeción más común antes de que aparezca, y es la que evita el modelo
-que ya se descartó por insostenible (`MONETIZACION.md` §2.1).
+> 🔴 **Reescrita el 2026-09-10 porque la anterior quedó falsa.** Decía *«Tu familia no paga nada
+> ni necesita enterarse. Premium es tuyo, y sirve para saber de ellos»*. Con el Centro es al
+> revés en la mitad que importa: la familia **sí** entra, y para entrar **tiene que enterarse** —
+> hay que sumarla al hogar. Publicar la línea vieja habría vendido lo contrario de lo que hace
+> el producto.
+>
+> La versión nueva conserva lo que la vieja hacía bien —desarmar el *«¿y tengo que comprarle uno
+> a cada uno?»* antes de que aparezca— y suma el argumento más fuerte que tiene el producto para
+> una familia peruana: **un pago, una casa**.
+>
+> Y sigue sin abrir el modelo que `MONETIZACION.md` §2.1 descartó, porque **una persona
+> pertenece a un solo hogar**: quien entra al tuyo no puede armar el suyo ni extenderle el
+> beneficio a nadie. La cadena se corta en un salto (§2.2).
 
 ### La línea que no se saca
 
@@ -260,7 +279,7 @@ Las dos URL están verificadas en producción y responden 200.
 - [ ] Disponibilidad: los países de §3, sin la UE
 - [ ] **Captura de revisión** para cada producto — Apple la exige por producto, y sin ella
       quedan «Missing Metadata» y no se pueden enviar
-- [ ] Paywall reescrito alrededor de Guardián
+- [ ] Paywall reescrito alrededor del **Centro de Preparación y Guardián**, en ese orden — copia nueva del 2026-09-10
 - [ ] 🔴 Términos, Privacidad y Restaurar compras en el pie del paywall
 - [ ] **Small Business Program** solicitado (comisión del 30 % al 15 %)
 - [ ] Los precios de la landing coinciden con los de la tienda: **9,90 · 59,90 · 79,90**

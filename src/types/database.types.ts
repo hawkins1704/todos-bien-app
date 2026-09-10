@@ -70,18 +70,21 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          is_household: boolean;
           name: string;
           owner_id: string;
           sort_order: number;
           updated_at: string;
         };
         Insert: {
+          is_household?: boolean;
           name: string;
           owner_id: string;
           sort_order?: number;
         };
-        // Solo el nombre. `owner_id` no se regala y `sort_order` no lo mueve
-        // ninguna pantalla todavía.
+        // Solo el nombre. `owner_id` no se regala, `sort_order` no lo mueve
+        // ninguna pantalla, e `is_household` va por `mark_group_as_household`:
+        // el disparador de la 0048 valida ahí que no tengas ya otra casa.
         Update: { name?: string };
         Relationships: [];
       };
@@ -207,7 +210,11 @@ export type Database = {
         Row: {
           body: string;
           created_at: string;
+          // NULL = plan personal. Con valor = el plan del HOGAR (0050): uno solo
+          // por casa, editable por cualquier integrante, y NO viaja en get_circle.
+          group_id: string | null;
           id: string;
+          meeting_point: string | null;
           name: string;
           sort_order: number;
           updated_at: string;
@@ -216,16 +223,98 @@ export type Database = {
         Insert: {
           body: string;
           created_at?: string;
+          group_id?: string | null;
           id?: string;
+          meeting_point?: string | null;
           name: string;
           sort_order?: number;
           user_id: string;
         };
         Update: {
           body?: string;
+          meeting_point?: string | null;
           name?: string;
           sort_order?: number;
         };
+        Relationships: [];
+      };
+      emergency_kits: {
+        Row: {
+          created_at: string;
+          group_id: string;
+          id: string;
+          name: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          group_id: string;
+          name: string;
+          sort_order?: number;
+        };
+        Update: { name?: string; sort_order?: number };
+        Relationships: [];
+      };
+      kit_items: {
+        Row: {
+          checked_at: string | null;
+          checked_by: string | null;
+          created_at: string;
+          detail: string | null;
+          id: string;
+          is_custom: boolean;
+          kit_id: string;
+          label: string;
+          sort_order: number;
+        };
+        Insert: {
+          detail?: string | null;
+          is_custom?: boolean;
+          kit_id: string;
+          label: string;
+          sort_order?: number;
+        };
+        Update: {
+          checked_at?: string | null;
+          checked_by?: string | null;
+          detail?: string | null;
+          label?: string;
+        };
+        Relationships: [];
+      };
+      household_roles: {
+        Row: {
+          created_at: string;
+          detail: string | null;
+          group_id: string;
+          id: string;
+          label: string;
+          member_id: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          detail?: string | null;
+          group_id: string;
+          label: string;
+          member_id: string;
+          sort_order?: number;
+        };
+        Update: { detail?: string | null; label?: string; sort_order?: number };
+        Relationships: [];
+      };
+      tip_progress: {
+        Row: {
+          completed_at: string;
+          tip_id: string;
+          user_id: string;
+        };
+        Insert: {
+          completed_at?: string;
+          tip_id: string;
+          user_id: string;
+        };
+        Update: never;
         Relationships: [];
       };
       messages: {
@@ -480,8 +569,19 @@ export type Database = {
         Returns: Database['public']['Tables']['drills']['Row'];
       };
       create_group: {
-        Args: { group_name: string; sort_order?: number };
+        // `p_is_household` tiene default en el servidor, así que las llamadas
+        // que ya existían siguen valiendo sin tocarlas (0048).
+        Args: { group_name: string; sort_order?: number; p_is_household?: boolean };
         Returns: string;
+      };
+      mark_group_as_household: {
+        Args: { p_group_id: string };
+        Returns: undefined;
+      };
+      get_household_preparedness: {
+        Args: Record<never, never>;
+        /** jsonb con `{householdId, members, total, modules}`. `null` si no tienes hogar. */
+        Returns: Json;
       };
       delete_my_account: {
         Args: { password_attempt?: string | null };
@@ -549,6 +649,8 @@ export type Database = {
           sort_order: number;
           owner_id: string;
           is_owner: boolean;
+          /** El hogar (0048). `get_groups` lo devuelve primero en la lista. */
+          is_household: boolean;
           conversation_id: string | null;
           /** jsonb: arreglo de `{user_id, display_name, is_owner, in_my_network}`. */
           members: Json;

@@ -35,7 +35,7 @@ type Vista = 'individuales' | 'grupales';
 export default function ChatsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, modules } = useTheme();
   const { userId } = useAuth();
   const { accepted, groups } = useAppData();
 
@@ -373,21 +373,39 @@ export default function ChatsScreen() {
           </>
         ) : (
           <Card padded={false}>
-            {grupales.map((conversation, index) => (
-              <ConversationRow
-                key={conversation.id}
-                conversation={conversation}
-                label={conversation.title ?? 'Sin nombre'}
-                first={index === 0}
-                onPress={() => router.push(`/chat/${conversation.id}`)}
-                onLongPress={() => opcionesGrupal(conversation)}
-                leading={
-                  <View style={[styles.groupIcon, { backgroundColor: colors.accentSoft }]}>
-                    <MaterialIcons name="groups" size={20} color={colors.accent} />
-                  </View>
-                }
-              />
-            ))}
+            {grupales.map((conversation, index) => {
+              // El chat del hogar lleva casita y su color, igual que en Mi red,
+              // en Simulacro y en el Centro. Es el mismo grupo mirado desde otra
+              // pantalla: si acá se ve como uno más, el marcador deja de
+              // significar algo en las otras tres.
+              const esHogar = conversation.groupId
+                ? (gruposPorId.get(conversation.groupId)?.isHousehold ?? false)
+                : false;
+
+              return (
+                <ConversationRow
+                  key={conversation.id}
+                  conversation={conversation}
+                  label={conversation.title ?? 'Sin nombre'}
+                  first={index === 0}
+                  onPress={() => router.push(`/chat/${conversation.id}`)}
+                  onLongPress={() => opcionesGrupal(conversation)}
+                  leading={
+                    <View
+                      style={[
+                        styles.groupIcon,
+                        { backgroundColor: esHogar ? modules.hogar.bg : colors.accentSoft },
+                      ]}>
+                      <MaterialIcons
+                        name={esHogar ? 'home' : 'groups'}
+                        size={20}
+                        color={esHogar ? modules.hogar.ink : colors.accent}
+                      />
+                    </View>
+                  }
+                />
+              );
+            })}
           </Card>
         )}
 

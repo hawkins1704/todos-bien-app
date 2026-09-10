@@ -240,8 +240,13 @@ function esRechazoDefinitivo(error: unknown): boolean {
  * no pasó —el largo del mensaje, un estado fuera de la lista— y esos no llevan
  * un texto que se le pueda mostrar a nadie. El disparador de moderación pone
  * `hint = 'moderacion'` justamente para poder separarlos acá.
+ *
+ * Se exporta porque el filtro ya cubre seis superficies —chat, estado, nombre,
+ * grupo, plan de acción (0047) y el plan del hogar (0050)— y no todas pasan por
+ * la cola de salida: las que escriben directo necesitan el mismo predicado para
+ * poder decir POR QUÉ se rechazó, en vez de «error al guardar».
  */
-function esRechazoDeModeracion(error: unknown): boolean {
+export function esRechazoDeModeracion(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
   const { code, hint } = error as { code?: unknown; hint?: unknown };
   return code === '23514' && hint === 'moderacion';

@@ -13,6 +13,21 @@ import { useTheme } from '@/theme/use-theme';
  *
  * ⚠️ Son 5 tabs, que es el MÁXIMO que permite Android (restricción de Material
  * Design). No se puede agregar ninguno más sin agrupar alguno en un "Más".
+ *
+ * 🔴 **Ajustes salió de acá el 2026-09-10** para hacerle sitio a Preparación, y
+ * ahora se abre desde el engranaje de la tarjeta de perfil en Inicio. Se eligió
+ * mover Ajustes y no fusionar Chats con Red porque es puro traslado —el patrón
+ * estándar de cualquier app— y no toca ninguna superficie que se use durante una
+ * emergencia.
+ *
+ * Consecuencias que hay que recordar al tocar esto:
+ *   · el banner del simulacro dice «para salir, ve a Ajustes», y las notas del
+ *     revisor de Apple mandan ahí para probar la función principal. Los dos
+ *     textos se actualizan en el MISMO commit — apuntar al revisor a un sitio
+ *     que ya no existe **ya costó un ciclo de rechazo** (REVISION-APPLE §2);
+ *   · Preparación es de pago pero **la pestaña se ve siempre**: los tabs son
+ *     estáticos, así que lo que se bloquea es el contenido. Es el mismo patrón
+ *     que la pestaña Global de Sismos.
  */
 export default function TabsLayout() {
   const { incomingRequests } = useAppData();
@@ -48,9 +63,9 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="bubble.left.and.bubble.right.fill" md="chat" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="settings">
-        <NativeTabs.Trigger.Label>Ajustes</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="gearshape.fill" md="settings" />
+      <NativeTabs.Trigger name="preparacion">
+        <NativeTabs.Trigger.Label>Preparación</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="backpack.fill" md="backpack" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

@@ -22,7 +22,7 @@ import {
 import { timeAgo } from '@/lib/format';
 import { formatE164ForDisplay } from '@/lib/phone';
 import { syncMe } from '@/lib/sync';
-import { Radius, Spacing, tabScreenBottomInset } from '@/theme/tokens';
+import { Radius, Spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/use-theme';
 import { FREE_DRILL_LIMIT } from '@/types/domain';
 
@@ -147,12 +147,16 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
+      {/* Desde el 2026-09-10 esto ya NO es una pestaña: se abre apilado desde el
+          engranaje de Inicio. Por eso el inset de arriba lo pone el header del
+          navegador —no se suma `insets.top`— y el de abajo va completo, sin
+          `tabScreenBottomInset`, que solo corresponde a pantallas dentro de la
+          barra de pestañas. */}
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + Spacing.md, paddingBottom: tabScreenBottomInset(insets.bottom) + Spacing.xl },
+          { paddingTop: Spacing.md, paddingBottom: insets.bottom + Spacing.xl },
         ]}>
-        <Text variant="title2">Ajustes</Text>
 
         <Card>
           {/* Todo el bloque de perfil abre el detalle de cuenta: es donde se

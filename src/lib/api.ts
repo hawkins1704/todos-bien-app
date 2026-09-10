@@ -6,10 +6,15 @@ import type {
   CircleMember,
   ConnectionStatus,
   ContactMatch,
+  EmergencyKit,
   Group,
+  HouseholdRole,
+  KitItem,
   MyProfile,
   MySettings,
   MyStatus,
+  Preparedness,
+  PreparednessModule,
   QuakeEvent,
   StatusKey,
   Tip,
@@ -211,6 +216,7 @@ export async function fetchGroups(): Promise<Group[]> {
     sortOrder: row.sort_order,
     ownerId: row.owner_id,
     isOwner: row.is_owner,
+    isHousehold: Boolean(row.is_household),
     conversationId: row.conversation_id,
     // `members` llega como jsonb, o sea ya parseado. El guard cubre una fila
     // que llegara sin el `coalesce` del servidor.
@@ -931,5 +937,287 @@ export async function updateNotificationPrefs(
   const { error } = await supabase
     .from('notification_preferences')
     .upsert({ user_id: userId, ...payload }, { onConflict: 'user_id' });
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Centro de Preparación (migraciones 0048-0050)
+//
+// **Una sola puerta de Premium**, y está en el servidor: `household_premium()`
+// mira el `is_premium` del DUEÑO del hogar. Por eso acá no hay un solo `if
+// (isPremium)` — un integrante gratis de una casa pagada escribe igual que el
+// dueño, y la RLS es la que lo decide.
+//
+// El corte de la RLS separa leer de escribir a propósito: **si el Premium vence,
+// el hogar sigue viendo todo lo que construyó y solo pierde la escritura**. Un
+// `update` en ese estado no lanza error, afecta cero filas — por eso las
+// funciones de escritura de acá devuelven si tocaron algo.
+// ---------------------------------------------------------------------------
+
+/** El progreso del hogar. `null` si esta persona todavía no tiene uno. */
+export async function fetchPreparedness(): Promise<Preparedness | null> {
+  const { data, error } = await supabase.rpc('get_household_preparedness');
+  if (error) throw error;
+  if (!data) return null;
+
+  const raw = data as Record<string, any>;
+  const modulo = (m: Record<string, any> | undefined): PreparednessModule => ({
+    pct: Number(m?.pct ?? 0),
+    done: m?.done === undefined ? undefined : Number(m.done),
+    total: m?.total === undefined ? undefined : Number(m.total),
+  });
+
+  return {
+    householdId: String(raw.householdId),
+    householdName: String(raw.householdName ?? 'Tu hogar'),
+    isOwner: Boolean(raw.isOwner),
+    // Ante la duda, bloqueado: mostrar el Centro abierto y que el servidor
+    // rechace cada escritura sería peor que mostrar el candado.
+    premium: raw.premium === true,
+    members: Number(raw.members ?? 1),
+    total: Number(raw.total ?? 0),
+    modules: {
+      kit: modulo(raw.modules?.kit),
+      plan: modulo(raw.modules?.plan),
+      roles: modulo(raw.modules?.roles),
+      course: modulo(raw.modules?.course),
+      drill: modulo(raw.modules?.drill),
+    },
+  };
+}
+
+/**
+ * Crea el hogar. Es un grupo con la marca puesta, así que trae su chat y sirve
+ * para el simulacro grupal desde el primer día.
+ */
+export async function createHousehold(name: string): Promise<string> {
+  const { data, error } = await supabase.rpc('create_group', {
+    group_name: name.trim(),
+    sort_order: 0,
+    p_is_household: true,
+  });
+  if (error) {
+    if (error.message?.includes(GROUP_LIMIT_REACHED)) throw new GroupLimitError();
+    throw error;
+  }
+  return data as string;
+}
+
+/**
+ * Convierte un grupo que ya existe en el hogar.
+ *
+ * Es el camino natural para quien ya tenía su «Casa» armada, y evita que termine
+ * con dos listas de la misma gente. Falla con `ya_tiene_hogar` si él o alguno de
+ * los integrantes ya vive en otra.
+ */
+export async function markGroupAsHousehold(groupId: string): Promise<void> {
+  const { error } = await supabase.rpc('mark_group_as_household', { p_group_id: groupId });
+  if (error) throw error;
+}
+
+// --- Mochilas ---------------------------------------------------------------
+
+export async function fetchKits(householdId: string): Promise<EmergencyKit[]> {
+  const { data, error } = await supabase
+    .from('emergency_kits')
+    .select('id, name, sort_order, kit_items(id, label, detail, checked_at, checked_by, is_custom, sort_order)')
+    .eq('group_id', householdId)
+    .order('sort_order');
+  if (error) throw error;
+
+  return (data ?? []).map((k: Record<string, any>) => ({
+    id: k.id,
+    name: k.name,
+    sortOrder: k.sort_order,
+    items: (k.kit_items ?? [])
+      .map((i: Record<string, any>) => ({
+        id: i.id,
+        label: i.label,
+        detail: i.detail,
+        checkedAt: i.checked_at,
+        checkedBy: i.checked_by,
+        isCustom: i.is_custom,
+        sortOrder: i.sort_order,
+      }))
+      .sort((a: KitItem, b: KitItem) => a.sortOrder - b.sortOrder),
+  }));
+}
+
+/** El disparador `emergency_kits_seed` la llena sola con el catálogo del INDECI. */
+export async function createKit(householdId: string, name: string, sortOrder: number): Promise<void> {
+  const { error } = await supabase
+    .from('emergency_kits')
+    .insert({ group_id: householdId, name: name.trim(), sort_order: sortOrder });
+  if (error) throw error;
+}
+
+export async function deleteKit(kitId: string): Promise<void> {
+  const { error } = await supabase.from('emergency_kits').delete().eq('id', kitId);
+  if (error) throw error;
+}
+
+/**
+ * Marca o desmarca un ítem. Devuelve `false` si no tocó ninguna fila, que es lo
+ * que pasa cuando el Premium del hogar venció: la RLS deja leer y no escribir,
+ * y un `update` sin filas **no lanza error**.
+ */
+export async function setKitItemChecked(
+  itemId: string,
+  checked: boolean,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('kit_items')
+    .update({
+      checked_at: checked ? new Date().toISOString() : null,
+      checked_by: checked ? userId : null,
+    })
+    .eq('id', itemId)
+    .select('id');
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
+export async function addKitItem(kitId: string, label: string, sortOrder: number): Promise<void> {
+  const { error } = await supabase
+    .from('kit_items')
+    .insert({ kit_id: kitId, label: label.trim(), is_custom: true, sort_order: sortOrder });
+  if (error) throw error;
+}
+
+export async function deleteKitItem(itemId: string): Promise<void> {
+  const { error } = await supabase.from('kit_items').delete().eq('id', itemId);
+  if (error) throw error;
+}
+
+// --- Roles ------------------------------------------------------------------
+
+export async function fetchHouseholdRoles(householdId: string): Promise<HouseholdRole[]> {
+  const { data, error } = await supabase
+    .from('household_roles')
+    .select('id, member_id, label, detail')
+    .eq('group_id', householdId)
+    .order('sort_order')
+    .order('created_at');
+  if (error) throw error;
+
+  return (data ?? []).map((r: Record<string, any>) => ({
+    id: r.id,
+    memberId: r.member_id,
+    label: r.label,
+    detail: r.detail,
+  }));
+}
+
+/**
+ * Le suma una tarea a alguien. **Varias por persona** desde la 0052: en una casa
+ * real el mismo que cierra el gas es el que carga al bebé.
+ *
+ * La misma tarea repetida en la misma cabeza sí se rechaza —índice único
+ * `household_roles_sin_repetir`, error `23505`— porque eso no es un reparto,
+ * es un doble toque en el botón.
+ */
+export async function addHouseholdRole(
+  householdId: string,
+  memberId: string,
+  label: string,
+  sortOrder: number,
+): Promise<void> {
+  const { error } = await supabase
+    .from('household_roles')
+    .insert({
+      group_id: householdId,
+      member_id: memberId,
+      label: label.trim(),
+      sort_order: sortOrder,
+    });
+  if (error) throw error;
+}
+
+/** Se borra por id, no por persona: cada tarea es una fila propia. */
+export async function deleteHouseholdRole(roleId: string): Promise<void> {
+  const { error } = await supabase.from('household_roles').delete().eq('id', roleId);
+  if (error) throw error;
+}
+
+/** `true` si el error es el de una tarea repetida, no otro fallo cualquiera. */
+export function esTareaRepetida(caught: unknown): boolean {
+  return (caught as { code?: string } | null)?.code === '23505';
+}
+
+// --- El plan del hogar ------------------------------------------------------
+//
+// Vive en `action_plans` con `group_id` puesto, no en tabla aparte: nadie quiere
+// tener un plan personal llamado «Casa» y además un plan del hogar también
+// llamado «Casa». No gasta el cupo de 1/5 y **no viaja en `get_circle()`**, así
+// que el punto de encuentro de tu casa no llega a la caché de contactos que no
+// viven ahí.
+
+export type HouseholdPlan = {
+  id: string;
+  name: string;
+  meetingPoint: string | null;
+  body: string;
+  updatedAt: string | null;
+};
+
+export async function fetchHouseholdPlan(householdId: string): Promise<HouseholdPlan | null> {
+  const { data, error } = await supabase
+    .from('action_plans')
+    .select('id, name, meeting_point, body, updated_at')
+    .eq('group_id', householdId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    name: data.name,
+    meetingPoint: (data as Record<string, any>).meeting_point ?? null,
+    body: data.body,
+    updatedAt: data.updated_at,
+  };
+}
+
+/** Lo edita **cualquier integrante**: un plan que solo toca una persona no es de la casa. */
+export async function saveHouseholdPlan(
+  householdId: string,
+  userId: string,
+  fields: { name: string; meetingPoint: string; body: string },
+  existingId: string | null,
+): Promise<void> {
+  const payload = {
+    name: fields.name.trim(),
+    meeting_point: fields.meetingPoint.trim() || null,
+    body: fields.body.trim(),
+  };
+
+  if (existingId) {
+    const { error } = await supabase.from('action_plans').update(payload).eq('id', existingId);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from('action_plans')
+    .insert({ ...payload, group_id: householdId, user_id: userId });
+  if (error) throw error;
+}
+
+// --- Minicurso --------------------------------------------------------------
+
+export async function fetchMyTipProgress(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('tip_progress')
+    .select('tip_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((r: Record<string, any>) => String(r.tip_id));
+}
+
+export async function markTipDone(userId: string, tipId: string): Promise<void> {
+  const { error } = await supabase
+    .from('tip_progress')
+    .upsert({ user_id: userId, tip_id: tipId }, { onConflict: 'user_id,tip_id' });
   if (error) throw error;
 }

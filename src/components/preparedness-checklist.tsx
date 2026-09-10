@@ -28,6 +28,18 @@ type Item = {
  * Spec §5.2: checklist de preparación, NO gamificación. Nada de puntos, rachas
  * ni insignias: el público es adulto y preventivo y ese lenguaje no encaja.
  */
+/**
+ * 🔴 **Esto NO se jubiló con el Centro de Preparación, y es a propósito.**
+ *
+ * El plan del 2026-09-10 decía absorberlo, pero el Centro es de pago y sus tres
+ * filas —plan de acción, tu red, simulacros— apuntan a funciones **gratuitas**.
+ * Retirarlo le habría quitado a un usuario libre la única superficie de
+ * preparación que tiene hoy, y eso rompe la regla que sostiene todo el corte:
+ * nada que hoy sea gratis deja de serlo.
+ *
+ * Sí, para alguien con Premium hay algo de repetición con la pestaña nueva. Es
+ * el lado barato del error.
+ */
 export function PreparednessChecklist({
   actionPlan,
   actionPlanUpdatedAt,

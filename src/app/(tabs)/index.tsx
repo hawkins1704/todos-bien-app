@@ -8,6 +8,7 @@ import { Avatar } from '@/components/avatar';
 import { CalmBanner } from '@/components/calm-banner';
 import { CircleGrid } from '@/components/circle-grid';
 import { ConnectionChip } from '@/components/connection-chip';
+import { DailyTipCard } from '@/components/daily-tip-card';
 import { MyLocationCard } from '@/components/my-location-card';
 import { PreparednessChecklist } from '@/components/preparedness-checklist';
 import { QuakeCard } from '@/components/quake-card';
@@ -72,7 +73,9 @@ export default function HomeScreen() {
     reloadLocal,
   } = useAppData();
 
-  const { tip, next: nextTip } = useDailyTip(tips);
+  // Uno por día y el mismo hasta la medianoche: la tarjeta es una cita, no un
+  // adorno que rota. Ver `useDailyTip`.
+  const tip = useDailyTip(tips);
   const { refreshing, onRefresh } = usePullToRefresh(refresh);
   const [reporting, setReporting] = useState(false);
 
@@ -245,6 +248,19 @@ export default function HomeScreen() {
             <Text variant="title2">{firstName(myProfile?.displayName)}</Text>
           </View>
 
+          {/* Ajustes dejó de ser pestaña el 2026-09-10 para hacerle sitio a
+              Preparación. Este engranaje es su única puerta, así que va acá
+              arriba y no escondido: el banner del simulacro y las notas del
+              revisor de Apple mandan a «Ajustes» y tiene que encontrarse. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ajustes"
+            hitSlop={8}
+            onPress={() => router.push('/settings')}
+            style={({ pressed }) => (pressed ? styles.pressed : null)}>
+            <MaterialIcons name="settings" size={24} color={colors.textSecondary} />
+          </Pressable>
+
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Mi cuenta"
@@ -386,7 +402,9 @@ export default function HomeScreen() {
               />
             </View>
 
-            {tip ? <TipCard tip={tip} variant="compact" onNext={nextTip} /> : null}
+            {/* En modo alerta va la versión sobria, no el banner de color: la
+                pantalla del sismo no es sitio para una lámina decorativa. */}
+            {tip ? <TipCard tip={tip} /> : null}
           </>
         ) : (
           <>
@@ -443,7 +461,7 @@ export default function HomeScreen() {
               </View>
             </Card>
 
-            {tip ? <TipCard tip={tip} variant="expanded" onNext={nextTip} /> : null}
+            {tip ? <DailyTipCard tip={tip} /> : null}
           </>
         )}
       </ScrollView>

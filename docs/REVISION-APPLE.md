@@ -70,8 +70,33 @@ Qué tiene adentro:
 | Plan de acción | Escrito, con punto de encuentro y contacto fuera de la ciudad |
 | Chat | Una conversación con María, de cuatro mensajes |
 | **Grupos** | **Dos, sembrados el 2026-09-03**: **Casa** (María y Jorge) y **Familia** (los cuatro). Cada uno con su chat: 3 mensajes en Casa, 2 en Familia |
-| Simulacros | 0 de 3 usados: el revisor tiene los tres disponibles |
-| Premium | **No.** Tiene que poder ver el paywall y probar la compra en sandbox |
+| Simulacros | 0 usados. Con Premium son ilimitados, así que el revisor puede repetir |
+| **Hogar** | **«Casa»**, sembrado el 2026-09-10 marcando el grupo que ya existía. 3 personas |
+| **Centro de Preparación** | **51 %**: mochila 9/16, punto de encuentro escrito, 2 de 3 con tarea, minicurso terminado por Carlos, simulacro sin hacer |
+| Premium | **Sí, desde el 2026-09-10.** Ver el recuadro de abajo |
+
+> 🔴 **La cuenta demo pasó a ser Premium, y es un cambio de criterio.** Hasta el 2026-09-10 era
+> gratuita a propósito, para que el revisor viera el paywall. Con la pestaña Preparación eso se
+> dio vuelta: una cuenta libre abre la función principal de la versión y **solo encuentra el
+> candado**, que es literalmente el rechazo *«we were unable to review»*.
+>
+> **El paywall no se pierde:** sigue alcanzable desde el engranaje de Inicio → «Obtener
+> Premium», y así lo dicen las notas de §2.1. Lo que se pierde es ver el tope de grupos
+> disparándose, que era un efecto secundario, no una función.
+>
+> Se puso a mano en `user_settings.is_premium`, que **solo escribe el webhook de RevenueCat** —
+> la app no tiene permiso sobre esa columna—, así que no hay nada que lo pise. Verificación el
+> día del envío:
+>
+> ```sql
+> select s.is_premium,
+>        (public.get_household_preparedness() ->> 'total') as centro_pct
+>   from public.user_settings s
+>  where s.user_id = '00000000-0000-4000-a000-000000000001';  -- true, y ~51
+> ```
+>
+> ⚠️ Esa RPC solo devuelve el hogar **del que llama**, así que para verla como la cuenta demo
+> hay que fijar `request.jwt.claims` con su `sub`, o consultarla con su sesión.
 
 > ✅ **Sembrados el 2026-09-03**, y hasta ese día la cuenta tenía cero: la ficha ya describía los
 > grupos y los ponía en la **captura 3**, así que un revisor que abriera la pestaña Red habría
@@ -82,10 +107,14 @@ Qué tiene adentro:
 > `group_members` en `conversation_members` necesita que el chat ya exista. Un grupo sin chat
 > rompe la regla 1 de la 0034 y no se puede reparar desde el cliente.
 >
-> **Efecto secundario a tener presente: la cuenta queda en 2 de 2 grupos gratis**, así que tocar
-> «Nuevo grupo» abre el **paywall**. No es un defecto —es el tope funcionando, y de paso le da al
-> revisor una segunda puerta al paywall además de Ajustes— pero la nota de §2 tiene que decirlo,
-> porque un botón que abre una pantalla de pago sin explicación se lee como un cobro sorpresa.
+> ~~**Efecto secundario: la cuenta queda en 2 de 2 grupos gratis**, así que «Nuevo grupo» abre
+> el paywall.~~ **Dejó de aplicar el 2026-09-10**, cuando la cuenta pasó a Premium: los grupos
+> son ilimitados y ese botón ya no abre nada. La nota de §2.1 se corrigió en consecuencia —
+> quedó tachado y no borrado porque si algún día se vuelve a una cuenta demo gratuita, este
+> efecto vuelve con ella y la nota tiene que volver a decirlo.
+>
+> Y **«Casa» es además el hogar** desde esa fecha, así que ese grupo ahora sale con casita y
+> otro color en Mi red, en Chats y en el simulacro. Es la marca funcionando, no un defecto.
 >
 > Verificación, el día del envío:
 >
@@ -150,65 +179,98 @@ Va en **App Review Information → Notes**. En inglés, que es lo que lee el equ
 > toque §2.1 hay que volver a medirlo**, contando que el enlace del video y la contraseña se
 > pegan encima de los marcadores.
 
-### 2.1 · Para pegar — reenvío del 2026-09-06 · **3.911 caracteres**
+### 2.1 · Para pegar — versión del Centro de Preparación · **3801 caracteres**
 
-El orden no es casual: el revisor de un reenvío busca primero la respuesta al rechazo, así que
-el video y las dos guías van arriba de todo, antes incluso de la cuenta demo.
+> 🔴 **Reescritas el 2026-09-10, y por el motivo de siempre.** Las anteriores mandaban al
+> revisor a `Ajustes → PRÁCTICA` para probar la función principal, y **Ajustes dejó de ser
+> pestaña** ese mismo día: ahora se abre desde el engranaje de Inicio. Ese error exacto —una
+> ruta que la nota da por buena y la app ya no tiene— **ya costó un ciclo de rechazo**.
+>
+> Quedan **198 caracteres de margen** sobre el tope de 4.000, contando que el enlace del video
+> y la contraseña se pegan **encima** de los marcadores. Un enlace de `youtube.com/watch?v=`
+> gasta ~3 más que el marcador; la contraseña, unos 6 menos.
+
+El orden no es casual: lo primero que busca el revisor es qué cambió y cómo probarlo, así que
+la función nueva y la advertencia de navegación van arriba de todo.
 
 ```
-RESUBMISSION — response to the September 5, 2026 rejection of build 11.
+NEW VERSION. Main change: "Preparación" (Preparedness Center), a new tab.
 
-SCREEN RECORDING (as requested). Physical iPhone, English captions: the terms agreement shown before registration, flagging content, and blocking a user.
-[PEGAR EL ENLACE DE YOUTUBE — NO LISTADO]
+SCREEN RECORDING
+[PEGAR EL ENLACE DE YOUTUBE - NO LISTADO]
 
-5.1.1(iv) — FIXED
-The three buttons that trigger a system permission prompt no longer ask the user to grant it: they now read "Continuar" (Continue) and "Siguiente paso" (Next step). Why the permission is needed stays in the text above the button.
+WHAT IS NEW
+A household prepares together BEFORE an earthquake: a shared emergency-kit checklist (contents from Peru INDECI, each item sourced), one meeting point, who does what, a 12-tip mini-course and drills. One paid account unlocks it for the whole household.
+IMPORTANT FOR NAVIGATION: "Ajustes" (Settings) IS NO LONGER A TAB. It opens from the GEAR ICON at the top right of the Home screen, next to the avatar.
 
-1.2 — FOUR PRECAUTIONS, TWO OF THEM NEW IN THIS BUILD
+DEMO ACCOUNT
+todosbienapp@gmail.com / [PEGAR LA CONTRASENA]
+Premium is enabled on it so every screen has content: 4 accepted contacts, 2 groups with chats, an action plan, and a household ("Casa", 3 people) with the Preparedness Center at 51%.
 
-1) TERMS AGREEMENT BEFORE REGISTRATION (new)
-An UNCHECKED checkbox on the sign-up screen states that the user accepts the Terms and Privacy Policy and understands that offensive content and harassment are not tolerated, and that offending accounts may be suspended or deleted. "Crear cuenta" stays DISABLED until it is ticked. Both documents are one tap away from the sign-up and sign-in screens; the accepted version and date are stored on the account.
+HOW TO REVIEW THE MAIN FEATURE WITHOUT AN EARTHQUAKE
+Alerts arrive minutes AFTER an event published by Peru's IGP or the USGS. This is NOT an early-warning app. Use the built-in drill:
+Home -> GEAR ICON (top right) -> "PRACTICA" -> "Hacer un simulacro" -> "Solo yo" -> "Empezar simulacro".
+The real Home enters alert mode with a 5-step guided tour, and a yellow "SIMULACRO" strip stays on every screen. EXIT: same path -> "Salir del modo simulacro". A solo drill sends nothing to anyone.
+
+USER-GENERATED CONTENT - FOUR PRECAUTIONS (guideline 1.2)
+
+1) TERMS AGREEMENT BEFORE REGISTRATION
+An UNCHECKED checkbox on the sign-up screen states that the user accepts the Terms and Privacy Policy and understands that offensive content and harassment are not tolerated. "Crear cuenta" stays DISABLED until it is ticked.
 https://todosbien.app/terminos (zero tolerance: section 5.1)
 https://todosbien.app/privacidad
 
-2) AUTOMATED CONTENT FILTERING (new)
-Chat messages, status messages, display names and group names are checked on the SERVER before storage. Directed insults, slurs and threats are rejected outright — never stored, never delivered — and the author is told why. It is a database trigger, so a modified client cannot bypass it.
-TO SEE IT: in any chat, send "conchatumadre" (a common Peruvian insult). It is rejected and the text returns to the input box. The filter targets aggression, not profanity: during an earthquake "se cayo la pared, mierda, hay un herido" must go through.
+2) AUTOMATED CONTENT FILTERING, SERVER SIDE
+Chat messages, status messages, display names, group names, action plans, emergency-kit item labels and household task labels are checked on the SERVER before storage. Directed insults, slurs and threats are rejected outright, never stored, never delivered; the author is told why. It is a database trigger, so a modified client cannot bypass it.
+TO SEE IT: in any chat, send "conchatumadre" (a common Peruvian insult). It is rejected and the text returns to the input box. It targets aggression, not profanity: during a quake "se cayo la pared, mierda, hay un herido" must go through.
 
 3) FLAG CONTENT
 Message: LONG-PRESS any message from the other person -> "Denunciar". Person: "Red" tab -> tap the contact -> "Denunciar a esta persona". Reviewed within 24 hours: todosbienapp@gmail.com
 
 4) BLOCK USERS
-"Red" tab -> tap the contact -> "Bloquear a esta persona", also offered right after a report. A blocked user cannot message you, send connection requests, or see your status or location, and is removed from every group you own (and you from theirs). Reversible from Ajustes -> "Personas bloqueadas"; the blocked user cannot undo it.
+"Red" tab -> tap the contact -> "Bloquear a esta persona", also offered right after a report. A blocked user cannot message you, send requests, or see your status or location. Reversible from GEAR ICON -> "Personas bloqueadas"; the blocked user cannot undo it.
 
 NO STRANGERS: one-to-one chat requires that BOTH people accepted the connection; in a group only the owner adds members, and only their own contacts. No public content, no way to find a stranger.
 
-DEMO ACCOUNT
-todosbienapp@gmail.com / [PEGAR LA CONTRASEÑA]
-4 accepted contacts, 2 groups with chats, and an action plan, so every screen has content.
-
-HOW TO REVIEW THE MAIN FEATURE WITHOUT AN EARTHQUAKE
-Alerts arrive minutes AFTER an event published by Peru's IGP or the USGS: this is not an early-warning app. Use the built-in drill:
-Ajustes (Settings) -> "PRACTICA" -> "Hacer un simulacro" -> "Solo yo" -> "Empezar simulacro".
-The real Home enters alert mode with a 5-step guided tour, and a yellow "SIMULACRO" strip stays on every screen. EXIT: Ajustes -> "PRACTICA" -> "Salir del modo simulacro". A solo drill sends nothing to anyone.
-
 NOT DEFECTS
-- Outside an active earthquake the app hides everyone's status and location by design; we only store where someone was during a quake. The drill shows them.
+- Outside an active earthquake the app hides everyone status and location by design. The drill shows them.
 - All 4 demo contacts show "No recibe notificaciones": seeded profiles with no device. It is a working safety warning.
 
-ALSO IN THIS BUILD: a map view for the earthquake list, and fixes to the Android location map, the chat header and the report form.
-
-PURCHASES: Premium is optional, the safety core is free. Paywall (RevenueCat): Ajustes -> "Obtener Premium". Please use a sandbox account.
+PURCHASES: Premium is optional and the safety core is free. Paywall (RevenueCat): GEAR ICON -> "Obtener Premium". Please use a sandbox account. The demo account is already Premium so the new tab can be reviewed; on a free account that tab shows a lock over placeholder shapes, never real data.
 
 BACKGROUND LOCATION: a silent push tied to a verified earthquake wakes a task that reads the position EXACTLY ONCE. No continuous updates, geofencing or significant-change monitoring; only the latest reading is stored, visible only to accepted contacts.
 ```
 
 **Lo que se sacó para entrar, en orden de reposición** si el campo admitiera más: el borrado de
-cuenta (`Ajustes → tarjeta de perfil → SEGURIDAD → «Borrar mi cuenta»`, guía 5.1.1(v)), la línea
-que explica que la cuenta demo usa sus 2 grupos gratis y por eso «Nuevo grupo» abre el paywall,
-y la justificación larga de ubicación de `PRIVACIDAD-APP-STORE.md` §4.
+cuenta (`engranaje → tarjeta de perfil → SEGURIDAD → «Borrar mi cuenta»`, guía 5.1.1(v)), la
+línea que explicaba que la cuenta demo usa sus 2 grupos gratis —**ya no aplica: la cuenta es
+Premium desde el 2026-09-10**— y la justificación larga de ubicación de
+`PRIVACIDAD-APP-STORE.md` §4.
+
+#### La cuenta demo cambió, y sin eso las notas serían falsas
+
+Hasta el 2026-09-10 la cuenta demo era **gratuita y sin hogar**. Con la pestaña nueva eso
+significaba que el revisor abría Preparación y **veía únicamente el candado**: no podía revisar
+la función principal de la versión que se está enviando. Se corrigió sembrando:
+
+| | |
+|---|---|
+| `is_premium` | `true` — puesto a mano en `user_settings`, que solo escribe el webhook de RevenueCat, así que no se lo pisa nadie |
+| Hogar | «Casa», el grupo que ya tenía, con 3 personas |
+| Mochila | 16 ítems del INDECI, **9 marcados** — ni vacía ni llena, para que el dibujo del nivel se vea a media asta |
+| Punto de encuentro y plan | Escritos |
+| Tareas | 2 de 3 integrantes |
+| Minicurso | Carlos terminado, o sea 1 de 3 |
+| **Progreso total** | **51 %**, verificado con la RPC el 2026-09-10 |
+
+⚠️ **Si alguna vez se resiembra la cuenta demo, esto se pierde y hay que rehacerlo.** Un
+Centro en 0 % no sirve para revisar ni para capturas.
 
 ### 2.2 · Referencia larga — **no entra en el campo**
+
+> 🔴 **Las rutas de acá adentro se corrigieron el 2026-09-10 igual que las de §2.1.** Este
+> bloque no se pega en el formulario, pero **sí se copia para contestarle a Apple** cuando
+> repregunta, y una ruta vieja en una respuesta es el mismo rechazo que una ruta vieja en las
+> notas. `Settings tab` pasó a ser `Home -> GEAR ICON`.
 
 > 🔴 **Reescritas el 2026-09-01, y no por gusto: mandaban al revisor a un sitio que ya no
 > existe.** Decían «Home tab → Simulacro», y desde la 0035 el simulacro se convoca desde
@@ -271,7 +333,7 @@ HOW TO REVIEW THE MAIN FEATURE WITHOUT WAITING FOR AN EARTHQUAKE
 Real alerts depend on a real seismic event, so the app includes a guided DRILL that puts the
 app into the exact state a real earthquake produces. Please use it:
 
-  1. Settings tab (Ajustes) -> section "PRÁCTICA" -> "Hacer un simulacro"
+  1. Home -> GEAR ICON, top right -> section "PRÁCTICA" -> "Hacer un simulacro"
   2. Choose "Solo yo" (Just me) -> "Empezar simulacro"
   3. The app returns to the Home tab, now in alert mode, and a 5-step guided tour
      highlights each control in turn.
@@ -280,7 +342,7 @@ This is not a mock screen: the real Home, the real status picker, the real netwo
 the real location card are all live. A yellow "SIMULACRO" strip stays at the top of EVERY
 screen so the drill can never be mistaken for a real alert.
 
-  TO EXIT: Settings tab -> "PRÁCTICA" -> "Salir del modo simulacro".
+  TO EXIT: Home -> GEAR ICON -> "PRÁCTICA" -> "Salir del modo simulacro".
   That is the only exit, and the yellow strip says so. The drill also expires on its own
   after 60 minutes, and a real earthquake would end it immediately.
 
@@ -388,7 +450,7 @@ There is no public content and no discovery of strangers: nothing in the app let
 browse or message someone who has not accepted them or been added by a mutual contact.
 
 ACCOUNT DELETION (guideline 5.1.1(v))
-In-app path: Settings tab -> tap the profile card at the top -> SEGURIDAD -> "Borrar mi
+In-app path: Home -> GEAR ICON -> tap the profile card at the top -> SEGURIDAD -> "Borrar mi
 cuenta". It asks for the account password and deletes the account and all associated data.
 
 IN-APP PURCHASES
@@ -503,31 +565,50 @@ la app hoy. **Y dos dejaron de ser probables el 2026-09-05: pasaron a ocurridos.
       más difícil de creer sin verla
 - [ ] En el teléfono más chico disponible, el bloque legal de la pantalla de ingreso se alcanza
       sin pelearse con el scroll
-- [x] `is_premium` de la cuenta demo vuelve a **`false`**. Con Premium activo el revisor no ve
-      el paywall que tiene que revisar, y la nota le dice otra cosa de la que ve — **verificado
-      el 2026-09-06: `false`**. Quedó así solo, y no por prolijidad: el `TRANSFER` de RevenueCat
-      del 2026-09-06 le arrancó el Premium a esta cuenta al mover la compra. El bug de la
-      identidad anónima arregló de rebote la casilla que hacía falta tachar
-- [ ] 🟡 **El `display_name` de la cuenta demo es «Carlos», y uno de sus cuatro contactos es
-      «Carlos Medina»** (comprobado el 2026-09-06; este documento dice «Renzo» en §1 y está
-      desactualizado). No es un rechazo, pero el revisor se ve a sí mismo con el mismo nombre
-      que el contacto que a propósito está **sin confirmar y sin ubicación** — que es la mitad
-      del producto que tiene que entender. Renombrarlo a «Renzo» es un `update` de una línea
+- [x] ~~`is_premium` de la cuenta demo vuelve a **`false`**.~~ 🔴 **Se invirtió el 2026-09-10:
+      ahora tiene que estar en `true`.** El criterio viejo era que sin Premium el revisor ve el
+      paywall; con la pestaña Preparación, sin Premium el revisor ve **el candado en lugar de la
+      función principal de la versión**, que es el rechazo *«we were unable to review»*. El
+      paywall sigue alcanzable desde el engranaje → «Obtener Premium», y la nota de §2.1 lo dice.
+      **Verificado el 2026-09-10: `true`.**
+      ⚠️ Ojo con RevenueCat: un `TRANSFER` ya le arrancó el Premium a esta cuenta una vez
+      (2026-09-06). Es una columna que solo escribe el webhook, así que **hay que volver a
+      contarla el día del envío**, no darla por puesta
+- [ ] 🔴 **El Centro de Preparación de la cuenta demo no está en 0 %.** Un Centro vacío no se
+      puede revisar ni fotografiar. Tiene que dar ~51 %, con la mochila a media asta para que el
+      dibujo del nivel se vea lleno hasta la mitad:
+      ```sql
+      -- con la sesión de la cuenta demo
+      select public.get_household_preparedness() ->> 'total';   -- ~51
+      ```
+- [ ] 🔴 **Ninguna ruta de las notas dice «Ajustes» como pestaña.** Ajustes se abre desde el
+      engranaje de Inicio desde el 2026-09-10. Revisar §2.1, §2.2 y el guion del video: es
+      **exactamente** el error que costó el ciclo del 2026-09-05, repetido con otra pantalla
+- [x] 🟡 ~~El `display_name` de la cuenta demo es «Carlos», y uno de sus cuatro contactos es
+      «Carlos Medina».~~ **Renombrado a «Renzo» el 2026-09-10.** El revisor se veía a sí mismo
+      con el mismo nombre que el contacto que a propósito está **sin confirmar y sin ubicación**,
+      que es la mitad del producto que tiene que entender. Ahora §1 dice la verdad
 
 ---
 
 ## 6 · El guion del video
 
-**Teléfono físico, no simulador.** Una sola toma de ~90 segundos. Empezar con la app
+**Teléfono físico, no simulador.** Una sola toma de ~2 minutos. Empezar con la app
 desinstalada o con la sesión cerrada, porque la primera escena es el registro.
+
+> 🔴 **Actualizado el 2026-09-10.** La toma 4 mandaba a `Ajustes → Personas bloqueadas` por la
+> pestaña, que ya no existe: **hay que grabar el engranaje de Inicio**. Y se sumaron dos tomas
+> del Centro de Preparación, que es lo que esta versión pide revisar.
 
 | # | Toma | Por qué esa y no otra |
 |---|---|---|
 | 1 | Abrir → «Crear mi cuenta» → llenar correo y contraseña. **Quedarse quieto unos segundos con «Crear cuenta» apagado.** Marcar la casilla y que se vea encenderse | El contraste **es** la toma. Una casilla ya marcada no demuestra nada: lo que Apple quiere ver es que sin aceptar no se puede seguir |
 | 2 | Tocar «Términos de uso» y que se abra la página. Volver | Prueba que el documento existe y es alcanzable, no solo que hay una frase |
 | 3 | Entrar a un chat, **mantener apretado** un mensaje ajeno → «Denunciar mensaje» → motivo → enviar | «A method for users to flag objectionable content» |
-| 4 | Pestaña **Red** → un contacto → «Bloquear» → confirmar. Y mostrar **Ajustes → Personas bloqueadas** | «A mechanism to block abusive users». Lo segundo prueba que es reversible, que es lo que evita la pregunta siguiente |
+| 4 | Pestaña **Red** → un contacto → «Bloquear» → confirmar. Y mostrar **el engranaje de Inicio → Personas bloqueadas** | «A mechanism to block abusive users». Lo segundo prueba que es reversible, que es lo que evita la pregunta siguiente. ⚠️ **Grabar el engranaje, no una pestaña de Ajustes** |
 | 5 | En un chat, escribir **`conchatumadre`** y enviar. Sale el aviso y el texto vuelve al campo. Después mandar algo normal | No lo pidieron grabar. Es la precaución más difícil de creer sin verla, y mostrarla contesta la pregunta antes de que la hagan |
+| 6 | **Pestaña Preparación** → que se vean el 51 % y las seis tarjetas → entrar a **Mochila** y marcar un ítem, que el dibujo suba | La función nueva de la versión. Sin esta toma el revisor tiene que buscarla, y lo que no se encuentra se rechaza |
+| 7 | Volver a Inicio → **engranaje** → «PRÁCTICA» → «Hacer un simulacro» → «Solo yo» → que se vea la franja amarilla | Prueba en un gesto la ruta nueva de Ajustes **y** cómo revisar la app sin un sismo. Dos respuestas en una toma |
 
 **Tres detalles que deciden si la aceptan:** dispositivo físico, rótulos **en inglés** sobre
 cada sección —la app está en español y el revisor no lo lee— y subirla a YouTube **como no

@@ -714,6 +714,87 @@ Esto necesita **tres cuentas**: A (dueño), B y C, donde **B y C no están conec
 
 ---
 
+## 9.g · El Centro de Preparación (nuevo el 2026-09-10 · migraciones 0048-0053)
+
+> ⚠️ **Sin correr todavía.** Es la superficie más grande que se agregó de una vez —seis módulos,
+> cinco tablas, una pestaña nueva y Ajustes fuera de la barra— y **nada de esto se vio en dos
+> teléfonos**. Lo que sí está verificado es el lado del servidor, en transacciones revertidas:
+> el progreso, el corte de escritura y la propagación del Premium (§9g.30).
+>
+> **Hacen falta dos cuentas conectadas y aceptadas**: A paga y crea el hogar, B es libre y
+> entra con él. B **no** puede tener hogar propio o el disparador lo rechaza.
+
+### Armar el hogar
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9g.1 | **A** (Premium, sin hogar) abre Preparación | «Arma tu hogar», con la **lista de todos sus grupos propios** y un radio por grupo. 🔴 No una sugerencia sola: la primera versión hacía `find()` y ofrecía el primero, que a la cuenta de prueba le tocó ser «Amigos test 2» mientras «Casa» ni aparecía |
+| 9g.2 | Elegir «Casa» y confirmar | El Centro aparece con las seis tarjetas de colores. **La mochila ya existe**, con 16 ítems y ninguno marcado: un hogar nace con la suya (0052) |
+| 9g.3 | Ir a **Mi red** | «Casa» sale con **casita y otro color**, no con el ícono de grupo, y dice «Tu hogar · N personas» |
+| 9g.4 | Ir a **Chats → Grupales** | El chat de «Casa» también con casita y su color |
+| 9g.5 | Ir a **Simulacro** (engranaje → PRÁCTICA) | «Casa» sale con casita y el rótulo «· tu hogar» |
+| 9g.6 | **A** intenta marcar un segundo grupo como hogar | 🔴 Imposible: el Centro ya no ofrece la pantalla de armado. Si se fuerza por SQL, el disparador lanza `ya_tiene_hogar` |
+| 9g.7 | **A** agrega a **B** al grupo «Casa» desde `group/[id]` | B entra sin aceptar nada y recibe el push `group_added` (0040) |
+
+### Que los dos vean lo mismo
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9g.8 | **B**, que es **gratis**, abre Preparación | 🔴 **Ve el Centro completo, no el candado.** Es la promesa entera del modelo: paga uno, entra la casa |
+| 9g.9 | **B** marca 4 ítems de la mochila | Se marcan al toque, sin espera perceptible (el marcado es optimista) |
+| 9g.10 | **A** vuelve a Preparación | 🔴 **El porcentaje subió.** Es la prueba de que el progreso es del hogar y no de cada quien. La pantalla relee al enfocar, así que basta con cambiar de pestaña y volver |
+| 9g.11 | **A** abre la mochila | Los 4 de B salen marcados |
+| 9g.12 | **B** escribe el punto de encuentro | 🔴 Se guarda. **Cualquier integrante edita el plan del hogar**, no solo el dueño — es la excepción deliberada al «manda el dueño» de los grupos |
+| 9g.13 | **A** abre el plan | Ve lo que escribió B |
+| 9g.14 | **A** abre **Mis planes de acción** (el personal, desde Inicio) | 🔴 **El plan del hogar NO aparece ahí**, y no gasta el cupo de 1/5 |
+| 9g.15 | Un **contacto de A que no vive en la casa** abre la ficha de A | 🔴 **No ve el punto de encuentro del hogar.** `get_circle()` excluye las filas con `group_id`: el plan de tu casa no viaja a la caché de gente que no vive ahí |
+
+### La mochila
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9g.16 | Marcar ítems y mirar el dibujo | Se llena **de abajo hacia arriba**, revelando el color, con la superficie ondeando. Con 0 marcados el dibujo está apagado entero; con todos, a color y **sin onda** |
+| 9g.17 | Mirar la onda unos segundos | Dos ondas cruzándose, no una fila de burbujas ni una cortina descolgándose. Ver `ESTADO` §1.21.8 |
+| 9g.18 | Activar **Reducir movimiento** en el sistema y volver | 🔴 La ola se dibuja **quieta**, no desaparece: quitarla cambiaría dónde se lee el nivel |
+| 9g.19 | Mirar el primer ítem de la lista | 🔴 **Sin línea negra encima.** `styles.item` no puede traer `borderTopWidth`: el primer ítem anula solo el color y React Native cae en su borde por defecto, que es negro |
+| 9g.20 | Agregar un ítem propio y mantenerlo apretado | Se borra. Solo los propios: los del catálogo no |
+| 9g.21 | Con 5+ personas en la casa, mirar la mochila | Sugiere una segunda. Agregarla y comprobar que el porcentaje suma **las dos** |
+| 9g.22 | Borrar la única mochila | El botón pasa a decir «Armar la mochila», no «Agregar otra» |
+
+### Las tareas y el curso
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9g.23 | Asignarle **dos tareas** a la misma persona | 🔴 Se puede. Una sola por cabeza era la regla vieja y no se sostiene: el que cierra el gas es el que carga al bebé |
+| 9g.24 | Asignar **la misma** tarea dos veces a la misma persona | La rechaza con «Ya la tiene». Es un índice único en el servidor, no una comprobación de la pantalla |
+| 9g.25 | Con 3 en la casa y 2 con tarea, mirar el Centro | «2 de 3 con tarea», **67 %**. ⚠️ Si sale más de 100 %, el progreso está contando filas y no personas |
+| 9g.26 | **B** termina el minicurso | El módulo del hogar sube de 0 a «1 de 3 terminaron». El avance es individual pero **cuenta para la casa** |
+| 9g.27 | Abrir un consejo y tocar su fuente | Se abre la página del INDECI, la Cruz Roja o el IGP en el navegador |
+
+### El vencimiento del Premium
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9g.28 | Quitarle el Premium a **A** (`update user_settings set is_premium = false`) y que **A** vuelva a Preparación | 🔴 **La silueta bajo el candado**: seis tarjetas de colores con barras grises en lugar de textos, y la tarjeta «Tus datos siguen aquí». **Ni un solo dato real en pantalla** |
+| 9g.29 | **B**, que es gratis, abre Preparación | 🔴 **El mismo candado.** El Centro es del hogar: si la casa no está pagada, no lo ve nadie |
+| 9g.30 | Que **B** compre Premium (sandbox) y los dos vuelvan a mirar | 🔴 **Se abre para los dos.** Es la 0053: basta con que **uno cualquiera** de la casa pague. Con la regla vieja —«paga el dueño»— B habría pagado y seguido bloqueado. **Verificado en la base el 2026-09-10, en transacción revertida; falta verlo en pantalla** |
+| 9g.31 | Con el Premium vencido, entrar a la mochila por la **pila de navegación** (estar dentro cuando vence, o volver atrás) | El candado del módulo, no la lista. En uso normal no se llega, pero la pila sí |
+| 9g.32 | Devolver el Premium y volver | 🔴 **Todo reaparece tal como estaba**: los ítems marcados, el punto de encuentro, las tareas. No hay nada que rehacer |
+
+### Lo que la pestaña nueva se llevó por delante
+
+| # | Paso | Qué tiene que pasar |
+|---|---|---|
+| 9g.33 | Buscar **Ajustes** en la barra de pestañas | 🔴 **No está.** Se abre desde el **engranaje de Inicio**, arriba a la derecha, junto al avatar |
+| 9g.34 | Entrar a un módulo del Centro y mirar el botón de volver | 🔴 **Una flecha sola, nunca el rótulo «(tabs)»**. iOS rotula la flecha con el título de la pantalla anterior, y una pestaña es un grupo sin título |
+| 9g.35 | Desde el banner del simulacro, seguir la instrucción de salida | Lleva a un sitio que existe. ⚠️ Cualquier texto que diga «Ajustes» tiene que poder seguirse **después** del cambio de pestaña |
+| 9g.36 | Mirar el consejo en Inicio, cerrar la app y volver a abrirla | 🔴 **Es el mismo consejo.** Uno por día: si cambia al volver de otra pestaña, el cálculo está mal |
+| 9g.37 | Tocar «Ver detalle» en el consejo | Sube la hoja con animación, se cierra tocando el fondo, y trae el enlace a la fuente |
+| 9g.38 | Cambiar el teléfono a **modo oscuro** y recorrer el Centro entero | Los seis pasteles y el candado se leen. El dibujo de la mochila va sobre **plato blanco fijo**, también en oscuro |
+
+
+---
+
 ## 0.b · Que la app ABRA — el paso que faltaba
 
 > 🔴 **Escrito el 2026-09-02, después de que un build no pasara del splash.** Todo este

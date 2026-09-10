@@ -408,7 +408,8 @@ function GroupsView({
   onOpen: (groupId: string) => void;
   onCreated: (groupId: string) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, modules } = useTheme();
+  const hogar = modules.hogar;
   const { userId } = useAuth();
   const { accepted, groups, mySettings, refresh } = useAppData();
   const { abrirPaywall, abriendo, disponible } = usePaywall();
@@ -516,8 +517,21 @@ function GroupsView({
                     : null,
                   pressed ? styles.pressed : null,
                 ]}>
-                <View style={[styles.grupoIcono, { backgroundColor: colors.accentSoft }]}>
-                  <MaterialIcons name="groups" size={20} color={colors.accent} />
+                {/* El hogar se distingue de un vistazo: casita y su propio
+                    color, no el azul de todo lo demás. Es el único grupo con
+                    reglas distintas —abre el Centro de Preparación y solo se
+                    puede tener uno— y confundirlo con «Amigos» en una lista de
+                    íconos iguales es exactamente el error que hay que evitar. */}
+                <View
+                  style={[
+                    styles.grupoIcono,
+                    { backgroundColor: grupo.isHousehold ? hogar.bg : colors.accentSoft },
+                  ]}>
+                  <MaterialIcons
+                    name={grupo.isHousehold ? 'home' : 'groups'}
+                    size={20}
+                    color={grupo.isHousehold ? hogar.ink : colors.accent}
+                  />
                 </View>
 
                 <View style={styles.flex}>
@@ -525,6 +539,7 @@ function GroupsView({
                     {grupo.name}
                   </Text>
                   <Text variant="caption" tone="tertiary" numberOfLines={1}>
+                    {grupo.isHousehold ? 'Tu hogar · ' : ''}
                     {otros.length === 0
                       ? 'Sin nadie todavía'
                       : `${otros.length} ${otros.length === 1 ? 'persona' : 'personas'}`}

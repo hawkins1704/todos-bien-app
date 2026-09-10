@@ -221,7 +221,12 @@ export default function GroupDetailScreen() {
 
     Alert.alert(
       `¿Borrar «${group.name}»?`,
-      'Desaparece para todos, junto con su chat y todos sus mensajes. Nadie sale de tu red.',
+      // El hogar se avisa aparte porque de él cuelga el Centro de Preparación
+      // entero: mochilas, tareas y punto de encuentro caen con el grupo
+      // (`on delete cascade`), y eso no se deduce de «desaparece su chat».
+      group.isHousehold
+        ? 'Es tu hogar: con él se van las mochilas, las tareas repartidas y el punto de encuentro de tu casa. Desaparece para todos, junto con su chat. Nadie sale de tu red.'
+        : 'Desaparece para todos, junto con su chat y todos sus mensajes. Nadie sale de tu red.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {

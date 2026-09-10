@@ -1920,6 +1920,190 @@ paso a la vez: estado → red → tocar a alguien → ubicación → **cómo sal
 
 ---
 
+### 1.21 El Centro de Preparación: el hogar es la unidad, no la persona (migraciones 0048-0053)
+
+La app cubría **después** del sismo. Esto es el **antes**, y es la primera superficie de pago
+que no se puede describir como «vigilar a los míos». Entregado el **2026-09-10**.
+
+#### 1.21.1 Por qué el hogar es un grupo y no una tabla nueva
+
+Un hogar necesita: gente, un chat, poder convocar un simulacro juntos, y salir en el desglose
+«Casa 2/3» de la Home durante una alerta. **Eso ya existía y se llamaba grupo** (1.18). Una
+tabla `households` habría duplicado los cuatro comportamientos y obligado a mantener dos listas
+de las mismas personas.
+
+Así que `groups` gana una columna, `is_household`, y nada más. Lo que el hogar tiene de distinto
+es **una regla**, no una estructura:
+
+> **Una persona pertenece a un solo hogar.** Lo enforcea un disparador sobre `group_members`
+> más un índice único parcial sobre `(owner_id) where is_household`.
+
+🔴 **Esa regla no es una comodidad de producto: es lo que sostiene el modelo de precio.**
+`MONETIZACION.md` §2.1 descartó «pagás y lo tiene tu red entera» porque era **transitivo** —A
+paga, B recibe gratis, y B es centro de otra red que también recibe—. Acá la cadena se corta en
+un salto: B ya tiene hogar, así que **no puede crear el suyo** ni extenderle el beneficio a
+nadie. Por eso el tope de personas nunca fue lo que protegía el modelo, y por eso se pudo quitar.
+
+⚠️ **El tope de 20 que existe es de cortesía, contra abuso automatizado.** Partir una familia de
+ocho porque «no cabe» es un mensaje pésimo en una app de seguridad.
+
+#### 1.21.2 Un intento fallido que conviene no repetir: proteger el flag con permisos
+
+La primera versión intentaba impedir que el cliente escribiera `is_household` a mano con un
+`revoke update (is_household) on public.groups from authenticated`.
+
+**No funciona.** Los permisos sobre `public.groups` son **de tabla**, y un `grant` de tabla gana
+sobre un `revoke` de columna. Se quitó, y lo que protege el invariante es el disparador — que es
+lo correcto de todas formas: un permiso puede impedir la escritura, pero no puede validar que la
+persona no esté ya en otro hogar.
+
+#### 1.21.3 La RLS separa leer de escribir, y eso decidió el producto entero
+
+```
+SELECT                → ser del hogar
+INSERT/UPDATE/DELETE  → ser del hogar Y private.household_premium()
+```
+
+Se construyó así para que **si el Premium vence, la casa siguiera viendo lo que armó**. El
+2026-09-10 el producto cambió de opinión y el cliente ahora **oculta** el Centro vencido
+(1.21.6), pero la separación se queda: es la que hace que volver a pagar restaure todo sin
+migrar nada, y revertir la decisión de producto es cambiar una pantalla, no la base.
+
+🔴 **La consecuencia que hay que tener presente al escribir cliente:** un `update` bloqueado por
+RLS **no lanza error**. Afecta cero filas y devuelve éxito. Por eso `setKitItemChecked` devuelve
+si tocó algo y la pantalla avisa; sin ese chequeo, el ítem quedaba marcado en pantalla y no en
+la base. Un `insert` sí lanza (`42501`), así que las dos rutas se tratan distinto.
+
+#### 1.21.4 El plan del hogar vive en `action_plans`, no en tabla aparte
+
+`action_plans` gana `group_id` (nulo = tuyo) y `meeting_point`. Nadie quiere tener un plan
+personal llamado «Casa» **y además** un plan del hogar también llamado «Casa».
+
+Tres cambios chicos y ninguna duplicación de concepto:
+
+- El tope de 1/5 cuenta solo `where group_id is null`, así que el plan del hogar no gasta cupo.
+- La política de lectura gana `or private.is_household_member(group_id)`.
+- 🔴 **`get_circle()` excluye las filas con `group_id`**, para que el punto de encuentro de tu
+  casa **no viaje a la caché** de contactos que no viven ahí.
+
+**Lo edita cualquier integrante**, no solo el dueño. Es una excepción deliberada al «manda el
+dueño» de la 1.18, y vale solo para esta fila: un plan que solo puede tocar una persona no es
+de la casa.
+
+El punto de encuentro es una **columna aparte** y no una frase dentro del cuerpo porque el
+progreso necesita saber si existe. Sigue siendo texto libre: el selector en mapa está descartado
+por decisión, no pospuesto (§1.2.2).
+
+#### 1.21.5 El progreso, y dos formas de calcularlo mal
+
+Cinco áreas, **cada una vale lo mismo**. Sin ponderaciones: el reparto tiene que poder
+explicarse en una línea o la barra deja de significar algo.
+
+```
+Mochila     ítems marcados / ítems totales, sumando todas las mochilas
+Plan        ¿existe y tiene punto de encuentro?               0 o 100
+Roles       PERSONAS con al menos una tarea / integrantes
+Qué hacer   personas que terminaron el curso / integrantes
+Simulacro   ¿hicieron uno en los últimos 6 meses?             0 o 100
+```
+
+⚠️ **`count(distinct member_id)` en roles, no `count(*)`.** Desde la 0052 una persona puede
+tener varias tareas, y con `count(*)` una casa de tres con cinco tareas repartidas devolvía
+**167 %**.
+
+⚠️ **La RPC es `security definer` porque tiene que contar el avance ajeno del minicurso**, y la
+RLS de `tip_progress` no deja leer el de nadie más. Devuelve solo agregados: cuántos terminaron,
+nunca quién.
+
+Y devuelve además `premium`, que **el cliente no puede calcular**: la RLS de `user_settings` es
+propia, así que un integrante no puede leer el `is_premium` de otro. Solo el servidor lo sabe.
+
+#### 1.21.6 Con el Premium vencido no se muestra el Centro difuminado: se muestra su silueta
+
+Debajo del candado no está el Centro tapado por una capa. Están **las mismas seis tarjetas, los
+mismos colores y las mismas barras, con barras grises donde van los textos y los números**.
+
+🔴 **Es una decisión de seguridad, no de estética.** Un desenfoque de verdad necesita
+`expo-blur`, que además de ser dependencia nativa **en Android depende de la versión**: por
+debajo de Android 12 cae en RenderScript o directamente en nada, y «nada» ahí significa **los
+datos legibles detrás de una capa que no borronea**. `expo-glass-effect`, que sí está instalado,
+falla igual: `GlassView` es de iOS 26 para arriba y en todo lo demás es una `View` común.
+
+Una silueta no puede filtrar nada porque nunca tuvo qué filtrar, y se ve igual en todos los
+teléfonos. Hubo un velo tenue encima por estética y se quitó: teñía las tarjetas, que son
+justamente lo que tiene que verse para que se lea «esto es tuyo y sigue ahí».
+
+Los módulos sueltos (`mochila`, `plan`, `roles`) tienen su propio candado. En uso normal no se
+ven nunca —el Centro velado no ofrece ninguna tarjeta— pero la **pila de navegación** los
+alcanza si el Premium vence estando dentro.
+
+#### 1.21.7 «Paga cualquiera de la casa» salió de una compra que no habría funcionado
+
+La 0048 ató `household_premium` al `is_premium` **del dueño**. Servía mientras el candado no
+tuviera botón de comprar.
+
+Desde que el Centro bloqueado ofrece volver a Premium —y se lo ofrece a **toda** la casa, que es
+a quien se le bloqueó— esa definición **vendía algo que no funciona**: la hija paga, y su Centro
+sigue cerrado porque quien tenía que pagar era el papá. La 0053 lo cambió a **basta con que uno
+cualquiera** de los integrantes tenga Premium.
+
+Sigue pagando una sola persona por casa; lo único que se soltó es *quién*. De paso, el hogar
+dejó de depender de una sola cuenta.
+
+#### 1.21.8 El dibujo de la mochila: por qué el recorte se hace con círculos
+
+La mochila se llena de agua y el nivel ondea. Un `<Path>` con una senoidal animada sería lo
+obvio, pero **`react-native-svg` no está instalado** y es dependencia nativa: entra con un build
+nuevo de las dos tiendas, para un adorno.
+
+La alternativa cuesta cero. El agua es un rectángulo macizo más una fila de círculos **muy
+solapados**; cada pieza lleva `overflow: 'hidden'` y adentro una copia de la imagen colocada
+para que caiga exactamente donde va, así que el conjunto funciona como una máscara de verdad.
+
+Tres cosas que costaron un intento cada una:
+
+| | |
+|---|---|
+| **Las crestas van hacia arriba** | La forma de una ola y la de una cortina descolgándose son la misma curva; lo único que las distingue es de qué lado está lo macizo. El primer intento ondulaba el borde del **velo** y se leía como una cortina |
+| **`radio` enorme frente a `paso`** | Dos círculos que se cruzan forman un pico, y lo pronunciado sale de `paso / (2·radio)`. Con 44/60 el cruce da **43°** y se ve una fila de nubes; con 156/110 da **20,6°** y quedan dos crestas y media a lo ancho |
+| **Nada de tinte por pieza** | Las crestas se solapan 28 de cada 60 pt. Un color translúcido pieza por pieza se pinta **dos veces** en cada solape y deja bandas verticales. La `opacity` va en la capa, agrupada |
+
+La fila se desplaza con **un solo** `translateX` y cada imagen de adentro lleva el contrario, así
+que el dibujo se queda quieto y lo único que viaja es el recorte. Respeta «reducir movimiento»:
+con eso activado la ola se dibuja **quieta**, no desaparece — quitarla cambiaría dónde se lee
+el nivel.
+
+#### 1.21.9 Ajustes salió de la barra de pestañas
+
+`NativeTabs` no admite pestañas dinámicas y **5 es el máximo de Android**, así que meter
+Preparación obligó a sacar algo. Salió Ajustes, que pasó al **engranaje de Inicio**.
+
+La ruta `/settings` **no cambió**, porque `(tabs)` es un grupo de expo-router y no un segmento
+de URL: `git mv src/app/(tabs)/settings.tsx src/app/settings.tsx` y las dos referencias que
+existían siguieron funcionando sin tocarlas.
+
+🔴 **Lo que sí hubo que perseguir son las rutas escritas en prosa.** Las notas del revisor de
+Apple mandaban a `Ajustes → PRÁCTICA` para probar la función principal. Un revisor que sigue una
+instrucción y no encuentra el botón no concluye que la nota está vieja: concluye que la app está
+rota. **Ese error exacto ya costó un ciclo de rechazo** con otra pantalla (`REVISION-APPLE.md`
+§2.2).
+
+#### 1.21.10 Lo que NO se hizo, y por qué
+
+**No se encendió Family Sharing en App Store Connect.** Apple lo permite para no-consumibles y
+suscripciones —hasta 5 familiares— pero **Google Play no cubre compras dentro de la app**: daría
+una función que existe en iOS y no en Android, y Perú es mayoritariamente Android. Apple además
+avisa que **una vez encendido no se puede apagar**. La propagación se construyó en nuestra base,
+igual en las dos tiendas.
+
+**No se jubiló `PreparednessChecklist` de la Home**, aunque el plan decía absorberlo. Sus tres
+filas apuntan a funciones **gratuitas** —plan de acción, tu red, simulacros— y retirarlo le
+habría quitado a un usuario libre la única superficie de preparación que tiene. Hay algo de
+repetición para quien paga; es el lado barato del error.
+
+
+---
+
 ## 2. Construido
 
 ### Backend (Supabase) — migraciones en `supabase/migrations/`
@@ -1958,6 +2142,14 @@ paso a la vez: estado → red → tocar a alguien → ubicación → **cómo sal
 | `0033_integrantes_de_conversacion` | Ver, sumar y sacar integrantes de una grupal, que hasta acá nacía cerrada. ⚰️ **Sus tres RPC se borraron en la 0034**, un día después: existían para editar los integrantes de una conversación suelta, que dejó de ser un objeto propio. No llegaron a ninguna build |
 | `0034_el_grupo_se_comparte` | 🔴 **La fusión.** `circle_groups` → `groups` (compartida, con dueño), `conversations.group_id` con `unique` y `on delete cascade`, y un disparador que mantiene los integrantes del grupo y los del chat como una sola lista. `create_group()` escribe las dos tablas en una transacción; `get_groups()` es security definer y devuelve `in_my_network` por integrante, que es lo que habilita el atajo de «Agregar a Ana». Deshacer una conexión ahora **borra** la pertenencia en vez de filtrarla al leer, porque un estado compartido no puede depender de quién mira (§1.18) |
 | `0035_simulacro_como_modo` | El simulacro deja de ser una pantalla: `drills` gana `group_id` y `ends_at` (caduca a los 60 min), aparece `drill_participants`, y tres RPC —`start_drill(mode, group_id)`, `get_active_drill()`, `end_my_drill()`— que hacen que convocar encienda el modo en los teléfonos de todo el grupo. El cupo pasa a descontarse **al iniciar** y a contar **lo que convocás**. `drill_invites` es la cuarta pieza de la regla de la 0028, y apagarlo **te deja fuera de la lista de participantes**, no solo del push (§1.20) |
+| `0036`-`0046` | Ver la bitácora. Interruptores que mentían, el filtro de contenido (0044), y la 0046, que **solo escribe comentarios** para señalizar una columna huérfana |
+| `0047_el_plan_tambien_se_modera` | Disparador de moderación sobre `action_plans.body` y `.name`. **Cierra un hueco de guideline 1.2**: la 0044 lo había excluido con la premisa falsa de que el plan «es privado de su autor», cuando la política `action_plans_select_visible` lo muestra al círculo aceptado entero |
+| `0048_el_hogar_es_un_grupo` | `groups.is_household` + índice único parcial por dueño. `household_of()`, `is_household_member()`, `household_premium()` y los dos disparadores que garantizan **un solo hogar por persona**. `create_group` gana `p_is_household`; `get_groups()` se rehace para devolver la marca (§1.21.1) |
+| `0049_centro_de_preparacion` | `private.kit_catalog` con los 16 ítems del INDECI, `emergency_kits`, `kit_items`, `household_roles` y `tip_progress`. Un disparador copia el catálogo al crear cada mochila, así que marcar es un `update` de una fila propia. **La RLS separa `select` de la escritura** (§1.21.3), y las tres etiquetas de texto pasan por el filtro de contenido |
+| `0050_el_plan_del_hogar_y_el_progreso` | `action_plans` gana `group_id` y `meeting_point`; el tope de 1/5 cuenta solo los personales y `get_circle()` excluye los del hogar. Más `household_members()` y la RPC `get_household_preparedness()` (§1.21.4, §1.21.5) |
+| `0051_el_centro_dice_si_esta_pagado` | La RPC devuelve además `premium`, `isOwner` y `householdName`. Hacía falta porque **el cliente no puede calcular si la casa está pagada**: la RLS de `user_settings` es propia |
+| `0052_lo_que_dijo_el_primer_recorrido` | Tres correcciones del primer recorrido en teléfono: un hogar **nace con su mochila**, una persona puede tener **varias tareas**, y el progreso de roles pasa a `count(distinct member_id)` — con `count(*)` una casa de tres con cinco tareas devolvía 167 % |
+| `0053_paga_cualquiera_de_la_casa` | `household_premium` deja de mirar solo al dueño: basta con que **uno cualquiera** de la casa tenga Premium. Sin esto, el candado del Centro ofrecía una compra que a un integrante **no le desbloqueaba nada** (§1.21.7) |
 
 **Separación de privacidad clave:** `profiles` guarda lo compartible (nombre, avatar,
 plan de acción) y es legible por las conexiones. `user_settings` guarda lo privado

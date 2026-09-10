@@ -126,6 +126,63 @@ function RootNavigator() {
           <Stack.Screen name="(auth)" />
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(tabs)" />
+        {/* Ajustes dejó de ser pestaña el 2026-09-10: se abre desde el engranaje
+            de Inicio. Va APILADO y no como modal a propósito — de él cuelgan
+            Mi cuenta, Cambiar contraseña y Borrar cuenta, que sí son modales, y
+            un modal encima de otro se apila feo en iOS. */}
+        <Stack.Screen
+          name="settings"
+          options={{
+            headerShown: true,
+            title: 'Ajustes',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
+        {/* El Centro de Preparación y sus módulos. Apilados dentro de la
+            pestaña, así «volver» regresa al Centro y no a Inicio.
+
+            No hay pantalla propia para «tu hogar»: el hogar ES un grupo, así que
+            sus integrantes se gestionan en `group/[id]`, que ya sabe sumar,
+            sacar, renombrar y salirse. Duplicarla habría creado dos listas de
+            personas, que es justo lo que este diseño evita.
+
+            Las cuatro llevan `headerBackButtonDisplayMode: 'minimal'` por lo
+            mismo que el chat y el grupo de más abajo: sin eso iOS rotula la
+            flecha con el título de la pantalla anterior, y como se entra desde
+            una pestaña —que en expo-router es un grupo sin título— el rótulo que
+            salía era literalmente "(tabs)". */}
+        <Stack.Screen
+          name="preparacion/mochila"
+          options={{
+            headerShown: true,
+            title: 'Mochila de emergencia',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
+        <Stack.Screen
+          name="preparacion/plan"
+          options={{
+            headerShown: true,
+            title: 'Punto de encuentro',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
+        <Stack.Screen
+          name="preparacion/roles"
+          options={{
+            headerShown: true,
+            title: 'Quién hace qué',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
+        <Stack.Screen
+          name="preparacion/curso"
+          options={{
+            headerShown: true,
+            title: 'Qué hacer',
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
         <Stack.Screen
           name="contact/[id]"
           options={{ presentation: 'modal', headerShown: true, title: '' }}

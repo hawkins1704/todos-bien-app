@@ -13,6 +13,14 @@ Escrito el **2026-08-25**. Es la decisión de producto detrás de Premium.
 > **Nada de esto tocó código.** Los precios, el corte gratis/Premium y las migraciones siguen
 > igual — lo que cambió es a quién se le vende y con qué argumento.
 
+> 🔴 **Segunda revisión, 2026-09-10: el Centro de Preparación.** Esta sí tocó código, y mucho:
+> migraciones 0048-0053, una pestaña nueva y Ajustes fuera de la barra. Es el **primer producto
+> de pago que no es «vigilar a los míos»**, así que obliga a enmendar la regla de §1 — ver
+> §1.1. Y cambia quién paga: la unidad deja de ser la persona y pasa a ser **el hogar** (§2.2).
+>
+> Lo que **no** cambió: el precio sigue en S/79,90 sin productos nuevos en las tiendas ni en
+> RevenueCat, y ninguna función que hoy es gratis dejó de serlo.
+
 `QUE-PROMETE-LA-APP.md` §7 dice qué se puede **afirmar** sobre Premium en público; este
 archivo dice **por qué está cortado así**. Si cambia el corte, cambia primero acá y después
 allá.
@@ -31,6 +39,39 @@ que no es la seguridad de nadie.
 **Prueba para cualquier función futura:** *si esta función no existiera para alguien que no
 paga, ¿estaría esa persona en más peligro?* Si la respuesta es sí, va en gratis. Sin
 excepciones, aunque sea la que mejor convertiría.
+
+### 1.1 · La enmienda del 2026-09-10: la preparación previa
+
+El Centro de Preparación **no cabe en la regla de arriba**, y hay que decirlo en vez de
+estirar la regla hasta que entre. Alguien que no paga y no arma su mochila, ¿está en más
+peligro? **Sí.** Por la prueba literal, el Centro tendría que ser gratis.
+
+Va en Premium igual. La enmienda, escrita para que se pueda defender:
+
+> **La regla se aplica al minuto del sismo, no a la vida entera.** Lo que no se cobra es
+> **estar en peligro y que la app no responda**: la alerta, poder decir que estás bien, que tu
+> gente te vea, pedir ayuda. Eso pasa en minutos, no se puede posponer y no admite un candado.
+>
+> La preparación previa es lo contrario en las tres dimensiones: **se hace con semanas de
+> anticipación, se puede posponer, y no depende de nosotros.** La lista de la mochila es del
+> INDECI y está publicada gratis; el punto de encuentro lo puede escribir cualquiera en un
+> papel. Lo que se cobra no es el conocimiento — es **que una casa entera lo haga junta,
+> coordinada y sin que nadie tenga que perseguir a nadie**.
+
+Dos consecuencias que hacen la enmienda verificable en vez de retórica:
+
+1. **Nada que hoy sea gratis dejó de serlo.** El consejo del día sigue en Inicio con su
+   fuente, y el estado de preparación —plan, red, simulacros— sigue gratis en la Home. Si algún
+   día se mueve alguno de esos dos detrás del muro, esta enmienda deja de ser cierta.
+2. **La emergencia sigue intacta sin pagar.** Con el Centro cerrado, la alerta, los estados, la
+   ubicación, el chat y Guardián funcionan exactamente igual.
+
+> ⚠️ **El punto donde la enmienda se pone incómoda, y conviene tenerlo escrito.** Con el
+> Premium vencido, lo que se cierra incluye **el punto de encuentro del hogar** — que sí es
+> información útil el día que tiembla. Se decidió el 2026-09-10 aceptar ese filo a cambio de la
+> presión comercial. **No es una decisión cómoda y no hay que pretender que lo sea:** si
+> aparecen reseñas por esto, el primer ajuste es dejar el punto de encuentro legible bajo el
+> candado. Ver `QUE-PROMETE-LA-APP.md` §7.1.
 
 ---
 
@@ -66,6 +107,41 @@ La corrección es que **nada se propaga**: Premium es individual, y lo que compr
 funciones que operan **sobre** tus contactos sin que tus contactos necesiten nada. Agregás
 50 contactos y ninguno recibe Premium; vos tenés 50 razones más para pagarlo.
 
+### 2.2 · El hogar sí propaga, y por qué eso no revive el modelo de §2.1
+
+El Centro de Preparación rompe el «nada se propaga»: **paga uno y entra su casa entera, sin
+límite de personas.** Hay que explicar por qué esto no es el modelo que se acaba de descartar,
+porque de lejos se parecen.
+
+**Lo que hundía el modelo de §2.1 era la transitividad, no el número.** A pagaba, B recibía
+gratis, y B era el centro de otra red de 50 que también recibía. La cadena no terminaba nunca.
+
+**Acá la cadena se corta en un salto**, y lo garantiza el servidor, no la buena voluntad:
+
+> **Una persona pertenece a un solo hogar.** Un disparador sobre `group_members` lo enforcea
+> (migración 0048). Así que B, que entró al hogar de A, **no puede crear el suyo** ni sumar a
+> nadie más: no tiene a quién extenderle el beneficio.
+
+Por eso el tope de personas nunca fue lo que protegía el modelo, y por eso se pudo quitar sin
+abrir el agujero. El límite de 20 que existe es de cortesía, contra abuso automatizado.
+
+**Y el Premium individual no se contagia.** Estar en un hogar pagado desbloquea el Centro y
+**nada más**: Guardián, los sismos mundiales, los simulacros ilimitados y los cinco planes
+siguen siendo de cada quien. Un integrante libre de una casa pagada sigue siendo un candidato
+a comprar su propio Premium.
+
+**El otro sentido de la regla, desde la 0053:** basta con que **uno cualquiera** de la casa
+pague, no necesariamente quien creó el hogar. Se cambió porque el candado del Centro ofrece
+comprar, y con la definición vieja —«paga el dueño»— un integrante podía pagar y **seguir
+bloqueado**, porque el que tenía que pagar era otro. Una compra que no entrega lo que muestra
+la pantalla no es un detalle de producto. De paso, el hogar deja de depender de una sola
+cuenta.
+
+**El número honesto:** una casa de cinco no son «cinco pagos que perdimos», son **un pago
+contra cero**. §2 dice que el que paga es el que se queda mirando el teléfono — uno por casa —
+y una mochila compartida no se puede vender por cabeza porque **hay una sola mochila en el
+pasillo**.
+
 ---
 
 ## 3 · El corte
@@ -83,7 +159,7 @@ funciones que operan **sobre** tus contactos sin que tus contactos necesiten nad
 | **«María está bien»** cuando reporta, **si el sismo también te llegó a ti** | La contraparte de la anterior, y faltaba (migración 0027). Dentro de tu propio sismo la app te mandaba **solo malas noticias** |
 | 1 plan de acción · 3 simulacros · noticias del país | |
 
-### Premium — todo es «vigilar a los míos»
+### Premium — «vigilar a los míos», y desde el 2026-09-10 también «preparar a los míos»
 
 | Función | Estado |
 |---|---|
@@ -92,10 +168,35 @@ funciones que operan **sobre** tus contactos sin que tus contactos necesiten nad
 | **Simulacros ilimitados**, solos o con un grupo | ✅ existe (migración 0035) |
 | Hasta 5 planes de acción con nombre | ✅ existe (migración 0024) |
 | **Grupos ilimitados** — gratis son 2 | ✅ existe (migraciones 0031 y 0034) |
+| **Centro de Preparación** · la casa entera, sin límite de personas | ✅ existe (migraciones 0048-0053) |
 | SMS al que no responde | ⏳ más adelante, y es el mejor candidato — ver §3.3 |
 
-**Guardián es el único que importa.** Los otros eran relleno de lista, y esa frase envejeció a
-medias: **el simulacro grupal dejó de serlo** (0035). Ver §3.2.2.
+**Guardián era el único que importaba**, y esa frase ya envejeció dos veces: primero con el
+simulacro grupal (0035), y ahora del todo. **El Centro de Preparación es el segundo motivo de
+compra**, y es de otra naturaleza — el primero que no se puede describir como «vigilar a los
+míos».
+
+##### Por qué hacía falta un segundo motivo
+
+Premium colgaba **entero de Guardián**, que es un aviso: algo que ocurre cuando tiembla lejos,
+que puede tardar meses en pasar, y que **no se puede mostrar en una captura de tienda**. Un
+producto cuyo único valor es invisible hasta que ocurre una desgracia se vende mal y se
+cancela fácil — no hay nada que la persona *use* entre sismo y sismo.
+
+El Centro es lo contrario en las tres cosas: **se ve** (seis tarjetas y un porcentaje), **se
+usa sin que haya pasado nada**, y da una razón para abrir la app un domingo. Esa es la métrica
+que lo justifica, no la conversión inmediata.
+
+##### Con el Premium vencido, el Centro se cierra — y es la excepción de la casa
+
+El resto de Premium degrada con gracia: los cinco planes siguen ahí, los siete grupos siguen
+ahí. **El Centro no**: los datos se guardan enteros y no se borra nada, pero la pantalla
+muestra la silueta bajo un candado que dice «tus datos siguen aquí».
+
+Es a propósito y es una decisión comercial, no técnica: la base separa leer de escribir, así
+que dejarlo en solo lectura era gratis de implementar y fue lo primero que se construyó.
+**Se cambió el 2026-09-10 para que el vencimiento tenga consecuencia visible.** El costo
+asumido está en §1.1, y no es menor.
 
 > **Los grupos son la excepción parcial, y por eso el tope está donde está.** Cumplen la
 > prueba de §2.1 mejor que cualquier otra función: **mientras más gente te importa, más grupos

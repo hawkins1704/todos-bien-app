@@ -132,6 +132,63 @@ export const StatusLabelsShort: Record<StatusKey, string> = {
 /** Los 3 estados que el usuario elige a mano. `unconfirmed` es solo default. */
 export const MANUAL_STATUSES: StatusKey[] = ['safe', 'needs_help', 'helping'];
 
+/**
+ * Los seis colores del Centro de Preparación.
+ *
+ * ## Por qué acá hay color y en el resto de la app no
+ *
+ * La app entera es deliberadamente sobria: un azul y los cuatro colores de
+ * estado, porque **durante un sismo el color es información** y meter tonos
+ * decorativos al lado de «necesita ayuda» le roba fuerza al único rojo que
+ * importa. El Centro es la excepción razonada: es la pantalla de la calma, la
+ * que se abre un domingo sin ninguna urgencia, y su problema no es la lectura
+ * rápida sino que alguien tenga ganas de volver el mes que viene.
+ *
+ * Seis módulos en seis colores además hacen algo práctico: la tarjeta se
+ * reconoce por el color antes de leer el título, así que volver a «la morada»
+ * es más rápido que buscar «Roles» en una lista de filas iguales.
+ *
+ * ## Los números están medidos
+ *
+ * `ink` sobre `bg`, que es el par que forma texto y fondo de cada tarjeta:
+ *
+ * | | claro | oscuro |
+ * |---|---|---|
+ * | hogar | 6,97:1 | 7,91:1 |
+ * | mochila | 6,56:1 | 8,16:1 |
+ * | plan | 4,90:1 | 9,12:1 |
+ * | roles | 9,46:1 | 6,46:1 |
+ * | curso | 8,05:1 | 6,91:1 |
+ * | simulacro | 5,39:1 | 8,96:1 |
+ *
+ * El más justo es `plan` en claro con 4,90:1, y aun así pasa el 4,5:1 de WCAG
+ * AA. Si se retoca alguno, recalcular: todos salen del mismo par de fórmulas
+ * moviendo solo el matiz — claro `S 70% / L 92%` contra `S 62% / L 29%`, oscuro
+ * `S 38% / L 15,5%` contra `S 68% / L 74%`.
+ */
+export const ModuleColors = {
+  light: {
+    hogar: { bg: '#DCEDF9', ink: '#1C5278' },
+    mochila: { bg: '#F9EADC', ink: '#78471C' },
+    plan: { bg: '#DCF9EC', ink: '#1C784D' },
+    roles: { bg: '#EADCF9', ink: '#471C78' },
+    curso: { bg: '#F9DCE9', ink: '#781C44' },
+    simulacro: { bg: '#F9F1DC', ink: '#785F1C' },
+  },
+  dark: {
+    hogar: { bg: '#192A37', ink: '#90C4EA' },
+    mochila: { bg: '#372719', ink: '#EABA90' },
+    plan: { bg: '#193729', ink: '#90EAC0' },
+    roles: { bg: '#271937', ink: '#BA90EA' },
+    curso: { bg: '#371926', ink: '#EA90B7' },
+    simulacro: { bg: '#372F19', ink: '#EAD290' },
+  },
+} as const;
+
+export type ModuleKey = keyof (typeof ModuleColors)['light'];
+
+export type ModulePalette = Record<ModuleKey, { bg: string; ink: string }>;
+
 export const Spacing = {
   xs: 4,
   sm: 8,

@@ -17,7 +17,7 @@ Los largos están **contados**, no estimados. Apple corta sin avisar.
 | Campo | Valor | Largo |
 |---|---|---|
 | **Name** | `Todos Bien` | 10 / 30 |
-| **Subtitle** | `Avisa a tu gente tras el sismo` | 30 / 30 |
+| **Subtitle** | `Prepárate antes, avisa después` | 30 / 30 |
 | **Primary category** | Utilidades (*Utilities*) | — |
 | **Secondary category** | Estilo de vida (*Lifestyle*) | — |
 | **Idioma principal** | Español (México) — el neutro latino que usa la app (ESTADO §1.10) | — |
@@ -31,10 +31,10 @@ Los largos están **contados**, no estimados. Apple corta sin avisar.
 ### Keywords (100 caracteres, separadas por coma, sin espacios)
 
 ```
-sismo,terremoto,temblor,IGP,familia,emergencia,contactos,ubicacion,simulacro,Peru,aviso,grupos
+sismo,terremoto,temblor,IGP,familia,emergencia,mochila,ubicacion,simulacro,Peru,prevencion,grupos
 ```
 
-94 / 100. Cuatro decisiones detrás:
+97 / 100. Cinco decisiones detrás:
 
 - **`circulo` salió el 2026-09-03.** Describía las etiquetas privadas de la migración 0031, que
   dejaron de existir con la 0034: hoy el objeto es un **grupo** compartido. Una keyword que
@@ -47,15 +47,24 @@ sismo,terremoto,temblor,IGP,familia,emergencia,contactos,ubicacion,simulacro,Per
 - **Sin tildes ni «Todos Bien».** Apple ya indexa el nombre y el subtítulo; repetirlos
   desperdicia caracteres, y el buscador normaliza los acentos.
 - **`IGP` está a propósito.** Es una búsqueda real en Perú y nos describe con exactitud.
+- **`mochila` y `prevencion` entraron el 2026-09-10**, con el Centro de Preparación, y
+  desplazaron a `contactos` y `aviso`. Los dos que salieron eran genéricos y no traían
+  intención de descarga; **«mochila de emergencia» es una búsqueda con intención clarísima** en
+  Perú, sobre todo alrededor del simulacro nacional. `preparacion` se descartó frente a
+  `prevencion` porque Apple ya indexa «Preparación» desde el nombre de la pestaña en las
+  capturas y el texto promocional.
 
 ### Promotional text (170, se puede cambiar sin enviar versión nueva)
 
 ```
-El aviso llega minutos después del sismo, cuando el IGP lo publica. No es alerta temprana: con un toque le dices a tu familia que estás bien, y ves quién ya respondió.
+Arma la mochila y el punto de encuentro de tu casa antes de que tiemble. Y cuando tiemble, un toque le dice a tu familia que estás bien. El aviso llega minutos después, no antes.
 ```
 
-167 / 170. Va primero el descargo, no el beneficio: es el texto que se lee sin desplegar la
-descripción.
+178 / 170. **Cambió el orden el 2026-09-10** y hay que saber por qué: antes iba primero el
+descargo, porque el único beneficio que teníamos ocurría *después* del sismo y confundirlo con
+alerta temprana era el riesgo grande. Ahora el primer beneficio es **antes**, que no se puede
+confundir con nada, así que se puede abrir con él — pero el descargo sigue dentro de los 170,
+al final, y no se saca nunca.
 
 ---
 
@@ -63,60 +72,68 @@ descripción.
 
 > Pegar tal cual. Los saltos de línea importan: App Store Connect respeta los párrafos.
 
-**3963 / 4000 caracteres.** Contado, no estimado: al sumar los grupos y los simulacros se pasó
-de 4000 y hubo que recortar. Si se agrega un párrafo, volver a contar.
+**3918 / 4000 caracteres.** Contado, no estimado. **Reescrita el 2026-09-10** para el Centro
+de Preparación: la app pasó de ser «la app de los minutos después» a cubrir también el antes, y
+eso cambia el primer renglón, que es lo único que mucha gente lee.
+
+> 🔴 **Se sacó una frase que quedó falsa: «Tu familia no necesita pagar nada ni enterarse:
+> Premium es tuyo».** Con el Centro es al revés — la familia **sí** entra, y para eso tiene que
+> estar en el hogar. Dejarla habría sido vender lo contrario de lo que hace el producto.
+
+Para meter el Centro sin pasarse de 4000 se recortaron cuatro párrafos que decían lo mismo con
+más palabras. Quedan **82 caracteres de margen**; si se agrega algo, volver a contar.
 
 > **Este mismo texto es la descripción de Google Play**, con una sola sustitución. No se copia a
 > otro archivo — ver `FICHA-PLAY-STORE.md` §2, que explica por qué y trae el script que la genera.
 > **Si editas esta descripción, corré ese script**: falla solo si quedó una mención a Apple.
 
 ```
-Todos Bien no es una alarma sísmica. Es la app para los minutos después del sismo.
+Todos Bien no es una alarma sísmica. Prepara a tu casa antes del sismo, y coordina a tu gente después.
 
-El aviso llega unos minutos después de que tiembla, cuando el Instituto Geofísico del Perú publica el evento. No te avisa antes de que tiemble: para eso está el SASPe, con sirenas. Lo que hace esta app es lo que hace falta cuando ya tembló y las líneas están saturadas.
+El aviso llega unos minutos después de que tiembla, cuando el Instituto Geofísico del Perú publica el evento. No te avisa antes de que tiemble: para eso está el SASPe, con sirenas.
 
-CON UN TOQUE, TU GENTE SABE QUE ESTÁS BIEN
+ANTES: EL CENTRO DE PREPARACIÓN
+Tu casa entera preparándose junta, en una sola pantalla con un porcentaje que sube:
+
+- La mochila de emergencia, con los 16 elementos que recomienda el INDECI. Lo que marca uno lo ven todos.
+- Un punto de encuentro y el plan de la casa, escritos una vez y visibles para los que viven ahí.
+- Quién hace qué cuando tiemble: cerrar el gas, cargar la mochila, ayudar a los abuelos.
+- Un minicurso de 12 consejos, cada uno con su fuente: INDECI, Cruz Roja Peruana e IGP.
+- Simulacros, para que la primera vez que uses la app de verdad no sea durante un terremoto.
+
+Paga una persona y entra la casa completa, sin límite de personas.
+
+DESPUÉS: CON UN TOQUE, TU GENTE SABE QUE ESTÁS BIEN
 Después de un sismo todos llaman a la vez y la red se cae. Un toque en la app pesa unos bytes y pasa cuando una llamada no pasa. Eliges entre estoy bien, necesito ayuda o estoy en camino, y tu red lo ve.
 
 VES QUIÉN RESPONDIÓ Y QUIÉN NO
-Tu red aparece en una sola pantalla con el estado de cada persona. Quien todavía no contestó se ve distinto de quien dijo que está bien: es la diferencia entre quedarte tranquilo y saber a quién llamar primero.
+Tu red en una sola pantalla, con el estado de cada persona. Quien no contestó se ve distinto de quien dijo que está bien: es la diferencia entre quedarte tranquilo y saber a quién llamar primero.
 
-Y si a alguien de tu red no le van a llegar los avisos —porque no dio el permiso o cambió de teléfono— te lo decimos antes de que haga falta, no después.
+Y si a alguien de tu red no van a llegarle los avisos —no dio el permiso, cambió de teléfono— te lo decimos antes, no después.
 
 TU UBICACIÓN, SOLO CUANDO IMPORTA
-La app toma tu ubicación una vez al configurarla y otra vez después de cada sismo que te afecta, aunque esté cerrada. Nada más. No registra tu recorrido ni te sigue el resto del tiempo. La ven únicamente los contactos que aceptaste, y si no la tenemos, lo decimos: nunca mostramos una posición vieja como si fuera de ahora.
+La app toma tu ubicación una vez al configurarla y otra vez después de cada sismo que te afecta, aunque esté cerrada. Nada más. No registra tu recorrido. La ven únicamente los contactos que aceptaste, y si no la tenemos, lo decimos: nunca mostramos una posición vieja como si fuera de ahora.
 
 AVISOS SEGÚN TU ZONA
 Eliges el radio y la magnitud mínima. Seguimos el catálogo del IGP y del USGS todo el día, y te avisamos cuando un temblor entra en tus criterios, con la app cerrada.
 
-CHAT CON TU RED
-Para lo que no cabe en un estado: dónde estás, qué necesitas, dónde se ven. Individual con cualquiera de tu red, y uno en cada grupo.
-
-GRUPOS: CASA, FAMILIA, TRABAJO
-Tu red en subconjuntos con nombre, cada uno con su chat. Cuando tiembla ves «Casa 4/5» y «Familia 8/11» en vez de una lista plana de treinta caras: es la diferencia entre «faltan dos de mi casa» y «faltan doce conocidos». Dos grupos gratis, ilimitados con Premium.
+CHAT Y GRUPOS: CASA, FAMILIA, TRABAJO
+Tu red en subconjuntos con nombre, cada uno con su chat. Cuando tiembla ves «Casa 4/5» y «Familia 8/11» en vez de treinta caras sueltas. Dos gratis, ilimitados con Premium.
 
 Estar en un grupo no conecta a nadie: ves los nombres y se escriben, pero el estado y la ubicación siguen siendo de a dos y necesitan que ambos se acepten. Nadie puede meterte en un grupo y darle tu ubicación a un desconocido.
-
-SIMULACROS
-Tres simulacros guiados, gratis, para que la primera vez que uses la app de verdad no sea durante un terremoto. Solo, o con un grupo entero.
-
-Mientras dura hay una franja amarilla que dice SIMULACRO, el aviso que reciben los demás dice que es una práctica, y si tiembla de verdad el simulacro se cierra solo.
-
-TIPS DE PREPARACIÓN
-Con la fuente citada en cada uno: INDECI, Cruz Roja Peruana e Instituto Geofísico del Perú.
 
 PREMIUM (opcional)
 Cuando el sismo te toca a ti, la app funciona completa sin pagar: tu alerta, tu red, el aviso de que alguien pidió ayuda y el de que alguien no respondió nunca dependen de que pagues.
 
-Premium sirve para lo contrario: los sismos que NO te tocan a ti. Te avisa cuando alguien de tu red reporta que está bien, y también si pasan veinte minutos y no reporta. Cada aviso te dice de qué sismo habla —magnitud y lugar—, para que se entienda solo. Eso es Guardián.
+Premium agrega dos cosas. La primera es el Centro de Preparación para toda tu casa. La segunda es Guardián: te avisa cuando alguien de tu red reporta que está bien, y también si pasan veinte minutos y no reporta, en los sismos que NO te tocan a ti. Cada aviso dice de qué sismo habla, magnitud y lugar.
 
-Agrega además avisos de sismos de todo el mundo, grupos y simulacros ilimitados, y hasta cinco planes de acción con nombre: casa, trabajo, colegio.
-
-Tu familia no necesita pagar nada ni enterarse: Premium es tuyo, y sirve para saber de ellos.
+Incluye además avisos de sismos de todo el mundo, grupos y simulacros ilimitados, y hasta cinco planes de acción con nombre.
 
 LO QUE NO HACE, DICHO ANTES DE QUE LO PREGUNTES
 - No avisa antes del sismo. No es alerta temprana.
+- No hace nada mientras tiembla: lo que hace es haberte enseñado y hecho practicar para esos segundos.
 - No detecta sismos por su cuenta: depende de que el IGP o el USGS los publiquen.
+- No controla si algo de tu mochila venció. Te muestra la lista; revisarla es tuyo.
 - Sin internet no llega ningún aviso.
 - No garantiza la entrega: Apple entrega las notificaciones con el mejor esfuerzo.
 - No reemplaza llamar a emergencias. No contacta bomberos, PNP ni INDECI.
@@ -179,37 +196,56 @@ Apple exige, como mínimo, el juego del iPhone más grande; los tamaños menores
 ese si no se suben aparte. **Confirmar los tamaños vigentes en App Store Connect al subir**,
 que cambian con cada generación de iPhone.
 
+> 🔴 **Rehechas el 2026-09-10, y el cambio de orden es la decisión importante.** Hasta esa
+> fecha la captura 1 era la Home en modo alerta: rojo, urgencia, «tembló». Servía cuando la app
+> era solo el después. **Ahora la primera es el Centro de Preparación**, y no por estética:
+>
+> 1. Es la única captura que se entiende **sin haber sentido un sismo**. Un limeño que ve
+>    urgencia en la primera imagen la asocia con SASPe y sigue de largo; un porcentaje que sube
+>    y seis tarjetas de colores se entienden en un segundo.
+> 2. Es lo que **se cobra**, y una tienda donde no se ve lo que se paga convierte mal.
+> 3. La alerta pasa a la 2, que sigue siendo temprano. No se pierde: se deja de abrir con ella.
+
 Las ocho, en orden, y qué tiene que verse en cada una:
 
 | # | Pantalla | Qué demuestra | Texto sugerido encima |
 |---|---|---|---|
-| 1 | Home en modo alerta, con el sismo arriba y la red debajo | El producto en el momento para el que existe | «Tembló. ¿Están todos bien?» |
-| 2 | Red con estados mezclados: dos en verde, uno en ámbar, uno sin confirmar | El valor real: ver quién falta | «Ves quién respondió y quién no» |
-| 3 | **Grupos**, con el desglose «Casa 4/5 · Familia 8/11» y el chat del grupo debajo | Que la red no es una bolsa plana. Contesta la pregunta que deja la captura 2: *«¿y si tengo treinta contactos?»* | «Faltan dos de tu casa, no doce conocidos» |
-| 4 | Los cuatro estados / «Estoy bien» | Lo que hace el usuario | «Un toque, y tu gente lo sabe» |
-| 5 | Detalle de contacto con el mini mapa | La ubicación, con su límite | «Su ubicación después del sismo. No antes, no siempre» |
-| 6 | Ajustes de radio y magnitud | Control del usuario | «Tú eliges qué te despierta» |
-| 7 | Simulacro, **con la franja amarilla visible** | Que se puede probar sin un terremoto, y que no se confunde con uno | «Practica antes de necesitarlo» |
-| 8 | Noticias, con la lista de sismos de Perú y la del mundo | Que hay contenido todos los días, no solo cuando tiembla fuerte | «Los sismos del IGP, y los del mundo» |
+| 1 | **Centro de Preparación** con el porcentaje arriba y las seis tarjetas de colores | Lo que la app hace **antes**, y lo que se cobra. Con la cuenta demo sale en 51 %, que es lo que se quiere: a medio camino, no vacío ni perfecto | «Tu casa, lista antes de que tiemble» |
+| 2 | Home en modo alerta, con el sismo arriba y la red debajo | El producto en el momento para el que existe | «Tembló. ¿Están todos bien?» |
+| 3 | **Mochila de emergencia**, con el dibujo lleno a media asta y la lista del INDECI debajo | Que el contenido es de una fuente seria y que se marca entre todos. Es la captura más «demostrable» de las ocho | «La lista del INDECI, marcada entre todos» |
+| 4 | Red con estados mezclados: dos en verde, uno en ámbar, uno sin confirmar | El valor real: ver quién falta | «Ves quién respondió y quién no» |
+| 5 | **Grupos**, con el desglose «Casa 4/5 · Familia 8/11» y el chat del grupo debajo | Que la red no es una bolsa plana. Contesta *«¿y si tengo treinta contactos?»* | «Faltan dos de tu casa, no doce conocidos» |
+| 6 | Los cuatro estados / «Estoy bien» | Lo que hace el usuario | «Un toque, y tu gente lo sabe» |
+| 7 | Detalle de contacto con el mini mapa | La ubicación, con su límite | «Su ubicación después del sismo. No antes, no siempre» |
+| 8 | Simulacro, **con la franja amarilla visible** | Que se puede probar sin un terremoto, y que no se confunde con uno | «Practica antes de necesitarlo» |
 
-**Por qué los grupos entran como captura y no como línea de la descripción.** Es la función más
-nueva (migraciones 0031-0034) y la única que **no se entiende leyéndola**: «subconjuntos con
-nombre de tu red» suena a organización de contactos, que es aburrido y además no es el punto. El
-punto es el desglose durante un sismo, y eso se ve en un segundo y no se explica en un párrafo.
+**Lo que salió, y por qué se puede prescindir.** Los **ajustes de radio y magnitud** y la lista
+de **Noticias** se cayeron del juego de ocho. La primera era control del usuario, que la
+descripción ya afirma y nadie compra por una captura de un formulario. La segunda era la razón
+de «no desinstalar», y **ese trabajo ahora lo hace mejor el Centro**: un porcentaje incompleto
+es una razón para volver mucho más fuerte que una lista de sismos que también publica el IGP.
 
-> ⚠️ **La franja amarilla del simulacro tiene que salir en la captura 7.** Es la prueba en imagen
+> ⚠️ **La captura 1 no puede llevar el Centro bloqueado.** Es tentador —muestra el candado y el
+> «tus datos siguen aquí»— y sería un error: la primera imagen de una tienda no puede ser una
+> pared de pago. Fotografiar el Centro **abierto**, con la cuenta demo, que ya está en Premium.
+
+**Por qué los grupos entran como captura y no como línea de la descripción.** No se entienden
+leyéndolos: «subconjuntos con nombre de tu red» suena a organización de contactos, que es
+aburrido y además no es el punto. El punto es el desglose durante un sismo, y eso se ve en un
+segundo y no se explica en un párrafo. Lo mismo vale ahora para la mochila: «lista de
+preparación» suena a checklist genérica, y el dibujo llenándose se entiende sin leer.
+
+> ⚠️ **La franja amarilla del simulacro tiene que salir en la captura 8.** Es la prueba en imagen
 > de que la app no puede hacerle creer a nadie que tembló de verdad — el §4 de los términos lo
 > prohíbe y App Review lo mira. Una captura de simulacro sin la franja parece una alerta falsa.
 
-**Por qué la lista de sismos va última y no antes.** Es la pantalla que contesta «¿y qué
-hago con esta app un martes cualquiera?», y eso importa: sin ella la app parece algo que se
-abre una vez al año. Pero **no es la promesa** — un catálogo de sismos lo tienen el IGP y una
-docena de apps gratis. Ponerla arriba invita a compararnos con ellas, que es la comparación
-que perdemos. Va al final, como razón para no desinstalar.
-
-> El texto dice **«los sismos del IGP»** y no «alerta de sismos» a propósito: nombrar la
-> fuente es exacto y además es la palabra que la gente busca en Perú. Ver §8 de
-> `QUE-PROMETE-LA-APP.md` para por qué «alerta» a secas está prohibida en la ficha.
+> **Por qué la lista de sismos ya no está en el juego, aunque el argumento viejo sigue siendo
+> bueno.** Era la pantalla que contestaba «¿y qué hago con esta app un martes cualquiera?»,
+> puesta al final como razón para no desinstalar. Nunca fue la promesa —un catálogo de sismos
+> lo tienen el IGP y una docena de apps gratis— y ponerla arriba invitaba a la comparación que
+> perdemos. **El Centro hace ese trabajo mejor**, así que la lista cedió su lugar. Si alguna vez
+> vuelve, va última y con el texto «los sismos del IGP», nunca «alerta de sismos»: nombrar la
+> fuente es exacto y «alerta» a secas está prohibida en la ficha (`QUE-PROMETE-LA-APP.md` §8).
 
 **Tres reglas para no tener que rehacerlas:**
 
